@@ -1,0 +1,25 @@
+# ============================================
+# Profil PROD — PostgreSQL production
+# ============================================
+
+spring:
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+
+# Logging
+logging:
+  level:
+    com.quantis.stock: INFO
+    org.springframework: WARN
+    root: WARN

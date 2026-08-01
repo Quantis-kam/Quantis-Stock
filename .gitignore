@@ -1,0 +1,38 @@
+# ===== Flutter SDK (local install) =====
+flutter/
+
+# ===== Java / Maven =====
+backend/target/
+backend/*.jar
+backend/.mvn/wrapper/maven-wrapper.jar
+
+# ===== IDE =====
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+*~
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+
+# ===== Flutter / Dart =====
+frontend/.dart_tool/
+frontend/.packages
+frontend/.pub-cache/
+frontend/.pub/
+frontend/build/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+
+# ===== Env =====
+.env
+*.env.local
+
+# ===== Logs =====
+*.log
+
+# ===== Docker =====
+docker-data/

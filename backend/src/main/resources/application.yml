@@ -1,0 +1,60 @@
+# ============================================
+# Quantis Stock API — Configuration principale
+# ============================================
+
+spring:
+  application:
+    name: quantis-stock-api
+
+  # Profil actif (dev par défaut)
+  profiles:
+    active: dev
+
+  # JPA / Hibernate
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+    show-sql: false
+
+  # Jackson
+  jackson:
+    default-property-inclusion: non_null
+    date-format: yyyy-MM-dd'T'HH:mm:ss.SSS'Z'
+    time-zone: UTC
+    serialization:
+      write-dates-as-timestamps: false
+
+# API versioning
+server:
+  port: 8080
+  servlet:
+    context-path: /api/v1
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+
+# Application custom properties
+app:
+  jwt:
+    secret: ${JWT_SECRET:quantis-stock-dev-secret-key-change-in-production-2026}
+    access-token-expiration-ms: 900000    # 15 minutes
+    refresh-token-expiration-ms: 604800000 # 7 jours
+  default-tva: 18
+  devise: FCFA
+  pagination:
+    default-page-size: 20
+    max-page-size: 100

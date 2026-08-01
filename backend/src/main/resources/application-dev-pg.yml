@@ -1,0 +1,32 @@
+# ============================================
+# Profil DEV-PG — PostgreSQL local
+# ============================================
+# Usage : ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev-pg
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/quantis_stock
+    username: ${DB_USERNAME:quantis_user}
+    password: ${DB_PASSWORD:quantis_dev_2026}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  devtools:
+    restart:
+      enabled: true
+
+logging:
+  level:
+    com.quantis.stock: DEBUG
+    org.hibernate.SQL: DEBUG
