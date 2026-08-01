@@ -4,6 +4,7 @@ flutter/
 # ===== Java / Maven =====
 backend/target/
 backend/*.jar
+backend/data/
 backend/.mvn/wrapper/maven-wrapper.jar
 
 # ===== IDE =====
