@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'core/theme/quantis_theme.dart';
 import 'features/tiers/presentation/clients_screen.dart';
 import 'features/tiers/presentation/fournisseurs_screen.dart';
+import 'features/achats/presentation/achats_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -41,6 +42,7 @@ class _MainShellState extends State<MainShell> {
     _NavItem(Icons.swap_horiz_outlined, Icons.swap_horiz, 'Stock'),
     _NavItem(Icons.people_outline, Icons.people, 'Clients'),
     _NavItem(Icons.business_outlined, Icons.business, 'Fournisseurs'),
+    _NavItem(Icons.shopping_cart_outlined, Icons.shopping_cart, 'Achats'),
     _NavItem(Icons.receipt_long_outlined, Icons.receipt_long, 'Documents'),
   ];
 
@@ -57,6 +59,8 @@ class _MainShellState extends State<MainShell> {
       case 4:
         return const FournisseursScreen();
       case 5:
+        return const AchatsScreen();
+      case 6:
         return const _PlaceholderPage(title: 'Documents', icon: Icons.receipt_long);
       default:
         return const _PlaceholderPage(title: 'Dashboard', icon: Icons.dashboard);

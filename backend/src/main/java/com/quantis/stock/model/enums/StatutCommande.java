@@ -2,11 +2,13 @@ package com.quantis.stock.model.enums;
 
 /**
  * Statuts des commandes fournisseur.
+ * Cycle : BROUILLON → EN_COURS → RECUE_PARTIELLE → RECUE → ANNULEE
  */
 public enum StatutCommande {
     BROUILLON,
-    ENVOYEE,
-    PARTIELLE,
-    LIVREE,
+    EN_COURS,
+    RECUE_PARTIELLE,
+    RECUE,
     ANNULEE
 }
+
