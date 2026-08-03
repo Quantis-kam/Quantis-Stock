@@ -5,6 +5,7 @@ import 'features/tiers/presentation/fournisseurs_screen.dart';
 import 'features/achats/presentation/achats_screen.dart';
 import 'features/documents/presentation/documents_screen.dart';
 import 'features/comptabilite/presentation/comptabilite_screen.dart';
+import 'features/dashboard/presentation/dashboard_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -52,7 +53,7 @@ class _MainShellState extends State<MainShell> {
   Widget _buildPage(int index) {
     switch (index) {
       case 0:
-        return const _PlaceholderPage(title: 'Dashboard', icon: Icons.dashboard);
+        return const DashboardScreen();
       case 1:
         return const _PlaceholderPage(title: 'Produits', icon: Icons.inventory_2);
       case 2:
