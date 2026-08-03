@@ -4,6 +4,7 @@ import 'features/tiers/presentation/clients_screen.dart';
 import 'features/tiers/presentation/fournisseurs_screen.dart';
 import 'features/achats/presentation/achats_screen.dart';
 import 'features/documents/presentation/documents_screen.dart';
+import 'features/comptabilite/presentation/comptabilite_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -45,6 +46,7 @@ class _MainShellState extends State<MainShell> {
     _NavItem(Icons.business_outlined, Icons.business, 'Fournisseurs'),
     _NavItem(Icons.shopping_cart_outlined, Icons.shopping_cart, 'Achats'),
     _NavItem(Icons.receipt_long_outlined, Icons.receipt_long, 'Documents'),
+    _NavItem(Icons.account_balance_outlined, Icons.account_balance, 'Compta'),
   ];
 
   Widget _buildPage(int index) {
@@ -63,6 +65,8 @@ class _MainShellState extends State<MainShell> {
         return const AchatsScreen();
       case 6:
         return const DocumentsScreen();
+      case 7:
+        return const ComptabiliteScreen();
       default:
         return const _PlaceholderPage(title: 'Dashboard', icon: Icons.dashboard);
     }
