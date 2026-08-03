@@ -3,6 +3,7 @@ import 'core/theme/quantis_theme.dart';
 import 'features/tiers/presentation/clients_screen.dart';
 import 'features/tiers/presentation/fournisseurs_screen.dart';
 import 'features/achats/presentation/achats_screen.dart';
+import 'features/documents/presentation/documents_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -61,7 +62,7 @@ class _MainShellState extends State<MainShell> {
       case 5:
         return const AchatsScreen();
       case 6:
-        return const _PlaceholderPage(title: 'Documents', icon: Icons.receipt_long);
+        return const DocumentsScreen();
       default:
         return const _PlaceholderPage(title: 'Dashboard', icon: Icons.dashboard);
     }
