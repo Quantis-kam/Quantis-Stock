@@ -20,11 +20,10 @@ dependencies:
 
   # HTTP & API
   dio: ^5.8.0
-  retrofit: ^4.4.1
 
-  # Local database (offline)
-  drift: ^2.25.0
-  sqlite3_flutter_libs: ^0.5.28
+  # Local database (offline) — Phase 10
+  # drift: ^2.25.0
+  # sqlite3_flutter_libs: ^0.5.28
   path_provider: ^2.1.5
   path: ^1.9.1
 
@@ -33,16 +32,8 @@ dependencies:
 
   # UI enhancements
   fl_chart: ^0.70.2
-  google_fonts: ^6.2.1
   shimmer: ^3.0.0
   intl: ^0.19.0
-
-  # Barcode scanning
-  mobile_scanner: ^6.0.5
-
-  # PDF generation
-  pdf: ^3.11.5
-  printing: ^5.14.1
 
   # Connectivity
   connectivity_plus: ^6.1.4
@@ -52,7 +43,6 @@ dependencies:
 
   # JSON serialization
   json_annotation: ^4.9.0
-  freezed_annotation: ^2.4.4
 
 dev_dependencies:
   flutter_test:
@@ -62,28 +52,7 @@ dev_dependencies:
   # Code generation
   build_runner: ^2.4.15
   json_serializable: ^6.9.4
-  freezed: ^2.5.8
   riverpod_generator: ^2.6.3
-  retrofit_generator: ^9.1.8
-  drift_dev: ^2.25.0
 
 flutter:
   uses-material-design: true
-
-  fonts:
-    - family: Inter
-      fonts:
-        - asset: fonts/Inter-Regular.ttf
-        - asset: fonts/Inter-Medium.ttf
-          weight: 500
-        - asset: fonts/Inter-SemiBold.ttf
-          weight: 600
-        - asset: fonts/Inter-Bold.ttf
-          weight: 700
-    - family: SpaceGrotesk
-      fonts:
-        - asset: fonts/SpaceGrotesk-Regular.ttf
-        - asset: fonts/SpaceGrotesk-Medium.ttf
-          weight: 500
-        - asset: fonts/SpaceGrotesk-Bold.ttf
-          weight: 700
