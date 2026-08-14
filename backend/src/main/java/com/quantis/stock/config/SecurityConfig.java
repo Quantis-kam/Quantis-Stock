@@ -18,10 +18,10 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 /**
- * Configuration Spring Security avec JWT.
- * - Endpoints publics : /auth/login, /auth/refresh, /health, /h2-console
- * - Inscription : /auth/register réservé aux ADMIN (via @PreAuthorize)
- * - Tout le reste : authentifié
+ * Configuration Spring Security avec JWT — Phase 11 durcie.
+ * - HTTPS headers (HSTS, X-Content-Type, X-Frame-Options)
+ * - Limitation brute-force via rate limiting (à ajouter via reverse proxy)
+ * - BCrypt cost factor 12 pour hash des mots de passe
  */
 @Configuration
 @EnableWebSecurity
@@ -36,7 +36,16 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(csrf -> csrf.disable())
-            .headers(headers -> headers.frameOptions(frame -> frame.disable())) // H2 console
+            // Hardened headers
+            .headers(headers -> headers
+                .frameOptions(frame -> frame.deny())
+                .contentTypeOptions(ct -> {})
+                .httpStrictTransportSecurity(hsts -> hsts
+                    .includeSubDomains(true)
+                    .maxAgeInSeconds(31536000)
+                )
+                .cacheControl(cache -> {})
+            )
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
@@ -44,7 +53,6 @@ public class SecurityConfig {
                 .requestMatchers("/auth/login", "/auth/refresh").permitAll()
                 .requestMatchers("/health").permitAll()
                 .requestMatchers("/actuator/health").permitAll()
-                .requestMatchers("/h2-console/**").permitAll()
                 // OPTIONS (CORS preflight)
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 // Tout le reste nécessite une authentification
@@ -63,6 +71,7 @@ public class SecurityConfig {
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
+        // BCrypt avec cost factor 12 (plus sécurisé que le défaut 10)
+        return new BCryptPasswordEncoder(12);
     }
 }
