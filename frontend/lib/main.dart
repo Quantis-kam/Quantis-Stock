@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'core/theme/quantis_theme.dart';
+import 'core/network/api_client.dart';
+import 'core/widgets/sync_indicator.dart';
+import 'features/auth/presentation/login_screen.dart';
 import 'features/tiers/presentation/clients_screen.dart';
 import 'features/tiers/presentation/fournisseurs_screen.dart';
 import 'features/achats/presentation/achats_screen.dart';
@@ -14,8 +17,15 @@ void main() {
   runApp(const QuantisStockApp());
 }
 
-class QuantisStockApp extends StatelessWidget {
+class QuantisStockApp extends StatefulWidget {
   const QuantisStockApp({super.key});
+
+  @override
+  State<QuantisStockApp> createState() => _QuantisStockAppState();
+}
+
+class _QuantisStockAppState extends State<QuantisStockApp> {
+  bool _isLoggedIn = false;
 
   @override
   Widget build(BuildContext context) {
@@ -25,7 +35,9 @@ class QuantisStockApp extends StatelessWidget {
       theme: QuantisTheme.lightTheme,
       darkTheme: QuantisTheme.darkTheme,
       themeMode: ThemeMode.light,
-      home: const MainShell(),
+      home: _isLoggedIn
+          ? const MainShell()
+          : LoginScreen(onLoginSuccess: () => setState(() => _isLoggedIn = true)),
     );
   }
 }
@@ -71,8 +83,23 @@ class _MainShellState extends State<MainShell> {
       case 7:
         return const ComptabiliteScreen();
       default:
-        return const _PlaceholderPage(title: 'Dashboard', icon: Icons.dashboard);
+        return const DashboardScreen();
     }
+  }
+
+  void _logout() {
+    ApiClient.clearToken();
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => LoginScreen(
+        onLoginSuccess: () {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const MainShell()),
+            (_) => false,
+          );
+        },
+      )),
+      (_) => false,
+    );
   }
 
   @override
@@ -80,7 +107,6 @@ class _MainShellState extends State<MainShell> {
     final isWide = MediaQuery.of(context).size.width >= 800;
 
     if (isWide) {
-      // Desktop: NavigationRail + contenu
       return Scaffold(
         body: Row(
           children: [
@@ -110,6 +136,19 @@ class _MainShellState extends State<MainShell> {
                   ),
                 ),
               ),
+              trailing: Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.logout, color: Colors.white70),
+                      onPressed: _logout,
+                      tooltip: 'Déconnexion',
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                ),
+              ),
               destinations: _items.map((item) => NavigationRailDestination(
                 icon: Icon(item.icon, color: Colors.white70),
                 selectedIcon: Icon(item.selectedIcon, color: QuantisColors.luxuryGold),
@@ -117,12 +156,29 @@ class _MainShellState extends State<MainShell> {
               )).toList(),
             ),
             const VerticalDivider(thickness: 1, width: 1),
-            Expanded(child: _buildPage(_currentIndex)),
+            Expanded(
+              child: Column(
+                children: [
+                  // Status bar avec sync indicator
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: const BoxDecoration(
+                      color: QuantisColors.white,
+                      border: Border(bottom: BorderSide(color: QuantisColors.border)),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [SyncIndicator()],
+                    ),
+                  ),
+                  Expanded(child: _buildPage(_currentIndex)),
+                ],
+              ),
+            ),
           ],
         ),
       );
     } else {
-      // Mobile: BottomNavigationBar
       return Scaffold(
         body: _buildPage(_currentIndex),
         bottomNavigationBar: NavigationBar(
@@ -144,39 +200,4 @@ class _NavItem {
   final IconData selectedIcon;
   final String label;
   const _NavItem(this.icon, this.selectedIcon, this.label);
-}
-
-/// Page placeholder pour les écrans non encore implémentés.
-class _PlaceholderPage extends StatelessWidget {
-  final String title;
-  final IconData icon;
-
-  const _PlaceholderPage({required this.title, required this.icon});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 64, color: QuantisColors.royalBlue.withValues(alpha: 0.3)),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                color: QuantisColors.royalBlue,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Disponible prochainement',
-              style: TextStyle(color: QuantisColors.textMuted),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
