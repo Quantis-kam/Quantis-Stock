@@ -1,5 +1,6 @@
 package com.quantis.stock.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -23,14 +24,17 @@ public class LigneCommandeFournisseur {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "commande_id", nullable = false)
+    @JsonIgnoreProperties({"lignes", "hibernateLazyInitializer", "handler"})
     private CommandeFournisseur commande;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "produit_id", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Produit produit;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "variante_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private VarianteProduit variante;
 
     @Column(name = "quantite_commandee", nullable = false, precision = 15, scale = 2)

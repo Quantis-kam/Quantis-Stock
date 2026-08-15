@@ -28,6 +28,15 @@ class _QuantisStockAppState extends State<QuantisStockApp> {
   bool _isLoggedIn = false;
 
   @override
+  void initState() {
+    super.initState();
+    // Auto-logout quand le refresh token expire
+    ApiClient.onSessionExpired = () {
+      if (mounted) setState(() => _isLoggedIn = false);
+    };
+  }
+
+  @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Quantis Stock',

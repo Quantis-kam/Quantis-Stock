@@ -1,5 +1,6 @@
 package com.quantis.stock.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.quantis.stock.model.enums.StatutCommande;
 import jakarta.persistence.*;
 import lombok.*;
@@ -40,10 +41,12 @@ public class CommandeFournisseur {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "fournisseur_id", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Fournisseur fournisseur;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "depot_id", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Depot depot;
 
     @Builder.Default
@@ -66,10 +69,12 @@ public class CommandeFournisseur {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "utilisateur_id", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "motDePasseHash"})
     private Utilisateur utilisateur;
 
     @OneToMany(mappedBy = "commande", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
+    @JsonIgnoreProperties({"commande"})
     private List<LigneCommandeFournisseur> lignes = new ArrayList<>();
 
     @CreatedDate

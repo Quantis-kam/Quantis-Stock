@@ -47,6 +47,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       // Configurer le client API
       ApiClient.setToken(accessToken);
+      ApiClient.setRefreshToken(refreshToken);
 
       // Démarrer la sync
       SyncManager.instance.start();
