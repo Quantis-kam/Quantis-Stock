@@ -1,4 +1,4 @@
-# Quantis-Stock — Règles de Gestion
++# Quantis-Stock — Règles de Gestion
 
 > **Version :** 1.0 — **Date :** 2026-08-01 — **Pays :** Burkina Faso — **Devise :** FCFA — **TVA :** 18%
 

@@ -1,5 +1,6 @@
 package com.quantis.stock.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
@@ -20,6 +21,7 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 @EntityListeners(AuditingEntityListener.class)
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Categorie {
 
     @Id
@@ -33,11 +35,18 @@ public class Categorie {
     private String description;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "entreprise_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private Entreprise entreprise;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_id")
+    @JsonIgnoreProperties({"parent", "sousCategories", "hibernateLazyInitializer", "handler"})
     private Categorie parent;
 
     @OneToMany(mappedBy = "parent", fetch = FetchType.LAZY)
     @Builder.Default
+    @JsonIgnoreProperties({"parent", "sousCategories", "hibernateLazyInitializer", "handler"})
     private List<Categorie> sousCategories = new ArrayList<>();
 
     @CreatedDate

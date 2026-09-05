@@ -31,6 +31,7 @@ class _TiersFormScreenState extends State<TiersFormScreen> {
   late TextEditingController _emailCtrl;
   late TextEditingController _adresseCtrl;
   late TextEditingController _notesCtrl;
+  late TextEditingController _soldeCtrl;
 
   bool _saving = false;
 
@@ -44,6 +45,7 @@ class _TiersFormScreenState extends State<TiersFormScreen> {
       _emailCtrl = TextEditingController(text: c.email ?? '');
       _adresseCtrl = TextEditingController(text: c.adresse ?? '');
       _notesCtrl = TextEditingController(text: c.notes ?? '');
+      _soldeCtrl = TextEditingController(text: c.soldeCredit.toStringAsFixed(0));
     } else if (!widget.isClient && widget.fournisseur != null) {
       final f = widget.fournisseur!;
       _nomCtrl = TextEditingController(text: f.nom);
@@ -51,12 +53,14 @@ class _TiersFormScreenState extends State<TiersFormScreen> {
       _emailCtrl = TextEditingController(text: f.email ?? '');
       _adresseCtrl = TextEditingController(text: f.adresse ?? '');
       _notesCtrl = TextEditingController(text: f.notes ?? '');
+      _soldeCtrl = TextEditingController(text: f.soldeDette.toStringAsFixed(0));
     } else {
       _nomCtrl = TextEditingController();
       _telCtrl = TextEditingController();
       _emailCtrl = TextEditingController();
       _adresseCtrl = TextEditingController();
       _notesCtrl = TextEditingController();
+      _soldeCtrl = TextEditingController(text: '0');
     }
   }
 
@@ -67,12 +71,15 @@ class _TiersFormScreenState extends State<TiersFormScreen> {
     _emailCtrl.dispose();
     _adresseCtrl.dispose();
     _notesCtrl.dispose();
+    _soldeCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
+
+    final soldeVal = double.tryParse(_soldeCtrl.text.trim()) ?? 0.0;
 
     try {
       if (widget.isClient) {
@@ -82,6 +89,7 @@ class _TiersFormScreenState extends State<TiersFormScreen> {
           email: _emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim(),
           adresse: _adresseCtrl.text.trim().isEmpty ? null : _adresseCtrl.text.trim(),
           notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
+          soldeCredit: soldeVal,
         );
         if (widget.isEditing) {
           await _service.updateClient(widget.client!.id!, client);
@@ -95,6 +103,7 @@ class _TiersFormScreenState extends State<TiersFormScreen> {
           email: _emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim(),
           adresse: _adresseCtrl.text.trim().isEmpty ? null : _adresseCtrl.text.trim(),
           notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
+          soldeDette: soldeVal,
         );
         if (widget.isEditing) {
           await _service.updateFournisseur(widget.fournisseur!.id!, fournisseur);
@@ -205,35 +214,15 @@ class _TiersFormScreenState extends State<TiersFormScreen> {
               ),
               const SizedBox(height: 32),
 
-              // Solde affiché en mode édition
-              if (widget.isEditing) ...[
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: QuantisColors.bgLight,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: QuantisColors.border),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        widget.isClient ? 'Créance client' : 'Dette fournisseur',
-                        style: const TextStyle(fontWeight: FontWeight.w500),
-                      ),
-                      Text(
-                        '${widget.isClient ? widget.client!.soldeCredit.toStringAsFixed(0) : widget.fournisseur!.soldeDette.toStringAsFixed(0)} FCFA',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 18,
-                          color: widget.isClient ? QuantisColors.warning : QuantisColors.error,
-                        ),
-                      ),
-                    ],
-                  ),
+              TextFormField(
+                controller: _soldeCtrl,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: widget.isClient ? 'Créance client (FCFA)' : 'Dette fournisseur (FCFA)',
+                  prefixIcon: const Icon(Icons.account_balance_wallet_outlined),
                 ),
-                const SizedBox(height: 24),
-              ],
+              ),
+              const SizedBox(height: 32),
 
               // Bouton enregistrer
               SizedBox(

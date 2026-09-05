@@ -1,6 +1,7 @@
 package com.quantis.stock.model;
 
 import com.quantis.stock.model.enums.MoyenPaiement;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
@@ -24,6 +25,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @Builder
 @EntityListeners(AuditingEntityListener.class)
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Paiement {
 
     @Id
@@ -36,6 +38,7 @@ public class Paiement {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "document_id", nullable = false)
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private Document document;
 
     @Column(nullable = false, precision = 15, scale = 2)

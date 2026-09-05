@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import '../../../core/utils/permission_helper.dart';
 import '../../../core/theme/quantis_theme.dart';
 import '../data/tiers_models.dart';
 import '../data/tiers_service.dart';
 import 'tiers_form_screen.dart';
+import 'tiers_details_screen.dart';
 
-/// Écran liste des fournisseurs avec CRUD.
+/// Écran liste des fournisseurs avec recherche et CRUD.
 class FournisseursScreen extends StatefulWidget {
   const FournisseursScreen({super.key});
 
@@ -14,6 +16,8 @@ class FournisseursScreen extends StatefulWidget {
 
 class _FournisseursScreenState extends State<FournisseursScreen> {
   final TiersService _service = TiersService();
+  final TextEditingController _searchController = TextEditingController();
+
   List<FournisseurModel> _fournisseurs = [];
   bool _loading = true;
   String? _error;
@@ -32,6 +36,33 @@ class _FournisseursScreenState extends State<FournisseursScreen> {
     } catch (e) {
       setState(() { _loading = false; _error = 'Erreur: $e'; });
     }
+  }
+
+  Future<void> _search(String query) async {
+    if (query.isEmpty) {
+      _load();
+      return;
+    }
+    setState(() => _loading = true);
+    try {
+      _fournisseurs = await _service.searchFournisseurs(query);
+      setState(() => _loading = false);
+    } catch (e) {
+      setState(() { _loading = false; _error = 'Erreur de recherche'; });
+    }
+  }
+
+  void _openDetails(FournisseurModel fournisseur) async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TiersDetailsScreen(
+          isClient: false,
+          id: fournisseur.id!,
+        ),
+      ),
+    );
+    if (result == true) _load();
   }
 
   void _openForm({FournisseurModel? fournisseur}) async {
@@ -56,39 +87,81 @@ class _FournisseursScreenState extends State<FournisseursScreen> {
           IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openForm(),
-        icon: const Icon(Icons.add_business),
-        label: const Text('Nouveau fournisseur'),
-        backgroundColor: QuantisColors.royalBlue,
-        foregroundColor: Colors.white,
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(child: Text(_error!))
-              : _fournisseurs.isEmpty
-                  ? const Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.business_outlined, size: 64, color: QuantisColors.textMuted),
-                          SizedBox(height: 8),
-                          Text('Aucun fournisseur', style: TextStyle(color: QuantisColors.textMuted)),
-                        ],
-                      ),
-                    )
-                  : RefreshIndicator(
-                      onRefresh: _load,
-                      child: ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _fournisseurs.length,
-                        itemBuilder: (_, i) => _FournisseurTile(
-                          fournisseur: _fournisseurs[i],
-                          onTap: () => _openForm(fournisseur: _fournisseurs[i]),
+      floatingActionButton: PermissionHelper.hasPermission('CRUD_FOURNISSEURS')
+          ? FloatingActionButton.extended(
+              onPressed: () => _openForm(),
+              icon: const Icon(Icons.add_business),
+              label: const Text('Nouveau fournisseur'),
+              backgroundColor: QuantisColors.royalBlue,
+              foregroundColor: Colors.white,
+            )
+          : null,
+      body: Column(
+        children: [
+          // Barre de recherche
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: TextField(
+              controller: _searchController,
+              onChanged: _search,
+              decoration: InputDecoration(
+                hintText: 'Rechercher par nom ou téléphone...',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          _load();
+                        },
+                      )
+                    : null,
+              ),
+            ),
+          ),
+
+          // Liste
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : _error != null
+                    ? Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.error_outline, size: 48, color: QuantisColors.error),
+                            const SizedBox(height: 8),
+                            Text(_error!, style: TextStyle(color: QuantisColors.error)),
+                            const SizedBox(height: 16),
+                            ElevatedButton(onPressed: _load, child: const Text('Réessayer')),
+                          ],
                         ),
-                      ),
-                    ),
+                      )
+                    : _fournisseurs.isEmpty
+                        ? const Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.business_outlined, size: 64, color: QuantisColors.textMuted),
+                                SizedBox(height: 8),
+                                Text('Aucun fournisseur trouvé', style: TextStyle(color: QuantisColors.textMuted)),
+                              ],
+                            ),
+                          )
+                        : RefreshIndicator(
+                            onRefresh: _load,
+                            child: ListView.builder(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              itemCount: _fournisseurs.length,
+                              itemBuilder: (_, i) => _FournisseurTile(
+                                fournisseur: _fournisseurs[i],
+                                onTap: () => _openDetails(_fournisseurs[i]),
+                              ),
+                            ),
+                          ),
+          ),
+        ],
+      ),
     );
   }
 }

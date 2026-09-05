@@ -2,6 +2,7 @@ package com.quantis.stock.model;
 
 import com.quantis.stock.model.enums.MotifMouvement;
 import com.quantis.stock.model.enums.TypeMouvement;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
@@ -27,6 +28,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @Builder
 @EntityListeners(AuditingEntityListener.class)
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class MouvementStock {
 
     @Id

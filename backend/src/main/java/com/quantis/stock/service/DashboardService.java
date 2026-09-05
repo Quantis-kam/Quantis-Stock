@@ -76,4 +76,82 @@ public class DashboardService {
         }
         return result;
     }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> getPatrimoine() {
+        Map<String, Object> response = new LinkedHashMap<>();
+
+        // 1. Valeur du Stock
+        List<com.quantis.stock.model.StockCourant> stocks = stockCourantRepository.findAll();
+        BigDecimal valeurStock = BigDecimal.ZERO;
+        Map<String, BigDecimal> stockParDepot = new HashMap<>();
+
+        for (var sc : stocks) {
+            if (sc.getQuantite() != null && sc.getQuantite().compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal prix = sc.getProduit().getPrixAchat() != null
+                        ? sc.getProduit().getPrixAchat()
+                        : (sc.getProduit().getPrixVente() != null ? sc.getProduit().getPrixVente() : BigDecimal.ZERO);
+                BigDecimal totalLigne = sc.getQuantite().multiply(prix);
+                valeurStock = valeurStock.add(totalLigne);
+
+                String depotNom = sc.getDepot() != null ? sc.getDepot().getNom() : "Dépôt Principal";
+                stockParDepot.put(depotNom, stockParDepot.getOrDefault(depotNom, BigDecimal.ZERO).add(totalLigne));
+            }
+        }
+
+        // 2. Trésorerie des Caisses (Total Entrées - Sorties)
+        BigDecimal totalEntreesCaisse = caisseRepository.sumByType(TypeCaisse.ENTREE);
+        BigDecimal totalSortiesCaisse = caisseRepository.sumByType(TypeCaisse.SORTIE);
+        if (totalEntreesCaisse == null) totalEntreesCaisse = BigDecimal.ZERO;
+        if (totalSortiesCaisse == null) totalSortiesCaisse = BigDecimal.ZERO;
+        BigDecimal soldeCaisses = totalEntreesCaisse.subtract(totalSortiesCaisse);
+
+        // 3. Créances Clients (Débiteurs)
+        BigDecimal creancesClients = clientRepository.sumSoldeCredit();
+        if (creancesClients == null) creancesClients = BigDecimal.ZERO;
+        var debiteurs = clientRepository.findDebiteurs();
+        List<Map<String, Object>> topDebiteurs = new ArrayList<>();
+        for (var c : debiteurs) {
+            topDebiteurs.add(Map.of(
+                    "id", c.getId(),
+                    "nom", c.getNom(),
+                    "telephone", c.getTelephone() != null ? c.getTelephone() : "",
+                    "soldeCredit", c.getSoldeCredit()
+            ));
+            if (topDebiteurs.size() >= 5) break;
+        }
+
+        // 4. Dettes Fournisseurs
+        BigDecimal dettesFournisseurs = fournisseurRepository.sumSoldeDette();
+        if (dettesFournisseurs == null) dettesFournisseurs = BigDecimal.ZERO;
+        var crediteurs = fournisseurRepository.findCrediteurs();
+        List<Map<String, Object>> topCrediteurs = new ArrayList<>();
+        for (var f : crediteurs) {
+            topCrediteurs.add(Map.of(
+                    "id", f.getId(),
+                    "nom", f.getNom(),
+                    "telephone", f.getTelephone() != null ? f.getTelephone() : "",
+                    "soldeDette", f.getSoldeDette()
+            ));
+            if (topCrediteurs.size() >= 5) break;
+        }
+
+        // 5. Patrimoine Net = Stock + Caisses + Créances - Dettes
+        BigDecimal patrimoineNet = valeurStock.add(soldeCaisses).add(creancesClients).subtract(dettesFournisseurs);
+
+        response.put("patrimoineNet", patrimoineNet);
+        response.put("valeurStock", valeurStock);
+        response.put("stockParDepot", stockParDepot);
+        response.put("soldeCaisses", soldeCaisses);
+        response.put("totalEntreesCaisse", totalEntreesCaisse);
+        response.put("totalSortiesCaisse", totalSortiesCaisse);
+        response.put("creancesClients", creancesClients);
+        response.put("nbDebiteurs", debiteurs.size());
+        response.put("topDebiteurs", topDebiteurs);
+        response.put("dettesFournisseurs", dettesFournisseurs);
+        response.put("nbCrediteurs", crediteurs.size());
+        response.put("topCrediteurs", topCrediteurs);
+
+        return response;
+    }
 }

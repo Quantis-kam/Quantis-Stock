@@ -27,6 +27,7 @@ frontend/.pub/
 frontend/build/
 frontend/.flutter-plugins
 frontend/.flutter-plugins-dependencies
+*.apk
 
 # ===== Env =====
 .env
@@ -37,3 +38,6 @@ frontend/.flutter-plugins-dependencies
 
 # ===== Docker =====
 docker-data/
+
+# ===== Reference Projects =====
+OpenJarvis-main/

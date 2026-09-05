@@ -34,7 +34,7 @@ class ApiConstants {
 class AppConstants {
   AppConstants._();
 
-  static const String appName = 'Quantis Stock';
+  static const String appName = 'Quantis-Stock';
   static const String devise = 'FCFA';
   static const double tvaDefault = 18.0;
   static const int seuilAlerteDefault = 10;

@@ -22,7 +22,7 @@ public class DashboardController {
      * GET /dashboard/kpis — KPIs principaux
      */
     @GetMapping("/kpis")
-    @PreAuthorize("hasAnyRole('ADMIN','GERANT','COMPTABLE')")
+    @PreAuthorize("hasAuthority('VOIR_DASHBOARD')")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getKpis() {
         return ResponseEntity.ok(ApiResponse.success(dashboardService.getKpis()));
     }
@@ -31,10 +31,20 @@ public class DashboardController {
      * GET /dashboard/sales?year=2026 — Ventes par mois
      */
     @GetMapping("/sales")
-    @PreAuthorize("hasAnyRole('ADMIN','GERANT','COMPTABLE')")
+    @PreAuthorize("hasAuthority('VOIR_DASHBOARD')")
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getSalesByMonth(
             @RequestParam(defaultValue = "0") int year) {
         int annee = year > 0 ? year : Year.now().getValue();
         return ResponseEntity.ok(ApiResponse.success(dashboardService.getVentesParMois(annee)));
+    }
+
+    /**
+     * GET /dashboard/patrimoine — Synthèse consolidée du Patrimoine d'Entreprise
+     * (Valeur Stock + Caisses + Créances Clients - Dettes Fournisseurs)
+     */
+    @GetMapping("/patrimoine")
+    @PreAuthorize("hasAuthority('VOIR_DASHBOARD')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getPatrimoine() {
+        return ResponseEntity.ok(ApiResponse.success(dashboardService.getPatrimoine()));
     }
 }

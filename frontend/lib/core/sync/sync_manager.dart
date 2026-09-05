@@ -31,15 +31,19 @@ class SyncManager extends ChangeNotifier {
 
   /// Démarrer l'écoute de connectivité.
   void start() {
-    _subscription = _connectivity.onConnectivityChanged.listen((results) {
-      final online = results.any((r) => r != ConnectivityResult.none);
-      if (online != _isOnline) {
-        _isOnline = online;
-        notifyListeners();
-        if (online) syncNow();
-      }
-    });
-    _refreshPendingCount();
+    try {
+      _subscription = _connectivity.onConnectivityChanged.listen((results) {
+        final online = results.any((r) => r != ConnectivityResult.none);
+        if (online != _isOnline) {
+          _isOnline = online;
+          notifyListeners();
+          if (online) syncNow();
+        }
+      });
+      _refreshPendingCount();
+    } catch (e) {
+      debugPrint('SyncManager start notice: $e');
+    }
   }
 
   /// Arrêter l'écoute.

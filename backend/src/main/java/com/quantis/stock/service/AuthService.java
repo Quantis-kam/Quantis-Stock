@@ -25,6 +25,7 @@ public class AuthService {
 
     private final UtilisateurRepository utilisateurRepository;
     private final DepotRepository depotRepository;
+    private final com.quantis.stock.repository.EntrepriseRepository entrepriseRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final AuditService auditService;
@@ -37,12 +38,30 @@ public class AuthService {
         Utilisateur user = utilisateurRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new BusinessException("Email ou mot de passe incorrect"));
 
+        if (!passwordEncoder.matches(request.getMotDePasse(), user.getMotDePasseHash())) {
+            throw new BusinessException("Email ou mot de passe incorrect");
+        }
+
         if (!user.getActif()) {
             throw new BusinessException("Compte désactivé. Contactez l'administrateur.");
         }
 
-        if (!passwordEncoder.matches(request.getMotDePasse(), user.getMotDePasseHash())) {
-            throw new BusinessException("Email ou mot de passe incorrect");
+        boolean isSuperAdmin = user.getRole() == Role.SUPER_ADMIN;
+
+        // Contrôle de licence et d'abonnement mensuel (sauf pour le superadmin plateforme)
+        if (!isSuperAdmin && user.getEntreprise() != null) {
+            com.quantis.stock.model.Entreprise ent = user.getEntreprise();
+            if (!ent.isLicenceValide() || "EXPIREE".equalsIgnoreCase(ent.getStatutLicence())) {
+                throw new com.quantis.stock.exception.LicenceExpireeException(
+                        ent.getNom(),
+                        ent.getDateExpirationLicence(),
+                        ent.getCodeUssdRenouvellement(),
+                        ent.getMontantAbonnement()
+                );
+            }
+            if (Boolean.FALSE.equals(ent.getEstActif())) {
+                throw new BusinessException("Votre entreprise est actuellement suspendue. Veuillez contacter l'administrateur de la plateforme.");
+            }
         }
 
         auditService.logLogin(user, ipAddress);
@@ -76,6 +95,7 @@ public class AuthService {
 
         user = utilisateurRepository.save(user);
         log.info("Nouvel utilisateur créé: {} ({})", user.getEmail(), user.getRole());
+        auditService.logAction("CREATE", "Utilisateur", user.getId(), "Création utilisateur " + user.getEmail());
 
         return buildAuthResponse(user);
     }
@@ -102,12 +122,34 @@ public class AuthService {
     }
 
     /**
-     * Construit la réponse d'authentification avec tokens.
+     * Déconnexion d'un utilisateur.
+     */
+    @Transactional
+    public void logout(String email, String ipAddress) {
+        Utilisateur user = utilisateurRepository.findByEmail(email).orElse(null);
+        if (user != null) {
+            auditService.logLogout(user, ipAddress);
+        }
+    }
+
+    /**
+     * Construit la réponse d'authentification avec tokens et métadonnées d'entreprise.
      */
     private AuthResponse buildAuthResponse(Utilisateur user) {
         String accessToken = jwtTokenProvider.generateAccessToken(
                 user.getId(), user.getEmail(), user.getRole().name());
         String refreshToken = jwtTokenProvider.generateRefreshToken(user.getEmail());
+
+        java.util.List<String> permissions = user.getRole().getPermissions().stream()
+                .map(Enum::name)
+                .collect(java.util.stream.Collectors.toList());
+
+        com.quantis.stock.model.Entreprise entreprise = user.getEntreprise();
+        if (entreprise == null) {
+            entreprise = entrepriseRepository.findAll().stream().findFirst().orElse(null);
+        }
+
+        boolean isSuperAdmin = user.getRole() == Role.SUPER_ADMIN;
 
         return AuthResponse.builder()
                 .accessToken(accessToken)
@@ -119,7 +161,17 @@ public class AuthService {
                         .prenom(user.getPrenom())
                         .email(user.getEmail())
                         .role(user.getRole().name())
+                        .isSuperAdmin(isSuperAdmin)
                         .depot(user.getDepot() != null ? user.getDepot().getNom() : null)
+                        .entrepriseId(entreprise != null ? entreprise.getId() : null)
+                        .entrepriseNom(entreprise != null ? entreprise.getNom() : (isSuperAdmin ? "Quantis-Stock Platform" : "Quantis SARL"))
+                        .entrepriseMonnaie(entreprise != null ? entreprise.getMonnaie() : "FCFA")
+                        .formatFacture(entreprise != null ? entreprise.getFormatFacture() : "FAC-{YYYY}-{NNNNN}")
+                        .logoUrl(entreprise != null ? entreprise.getLogoUrl() : null)
+                        .permissions(permissions)
+                        .dateExpirationLicence(entreprise != null && entreprise.getDateExpirationLicence() != null ? entreprise.getDateExpirationLicence().toString() : null)
+                        .statutLicence(entreprise != null ? entreprise.getStatutLicence() : "ACTIVE")
+                        .codeUssdRenouvellement(entreprise != null ? entreprise.getCodeUssdRenouvellement() : "*144*2*1*65189261*20200#")
                         .build())
                 .build();
     }

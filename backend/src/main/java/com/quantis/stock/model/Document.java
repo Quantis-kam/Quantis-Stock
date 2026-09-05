@@ -2,6 +2,7 @@ package com.quantis.stock.model;
 
 import com.quantis.stock.model.enums.StatutDocument;
 import com.quantis.stock.model.enums.TypeDocument;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
@@ -32,6 +33,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @Builder
 @EntityListeners(AuditingEntityListener.class)
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Document {
 
     @Id
@@ -43,7 +45,7 @@ public class Document {
     private String uuidSync = UUID.randomUUID().toString();
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(nullable = false, length = 30, columnDefinition = "VARCHAR(30)")
     private TypeDocument type;
 
     @Column(unique = true, nullable = false, length = 30)
@@ -56,6 +58,10 @@ public class Document {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "depot_id")
     private Depot depot;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "entreprise_id")
+    private Entreprise entreprise;
 
     @Builder.Default
     @Enumerated(EnumType.STRING)

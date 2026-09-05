@@ -5,6 +5,7 @@ package com.quantis.stock.model.enums;
  */
 public enum TypeDocument {
     DEVIS,
+    COMMANDE_CLIENT,
     BON_LIVRAISON,
     FACTURE,
     AVOIR

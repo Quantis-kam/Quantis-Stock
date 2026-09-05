@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import '../../../core/utils/permission_helper.dart';
 import '../../../core/theme/quantis_theme.dart';
 import '../data/achat_models.dart';
 import '../data/achat_service.dart';
+import 'commande_form_screen.dart';
+import 'commande_detail_screen.dart';
 
 /// Écran liste des commandes fournisseur.
 class AchatsScreen extends StatefulWidget {
@@ -60,18 +63,21 @@ class _AchatsScreenState extends State<AchatsScreen> {
           IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          // TODO: Navigation vers formulaire création commande
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Formulaire commande — prochaine phase')),
-          );
-        },
-        icon: const Icon(Icons.add_shopping_cart),
-        label: const Text('Nouvelle commande'),
-        backgroundColor: QuantisColors.royalBlue,
-        foregroundColor: Colors.white,
-      ),
+      floatingActionButton: PermissionHelper.hasPermission('CREER_ACHAT')
+          ? FloatingActionButton.extended(
+              onPressed: () async {
+                final result = await Navigator.push<bool>(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CommandeFormScreen()),
+                );
+                if (result == true) _load();
+              },
+              icon: const Icon(Icons.add_shopping_cart),
+              label: const Text('Nouvelle commande'),
+              backgroundColor: QuantisColors.royalBlue,
+              foregroundColor: Colors.white,
+            )
+          : null,
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
@@ -135,8 +141,14 @@ class _AchatsScreenState extends State<AchatsScreen> {
                               ),
                               isThreeLine: true,
                               trailing: const Icon(Icons.chevron_right, color: QuantisColors.textMuted),
-                              onTap: () {
-                                // TODO: Détail commande + réception
+                              onTap: () async {
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => CommandeDetailScreen(commandeId: cmd.id!),
+                                  ),
+                                );
+                                _load();
                               },
                             ),
                           );

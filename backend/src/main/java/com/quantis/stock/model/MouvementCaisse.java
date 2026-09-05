@@ -1,6 +1,7 @@
 package com.quantis.stock.model;
 
 import com.quantis.stock.model.enums.TypeCaisse;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
@@ -24,6 +25,7 @@ import java.time.LocalDate;
 @AllArgsConstructor
 @Builder
 @EntityListeners(AuditingEntityListener.class)
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class MouvementCaisse {
 
     @Id
@@ -57,8 +59,16 @@ public class MouvementCaisse {
     private Document document;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "session_caisse_id")
+    private SessionCaisse sessionCaisse;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "utilisateur_id", nullable = false)
     private Utilisateur utilisateur;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "entreprise_id")
+    private Entreprise entreprise;
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)

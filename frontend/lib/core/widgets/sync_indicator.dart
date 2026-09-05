@@ -30,29 +30,34 @@ class SyncIndicator extends StatelessWidget {
         }
 
         return Tooltip(
-          message: mgr.statusLabel,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                mgr.isSyncing
-                    ? SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: color),
-                      )
-                    : Icon(icon, size: 14, color: color),
-                const SizedBox(width: 4),
-                Text(
-                  mgr.statusLabel,
-                  style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600),
-                ),
-              ],
+          message: '${mgr.statusLabel} • Cliquer pour synchroniser',
+          child: InkWell(
+            onTap: mgr.isSyncing ? null : () => mgr.syncNow(),
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: color.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  mgr.isSyncing
+                      ? SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: color),
+                        )
+                      : Icon(icon, size: 14, color: color),
+                  const SizedBox(width: 4),
+                  Text(
+                    mgr.statusLabel,
+                    style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
             ),
           ),
         );

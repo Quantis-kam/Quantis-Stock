@@ -3,6 +3,7 @@ package com.quantis.stock.controller;
 import com.quantis.stock.dto.*;
 import com.quantis.stock.model.MouvementStock;
 import com.quantis.stock.model.StockCourant;
+import com.quantis.stock.service.AuditService;
 import com.quantis.stock.service.StockService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,7 @@ import java.util.List;
 public class StockController {
 
     private final StockService stockService;
+    private final AuditService auditService;
 
     // =================== MOUVEMENTS ===================
 
@@ -30,11 +32,13 @@ public class StockController {
      * POST /stock/movements — Enregistrer un mouvement de stock
      */
     @PostMapping("/movements")
-    @PreAuthorize("hasAnyRole('ADMIN','GERANT','MAGASINIER')")
+    @PreAuthorize("hasAnyAuthority('ENTREE_STOCK','SORTIE_STOCK','TRANSFERT_STOCK')")
     public ResponseEntity<ApiResponse<MouvementStock>> createMouvement(
             @Valid @RequestBody MouvementRequest request,
             Authentication authentication) {
         MouvementStock mouvement = stockService.enregistrerMouvement(request, authentication.getName());
+        auditService.logAction("CREATE", "MouvementStock", mouvement.getId(),
+                "Mouvement " + mouvement.getType() + " — Produit ID " + request.getProduitId() + ", Qté: " + request.getQuantite());
         return new ResponseEntity<>(
                 ApiResponse.success("Mouvement enregistré", mouvement), HttpStatus.CREATED);
     }
@@ -64,6 +68,49 @@ public class StockController {
         return ResponseEntity.ok(ApiResponse.success(toPagedResponse(result)));
     }
 
+    /**
+     * GET /stock/movements/filter — Filtrer les mouvements (paginé)
+     */
+    @GetMapping("/movements/filter")
+    public ResponseEntity<ApiResponse<PagedResponse<MouvementStock>>> filterMouvements(
+            @RequestParam(required = false) Long depotId,
+            @RequestParam(required = false) com.quantis.stock.model.enums.TypeMouvement type,
+            @RequestParam(required = false) Long produitId,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        
+        java.time.Instant start = null;
+        java.time.Instant end = null;
+        try {
+            if (startDate != null && !startDate.isBlank()) {
+                start = java.time.Instant.parse(startDate);
+            }
+            if (endDate != null && !endDate.isBlank()) {
+                end = java.time.Instant.parse(endDate);
+            }
+        } catch (Exception e) {
+            throw new com.quantis.stock.exception.BusinessException("Format de date invalide (ISO-8601 attendu)");
+        }
+
+        Pageable pageable = PageRequest.of(page, Math.min(size, 100));
+        Page<MouvementStock> result = stockService.filterMouvements(depotId, type, produitId, start, end, pageable);
+        return ResponseEntity.ok(ApiResponse.success(toPagedResponse(result)));
+    }
+
+    /**
+     * POST /stock/reconcile — Valider rapprochement d'inventaire
+     */
+    @PostMapping("/reconcile")
+    @PreAuthorize("hasAuthority('INVENTAIRE_PHYSIQUE')")
+    public ResponseEntity<ApiResponse<Void>> reconcile(
+            @Valid @RequestBody com.quantis.stock.dto.ReconciliationRequest request,
+            Authentication authentication) {
+        stockService.reconcilierInventaire(request, authentication.getName());
+        return ResponseEntity.ok(ApiResponse.success("Rapprochement d'inventaire enregistré avec succès", null));
+    }
+
     // =================== STOCK COURANT ===================
 
     /**
@@ -80,6 +127,11 @@ public class StockController {
     @GetMapping("/depot/{depotId}")
     public ResponseEntity<ApiResponse<List<StockCourant>>> getStockByDepot(@PathVariable Long depotId) {
         return ResponseEntity.ok(ApiResponse.success(stockService.getStockByDepot(depotId)));
+    }
+
+    @GetMapping("/depots")
+    public ResponseEntity<ApiResponse<List<com.quantis.stock.model.Depot>>> getAllDepots() {
+        return ResponseEntity.ok(ApiResponse.success(stockService.getAllDepots()));
     }
 
     // =================== ALERTES ===================
@@ -106,6 +158,14 @@ public class StockController {
     @GetMapping("/alerts/depot/{depotId}")
     public ResponseEntity<ApiResponse<List<StockCourant>>> getAlertesParDepot(@PathVariable Long depotId) {
         return ResponseEntity.ok(ApiResponse.success(stockService.getAlertesParDepot(depotId)));
+    }
+
+    /**
+     * GET /stock/reapprovisionnement-suggestions — Suggestions intelligentes de réapprovisionnement
+     */
+    @GetMapping("/reapprovisionnement-suggestions")
+    public ResponseEntity<ApiResponse<List<com.quantis.stock.dto.ReapprovisionnementSuggestionDto>>> getSuggestionsReapprovisionnement() {
+        return ResponseEntity.ok(ApiResponse.success(stockService.getSuggestionsReapprovisionnement()));
     }
 
     private <T> PagedResponse<T> toPagedResponse(Page<T> page) {

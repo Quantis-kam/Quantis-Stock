@@ -3,11 +3,17 @@ package com.quantis.stock.dto;
 import com.quantis.stock.model.enums.MotifMouvement;
 import com.quantis.stock.model.enums.TypeMouvement;
 import jakarta.validation.constraints.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class MouvementRequest {
 
     @NotNull(message = "Le type est requis")
@@ -33,6 +39,9 @@ public class MouvementRequest {
 
     private String reference;
     private String commentaire;
+
+    /** Si true, autorise le stock négatif (Admin uniquement via FORCE_SORTIE) */
+    private boolean forcerSortie;
 
     /** UUID pour idempotence sync offline (optionnel, auto-généré si absent) */
     private String uuidSync;

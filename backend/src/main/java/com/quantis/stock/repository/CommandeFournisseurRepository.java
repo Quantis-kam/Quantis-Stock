@@ -25,4 +25,22 @@ public interface CommandeFournisseurRepository extends JpaRepository<CommandeFou
     @Query("SELECT COALESCE(MAX(CAST(SUBSTRING(c.numero, LENGTH(:prefix) + 1) AS integer)), 0) " +
            "FROM CommandeFournisseur c WHERE c.numero LIKE CONCAT(:prefix, '%')")
     int findMaxNumero(@Param("prefix") String prefix);
+
+    java.util.List<CommandeFournisseur> findByDateCommandeBetween(java.time.LocalDate debut, java.time.LocalDate fin);
+
+    @Query("SELECT COALESCE(SUM(c.totalHt), 0) FROM CommandeFournisseur c " +
+           "WHERE c.depot.entreprise.id = :entrepriseId AND c.statut != com.quantis.stock.model.enums.StatutCommande.ANNULEE")
+    java.math.BigDecimal sumAchatsByEntrepriseId(@Param("entrepriseId") Long entrepriseId);
+
+    @Query("SELECT COUNT(c) FROM CommandeFournisseur c " +
+           "WHERE c.depot.entreprise.id = :entrepriseId AND c.statut != com.quantis.stock.model.enums.StatutCommande.ANNULEE")
+    long countAchatsByEntrepriseId(@Param("entrepriseId") Long entrepriseId);
+
+    @Query("SELECT COALESCE(SUM(c.totalHt), 0) FROM CommandeFournisseur c WHERE c.statut != com.quantis.stock.model.enums.StatutCommande.ANNULEE")
+    java.math.BigDecimal sumGlobalAchats();
+
+    @Query("SELECT COUNT(c) FROM CommandeFournisseur c WHERE c.statut != com.quantis.stock.model.enums.StatutCommande.ANNULEE")
+    long countGlobalAchats();
+
+    java.util.List<CommandeFournisseur> findTop5ByDepotEntrepriseIdOrderByCreatedAtDesc(Long entrepriseId);
 }

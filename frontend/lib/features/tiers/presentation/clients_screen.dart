@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import '../../../core/utils/permission_helper.dart';
 import '../../../core/theme/quantis_theme.dart';
 import '../data/tiers_models.dart';
 import '../data/tiers_service.dart';
 import 'tiers_form_screen.dart';
+import 'tiers_details_screen.dart';
 
 /// Écran liste des clients avec recherche et CRUD.
 class ClientsScreen extends StatefulWidget {
@@ -50,6 +52,19 @@ class _ClientsScreenState extends State<ClientsScreen> {
     }
   }
 
+  void _openDetails(ClientModel client) async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TiersDetailsScreen(
+          isClient: true,
+          id: client.id!,
+        ),
+      ),
+    );
+    if (result == true) _loadClients();
+  }
+
   void _openForm({ClientModel? client}) async {
     final result = await Navigator.push<bool>(
       context,
@@ -75,13 +90,15 @@ class _ClientsScreenState extends State<ClientsScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openForm(),
-        icon: const Icon(Icons.person_add),
-        label: const Text('Nouveau client'),
-        backgroundColor: QuantisColors.royalBlue,
-        foregroundColor: Colors.white,
-      ),
+      floatingActionButton: PermissionHelper.hasPermission('CRUD_CLIENTS')
+          ? FloatingActionButton.extended(
+              onPressed: () => _openForm(),
+              icon: const Icon(Icons.person_add),
+              label: const Text('Nouveau client'),
+              backgroundColor: QuantisColors.royalBlue,
+              foregroundColor: Colors.white,
+            )
+          : null,
       body: Column(
         children: [
           // Barre de recherche
@@ -141,7 +158,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
                               itemCount: _clients.length,
                               itemBuilder: (_, i) => _ClientTile(
                                 client: _clients[i],
-                                onTap: () => _openForm(client: _clients[i]),
+                                onTap: () => _openDetails(_clients[i]),
                               ),
                             ),
                           ),

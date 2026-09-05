@@ -1,5 +1,7 @@
 import 'package:dio/dio.dart';
 import '../../../core/network/api_client.dart';
+import '../../documents/data/document_models.dart';
+import '../../achats/data/achat_models.dart';
 import 'tiers_models.dart';
 
 /// Service API pour les Clients et Fournisseurs.
@@ -38,6 +40,16 @@ class TiersService {
     return ClientModel.fromJson(response.data['data']);
   }
 
+  Future<void> deleteClient(int id) async {
+    await _dio.delete('/clients/$id');
+  }
+
+  Future<List<DocumentModel>> getClientTransactions(int clientId) async {
+    final response = await _dio.get('/documents/client/$clientId');
+    final data = response.data['data']['content'] as List;
+    return data.map((e) => DocumentModel.fromJson(e)).toList();
+  }
+
   // =================== FOURNISSEURS ===================
 
   Future<List<FournisseurModel>> getFournisseurs({int page = 0, int size = 50}) async {
@@ -54,6 +66,12 @@ class TiersService {
     return FournisseurModel.fromJson(response.data['data']);
   }
 
+  Future<List<FournisseurModel>> searchFournisseurs(String query) async {
+    final response = await _dio.get('/suppliers/search', queryParameters: {'q': query});
+    final data = response.data['data']['content'] as List;
+    return data.map((e) => FournisseurModel.fromJson(e)).toList();
+  }
+
   Future<FournisseurModel> createFournisseur(FournisseurModel fournisseur) async {
     final response = await _dio.post('/suppliers', data: fournisseur.toJson());
     return FournisseurModel.fromJson(response.data['data']);
@@ -66,5 +84,11 @@ class TiersService {
 
   Future<void> deleteFournisseur(int id) async {
     await _dio.delete('/suppliers/$id');
+  }
+
+  Future<List<CommandeModel>> getFournisseurTransactions(int supplierId) async {
+    final response = await _dio.get('/purchases/supplier/$supplierId');
+    final data = response.data['data']['content'] as List;
+    return data.map((e) => CommandeModel.fromJson(e)).toList();
   }
 }

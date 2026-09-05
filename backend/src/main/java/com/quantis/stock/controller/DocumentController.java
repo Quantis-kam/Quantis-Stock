@@ -4,6 +4,7 @@ import com.quantis.stock.dto.*;
 import com.quantis.stock.model.Document;
 import com.quantis.stock.model.Paiement;
 import com.quantis.stock.model.enums.TypeDocument;
+import com.quantis.stock.service.AuditService;
 import com.quantis.stock.service.DocumentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -26,16 +27,30 @@ import java.util.Map;
 public class DocumentController {
 
     private final DocumentService documentService;
+    private final AuditService auditService;
+
+    /**
+     * POST /documents/pos — Réaliser une vente rapide au comptoir (POS)
+     */
+    @PostMapping("/pos")
+    @PreAuthorize("hasAuthority('CREER_VENTE')")
+    public ResponseEntity<ApiResponse<PosSaleResponse>> posSale(
+            @Valid @RequestBody PosSaleRequest request,
+            Authentication auth) {
+        PosSaleResponse response = documentService.realiserVentePos(request, auth.getName());
+        return new ResponseEntity<>(ApiResponse.success("Vente enregistrée avec succès", response), HttpStatus.CREATED);
+    }
 
     /**
      * POST /documents — Créer un document (Devis/BL/Facture/Avoir)
      */
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN','GERANT','CAISSIER')")
+    @PreAuthorize("hasAuthority('CREER_VENTE')")
     public ResponseEntity<ApiResponse<Document>> create(
             @Valid @RequestBody DocumentRequest request,
             Authentication auth) {
         Document doc = documentService.creerDocument(request, auth.getName());
+        auditService.logAction("CREATE", "Document", doc.getId(), "Création document " + doc.getNumero() + " (" + doc.getType() + ")");
         return new ResponseEntity<>(ApiResponse.success("Document créé: " + doc.getNumero(), doc), HttpStatus.CREATED);
     }
 
@@ -85,18 +100,39 @@ public class DocumentController {
      * PUT /documents/{id}/validate — Valider un brouillon
      */
     @PutMapping("/{id}/validate")
-    @PreAuthorize("hasAnyRole('ADMIN','GERANT')")
+    @PreAuthorize("hasAuthority('CONVERTIR_VENTE')")
     public ResponseEntity<ApiResponse<Document>> validate(@PathVariable Long id) {
-        return ResponseEntity.ok(ApiResponse.success("Document validé", documentService.validerDocument(id)));
+        Document doc = documentService.validerDocument(id);
+        auditService.logAction("VALIDATE", "Document", id, "Validation document " + doc.getNumero());
+        return ResponseEntity.ok(ApiResponse.success("Document validé", doc));
     }
 
     /**
      * PUT /documents/{id}/cancel — Annuler un document
      */
     @PutMapping("/{id}/cancel")
-    @PreAuthorize("hasAnyRole('ADMIN','GERANT')")
+    @PreAuthorize("hasAuthority('ANNULER_VENTE')")
     public ResponseEntity<ApiResponse<Document>> cancel(@PathVariable Long id) {
-        return ResponseEntity.ok(ApiResponse.success("Document annulé", documentService.annulerDocument(id)));
+        Document doc = documentService.annulerDocument(id);
+        auditService.logAction("CANCEL", "Document", id, "Annulation document " + doc.getNumero());
+        return ResponseEntity.ok(ApiResponse.success("Document annulé", doc));
+    }
+
+    // =================== CONVERSION ===================
+
+    /**
+     * POST /documents/{id}/convert?targetType=FACTURE — Convertir un document validé
+     * Cycle: DEVIS → BON_LIVRAISON → FACTURE → AVOIR
+     */
+    @PostMapping("/{id}/convert")
+    @PreAuthorize("hasAuthority('CONVERTIR_VENTE')")
+    public ResponseEntity<ApiResponse<Document>> convert(
+            @PathVariable Long id,
+            @RequestParam TypeDocument targetType,
+            Authentication auth) {
+        Document doc = documentService.convertirDocument(id, targetType, auth.getName());
+        return new ResponseEntity<>(
+                ApiResponse.success("Document converti: " + doc.getNumero(), doc), HttpStatus.CREATED);
     }
 
     // =================== PAIEMENTS ===================
@@ -105,11 +141,12 @@ public class DocumentController {
      * POST /documents/payments — Enregistrer un paiement
      */
     @PostMapping("/payments")
-    @PreAuthorize("hasAnyRole('ADMIN','GERANT','CAISSIER')")
+    @PreAuthorize("hasAuthority('PAIEMENT_CLIENT')")
     public ResponseEntity<ApiResponse<Paiement>> createPayment(
             @Valid @RequestBody PaiementRequest request,
             Authentication auth) {
         Paiement paiement = documentService.enregistrerPaiement(request, auth.getName());
+        auditService.logAction("CREATE", "Paiement", paiement.getId(), "Paiement de " + paiement.getMontant() + " FCFA sur document ID " + request.getDocumentId());
         return new ResponseEntity<>(ApiResponse.success("Paiement enregistré", paiement), HttpStatus.CREATED);
     }
 

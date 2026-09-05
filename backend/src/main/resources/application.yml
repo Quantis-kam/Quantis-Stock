@@ -12,12 +12,11 @@ spring:
 
   # JPA / Hibernate
   jpa:
-    open-in-view: false
+    open-in-view: true
     hibernate:
       ddl-auto: update
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
         jdbc:
           time_zone: UTC
@@ -29,6 +28,7 @@ spring:
     date-format: yyyy-MM-dd'T'HH:mm:ss.SSS'Z'
     time-zone: UTC
     serialization:
+      fail-on-empty-beans: false
       write-dates-as-timestamps: false
 
 # API versioning
@@ -58,3 +58,21 @@ app:
   pagination:
     default-page-size: 20
     max-page-size: 100
+
+# ============================================
+# Quantis AI — Assistant Intelligent
+# ============================================
+quantis:
+  ai:
+    enabled: true
+    provider: ${QUANTIS_AI_PROVIDER:ollama}
+    api-key: ${QUANTIS_AI_API_KEY:}
+    model: ${QUANTIS_AI_MODEL:gemini-2.0-flash}
+    ollama-host: ${QUANTIS_AI_OLLAMA_HOST:http://localhost:11434}
+    ollama-model: ${QUANTIS_AI_OLLAMA_MODEL:qwen3:8b}
+    temperature: 0.3
+    max-tokens: 4096
+    max-history-messages: 20
+    timeout-seconds: 60
+    confirm-destructive-actions: true
+    assistant-name: Quantis

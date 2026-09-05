@@ -30,10 +30,16 @@ public class CustomUserDetailsService implements UserDetailsService {
             throw new UsernameNotFoundException("Compte désactivé : " + email);
         }
 
+        java.util.List<SimpleGrantedAuthority> authorities = new java.util.ArrayList<>();
+        authorities.add(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
+        for (com.quantis.stock.model.enums.Permission perm : user.getPermissionsEffectives()) {
+            authorities.add(new SimpleGrantedAuthority(perm.name()));
+        }
+
         return new User(
                 user.getEmail(),
                 user.getMotDePasseHash(),
-                List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()))
+                authorities
         );
     }
 }

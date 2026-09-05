@@ -1,5 +1,6 @@
 package com.quantis.stock.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
@@ -18,6 +19,7 @@ import java.time.Instant;
 @AllArgsConstructor
 @Builder
 @EntityListeners(AuditingEntityListener.class)
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Depot {
 
     @Id
@@ -32,6 +34,11 @@ public class Depot {
 
     @Column(length = 20)
     private String telephone;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "entreprise_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private Entreprise entreprise;
 
     @Builder.Default
     @Column(name = "est_actif", nullable = false)

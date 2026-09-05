@@ -4,6 +4,7 @@ import com.quantis.stock.dto.*;
 import com.quantis.stock.model.CommandeFournisseur;
 import com.quantis.stock.model.enums.StatutCommande;
 import com.quantis.stock.service.AchatService;
+import com.quantis.stock.service.AuditService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -21,16 +22,18 @@ import org.springframework.web.bind.annotation.*;
 public class AchatController {
 
     private final AchatService achatService;
+    private final AuditService auditService;
 
     /**
      * POST /purchases — Créer une commande fournisseur
      */
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN','GERANT','MAGASINIER')")
+    @PreAuthorize("hasAuthority('CREER_ACHAT')")
     public ResponseEntity<ApiResponse<CommandeFournisseur>> create(
             @Valid @RequestBody CommandeRequest request,
             Authentication auth) {
         CommandeFournisseur cmd = achatService.creerCommande(request, auth.getName());
+        auditService.logAction("CREATE", "CommandeFournisseur", cmd.getId(), "Création commande " + cmd.getNumero());
         return new ResponseEntity<>(ApiResponse.success("Commande créée: " + cmd.getNumero(), cmd), HttpStatus.CREATED);
     }
 
@@ -84,18 +87,22 @@ public class AchatController {
      * PUT /purchases/{id}/validate — Valider une commande brouillon
      */
     @PutMapping("/{id}/validate")
-    @PreAuthorize("hasAnyRole('ADMIN','GERANT')")
+    @PreAuthorize("hasAuthority('CREER_ACHAT')")
     public ResponseEntity<ApiResponse<CommandeFournisseur>> validate(@PathVariable Long id) {
-        return ResponseEntity.ok(ApiResponse.success("Commande validée", achatService.validerCommande(id)));
+        CommandeFournisseur cmd = achatService.validerCommande(id);
+        auditService.logAction("VALIDATE", "CommandeFournisseur", id, "Validation commande " + cmd.getNumero());
+        return ResponseEntity.ok(ApiResponse.success("Commande validée", cmd));
     }
 
     /**
      * PUT /purchases/{id}/cancel — Annuler une commande
      */
     @PutMapping("/{id}/cancel")
-    @PreAuthorize("hasAnyRole('ADMIN','GERANT')")
+    @PreAuthorize("hasAuthority('CREER_ACHAT')")
     public ResponseEntity<ApiResponse<CommandeFournisseur>> cancel(@PathVariable Long id) {
-        return ResponseEntity.ok(ApiResponse.success("Commande annulée", achatService.annulerCommande(id)));
+        CommandeFournisseur cmd = achatService.annulerCommande(id);
+        auditService.logAction("CANCEL", "CommandeFournisseur", id, "Annulation commande " + cmd.getNumero());
+        return ResponseEntity.ok(ApiResponse.success("Commande annulée", cmd));
     }
 
     /**
@@ -103,12 +110,13 @@ public class AchatController {
      * Crée automatiquement des entrées de stock.
      */
     @PostMapping("/{id}/receive")
-    @PreAuthorize("hasAnyRole('ADMIN','GERANT','MAGASINIER')")
+    @PreAuthorize("hasAuthority('RECEPTIONNER_ACHAT')")
     public ResponseEntity<ApiResponse<CommandeFournisseur>> receive(
             @PathVariable Long id,
             @Valid @RequestBody ReceptionRequest request,
             Authentication auth) {
         CommandeFournisseur cmd = achatService.receptionner(id, request, auth.getName());
+        auditService.logAction("RECEIVE", "CommandeFournisseur", id, "Réception commande " + cmd.getNumero());
         return ResponseEntity.ok(ApiResponse.success("Réception enregistrée", cmd));
     }
 

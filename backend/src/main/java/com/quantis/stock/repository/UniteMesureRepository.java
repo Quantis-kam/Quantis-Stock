@@ -8,4 +8,7 @@ import org.springframework.stereotype.Repository;
 public interface UniteMesureRepository extends JpaRepository<UniteMesure, Long> {
 
     boolean existsByAbreviation(String abreviation);
+
+    java.util.Optional<UniteMesure> findByNomIgnoreCase(String nom);
+    java.util.Optional<UniteMesure> findByAbreviationIgnoreCase(String abreviation);
 }

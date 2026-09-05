@@ -1,5 +1,6 @@
 package com.quantis.stock.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -17,6 +18,7 @@ import java.math.RoundingMode;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class LigneDocument {
 
     @Id
@@ -25,6 +27,7 @@ public class LigneDocument {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "document_id", nullable = false)
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private Document document;
 
     @ManyToOne(fetch = FetchType.LAZY)

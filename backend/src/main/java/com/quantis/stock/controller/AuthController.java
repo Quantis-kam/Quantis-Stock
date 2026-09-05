@@ -37,7 +37,7 @@ public class AuthController {
      * POST /auth/register — Création d'un utilisateur (ADMIN)
      */
     @PostMapping("/register")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('CRUD_UTILISATEURS')")
     public ResponseEntity<ApiResponse<AuthResponse>> register(
             @Valid @RequestBody RegisterRequest request) {
         AuthResponse response = authService.register(request);
@@ -54,5 +54,18 @@ public class AuthController {
             @Valid @RequestBody RefreshTokenRequest request) {
         AuthResponse response = authService.refreshToken(request);
         return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    /**
+     * POST /auth/logout — Déconnexion de l'utilisateur
+     */
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<Void>> logout(
+            org.springframework.security.core.Authentication auth,
+            HttpServletRequest httpRequest) {
+        if (auth != null) {
+            authService.logout(auth.getName(), httpRequest.getRemoteAddr());
+        }
+        return ResponseEntity.ok(ApiResponse.success("Déconnexion réussie", null));
     }
 }

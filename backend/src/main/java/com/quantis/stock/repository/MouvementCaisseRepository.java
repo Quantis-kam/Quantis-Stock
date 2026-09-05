@@ -26,4 +26,17 @@ public interface MouvementCaisseRepository extends JpaRepository<MouvementCaisse
     BigDecimal sumByTypeAndPeriode(@Param("type") TypeCaisse type,
                                    @Param("debut") LocalDate debut,
                                    @Param("fin") LocalDate fin);
+
+    @Query("SELECT COALESCE(SUM(m.montant), 0) FROM MouvementCaisse m WHERE m.type = :type")
+    BigDecimal sumByType(@Param("type") TypeCaisse type);
+
+    java.util.List<MouvementCaisse> findByDateMouvementBetweenOrderByDateMouvementAsc(LocalDate debut, LocalDate fin);
+
+    @Query("SELECT COALESCE(SUM(m.montant), 0) FROM MouvementCaisse m " +
+           "WHERE m.entreprise.id = :entrepriseId AND m.type = com.quantis.stock.model.enums.TypeCaisse.ENTREE")
+    BigDecimal sumEntreesByEntrepriseId(@Param("entrepriseId") Long entrepriseId);
+
+    @Query("SELECT COALESCE(SUM(m.montant), 0) FROM MouvementCaisse m " +
+           "WHERE m.entreprise.id = :entrepriseId AND m.type = com.quantis.stock.model.enums.TypeCaisse.SORTIE")
+    BigDecimal sumSortiesByEntrepriseId(@Param("entrepriseId") Long entrepriseId);
 }

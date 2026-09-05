@@ -5,6 +5,7 @@ class DocumentModel {
   final String numero;
   final String statut;
   final String? clientNom;
+  final String? clientTelephone;
   final int? clientId;
   final String? depotNom;
   final String? dateDocument;
@@ -22,6 +23,7 @@ class DocumentModel {
     this.numero = '',
     this.statut = 'BROUILLON',
     this.clientNom,
+    this.clientTelephone,
     this.clientId,
     this.depotNom,
     this.dateDocument,
@@ -41,6 +43,7 @@ class DocumentModel {
       numero: json['numero'] as String? ?? '',
       statut: json['statut'] as String? ?? 'BROUILLON',
       clientNom: (json['client'] as Map<String, dynamic>?)?['nom'] as String?,
+      clientTelephone: (json['client'] as Map<String, dynamic>?)?['telephone'] as String?,
       clientId: (json['client'] as Map<String, dynamic>?)?['id'] as int?,
       depotNom: (json['depot'] as Map<String, dynamic>?)?['nom'] as String?,
       dateDocument: json['dateDocument'] as String?,
@@ -60,6 +63,7 @@ class DocumentModel {
 
   String get typeLabel => switch (type) {
         'DEVIS' => 'Devis',
+        'COMMANDE_CLIENT' => 'Bon de Commande',
         'BON_LIVRAISON' => 'Bon de livraison',
         'FACTURE' => 'Facture',
         'AVOIR' => 'Avoir',

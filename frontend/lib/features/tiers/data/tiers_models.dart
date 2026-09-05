@@ -116,4 +116,26 @@ class FournisseurModel {
       'actif': actif,
     };
   }
+
+  FournisseurModel copyWith({
+    int? id,
+    String? nom,
+    String? telephone,
+    String? email,
+    String? adresse,
+    double? soldeDette,
+    String? notes,
+    bool? actif,
+  }) {
+    return FournisseurModel(
+      id: id ?? this.id,
+      nom: nom ?? this.nom,
+      telephone: telephone ?? this.telephone,
+      email: email ?? this.email,
+      adresse: adresse ?? this.adresse,
+      soldeDette: soldeDette ?? this.soldeDette,
+      notes: notes ?? this.notes,
+      actif: actif ?? this.actif,
+    );
+  }
 }

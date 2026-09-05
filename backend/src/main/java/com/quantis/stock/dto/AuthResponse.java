@@ -27,5 +27,15 @@ public class AuthResponse {
         private String email;
         private String role;
         private String depot;
+        private Long entrepriseId;
+        private String entrepriseNom;
+        private String entrepriseMonnaie;
+        private String formatFacture;
+        private String logoUrl;
+        private Boolean isSuperAdmin;
+        private java.util.List<String> permissions;
+        private String dateExpirationLicence;
+        private String statutLicence;
+        private String codeUssdRenouvellement;
     }
 }

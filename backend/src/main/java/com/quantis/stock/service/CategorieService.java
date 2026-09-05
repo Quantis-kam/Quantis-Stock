@@ -5,6 +5,7 @@ import com.quantis.stock.exception.BusinessException;
 import com.quantis.stock.exception.ResourceNotFoundException;
 import com.quantis.stock.model.Categorie;
 import com.quantis.stock.repository.CategorieRepository;
+import com.quantis.stock.repository.ProduitRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -18,6 +19,7 @@ import java.util.List;
 public class CategorieService {
 
     private final CategorieRepository categorieRepository;
+    private final ProduitRepository produitRepository;
 
     public List<Categorie> findAll() {
         return categorieRepository.findAll();
@@ -76,6 +78,9 @@ public class CategorieService {
         Categorie categorie = findById(id);
         if (!categorie.getSousCategories().isEmpty()) {
             throw new BusinessException("Impossible de supprimer une catégorie avec des sous-catégories");
+        }
+        if (produitRepository.existsByCategorieId(id)) {
+            throw new BusinessException("Impossible de supprimer une catégorie associée à des produits");
         }
         categorieRepository.delete(categorie);
         log.info("Catégorie supprimée: {}", categorie.getNom());

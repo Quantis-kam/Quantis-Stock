@@ -1,14 +1,16 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 /// File d'attente locale pour les actions hors-ligne.
-/// Stocke les actions en JSON sur le disque, survit aux redémarrages.
+/// Stocke les actions en JSON sur le disque (Desktop/Mobile) ou en mémoire (Web).
 class SyncQueue {
   static const _fileName = 'sync_queue.json';
-  static final _uuid = Uuid();
+  static final _uuid = const Uuid();
+  static final List<Map<String, dynamic>> _webMemoryQueue = [];
 
   /// Ajouter une action à la file.
   static Future<void> enqueue({
@@ -34,12 +36,19 @@ class SyncQueue {
 
   /// Récupérer toutes les actions.
   static Future<List<Map<String, dynamic>>> getAll() async {
-    final file = await _getFile();
-    if (!await file.exists()) return [];
-    final content = await file.readAsString();
-    if (content.isEmpty) return [];
-    final list = jsonDecode(content) as List;
-    return list.cast<Map<String, dynamic>>();
+    if (kIsWeb) {
+      return List<Map<String, dynamic>>.from(_webMemoryQueue);
+    }
+    try {
+      final file = await _getFile();
+      if (file == null || !await file.exists()) return [];
+      final content = await file.readAsString();
+      if (content.isEmpty) return [];
+      final list = jsonDecode(content) as List;
+      return list.cast<Map<String, dynamic>>();
+    } catch (_) {
+      return [];
+    }
   }
 
   /// Marquer des actions comme synchronisées et les retirer.
@@ -59,13 +68,27 @@ class SyncQueue {
     await _save([]);
   }
 
-  static Future<File> _getFile() async {
-    final dir = await getApplicationDocumentsDirectory();
-    return File('${dir.path}/$_fileName');
+  static Future<File?> _getFile() async {
+    if (kIsWeb) return null;
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      return File('${dir.path}/$_fileName');
+    } catch (_) {
+      return null;
+    }
   }
 
   static Future<void> _save(List<Map<String, dynamic>> actions) async {
-    final file = await _getFile();
-    await file.writeAsString(jsonEncode(actions));
+    if (kIsWeb) {
+      _webMemoryQueue.clear();
+      _webMemoryQueue.addAll(actions);
+      return;
+    }
+    try {
+      final file = await _getFile();
+      if (file != null) {
+        await file.writeAsString(jsonEncode(actions));
+      }
+    } catch (_) {}
   }
 }

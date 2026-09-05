@@ -30,6 +30,23 @@ public class GlobalExceptionHandler {
         return buildErrorResponse(HttpStatus.NOT_FOUND, ex.getMessage(), request);
     }
 
+    @ExceptionHandler(LicenceExpireeException.class)
+    public ResponseEntity<Map<String, Object>> handleLicenceExpiree(
+            LicenceExpireeException ex, HttpServletRequest request) {
+        log.warn("Tentative de connexion avec licence expirée: {}", ex.getMessage());
+        Map<String, Object> body = new HashMap<>();
+        body.put("status", HttpStatus.PAYMENT_REQUIRED.value());
+        body.put("error", "LICENCE_EXPIREE");
+        body.put("message", ex.getMessage());
+        body.put("entrepriseNom", ex.getEntrepriseNom());
+        body.put("dateExpiration", ex.getDateExpiration() != null ? ex.getDateExpiration().toString() : null);
+        body.put("codeUssd", ex.getCodeUssd());
+        body.put("montant", ex.getMontant());
+        body.put("path", request.getRequestURI());
+        body.put("timestamp", Instant.now());
+        return new ResponseEntity<>(body, HttpStatus.PAYMENT_REQUIRED);
+    }
+
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ErrorResponse> handleBusinessException(
             BusinessException ex, HttpServletRequest request) {

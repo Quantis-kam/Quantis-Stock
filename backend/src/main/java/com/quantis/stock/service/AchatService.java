@@ -36,6 +36,7 @@ public class AchatService {
     private final VarianteProduitRepository varianteProduitRepository;
     private final UtilisateurRepository utilisateurRepository;
     private final StockService stockService;
+    private final AuditService auditService;
 
     // =================== COMMANDES ===================
 
@@ -86,6 +87,7 @@ public class AchatService {
         commande.recalculerTotal();
         commande = commandeRepository.save(commande);
         log.info("Commande créée: {} — {} FCFA", numero, commande.getTotalHt());
+        auditService.logAction("CREATE", "Achat", commande.getId(), "Création commande fournisseur " + commande.getNumero());
         return commande;
     }
 
@@ -97,7 +99,9 @@ public class AchatService {
         }
         commande.setStatut(StatutCommande.EN_COURS);
         log.info("Commande validée: {}", commande.getNumero());
-        return commandeRepository.save(commande);
+        CommandeFournisseur saved = commandeRepository.save(commande);
+        auditService.logAction("VALIDATE", "Achat", saved.getId(), "Validation commande fournisseur " + saved.getNumero());
+        return saved;
     }
 
     @Transactional
@@ -108,7 +112,9 @@ public class AchatService {
         }
         commande.setStatut(StatutCommande.ANNULEE);
         log.info("Commande annulée: {}", commande.getNumero());
-        return commandeRepository.save(commande);
+        CommandeFournisseur saved = commandeRepository.save(commande);
+        auditService.logAction("CANCEL", "Achat", saved.getId(), "Annulation commande fournisseur " + saved.getNumero());
+        return saved;
     }
 
     // =================== RÉCEPTION ===================
@@ -125,6 +131,8 @@ public class AchatService {
             throw new BusinessException("Seule une commande EN_COURS ou RECUE_PARTIELLE peut être réceptionnée");
         }
 
+        BigDecimal totalReceptionVal = BigDecimal.ZERO;
+
         for (ReceptionRequest.LigneReception lr : request.getLignes()) {
             LigneCommandeFournisseur ligne = commande.getLignes().stream()
                     .filter(l -> l.getId().equals(lr.getLigneCommandeId()))
@@ -139,6 +147,9 @@ public class AchatService {
             }
 
             ligne.setQuantiteRecue(nouvelleQteRecue);
+
+            BigDecimal ligneVal = ligne.getPrixUnitaire().multiply(lr.getQuantiteRecue());
+            totalReceptionVal = totalReceptionVal.add(ligneVal);
 
             // Créer automatiquement un mouvement ENTREE de stock
             MouvementRequest mvtRequest = new MouvementRequest();
@@ -156,6 +167,13 @@ public class AchatService {
             stockService.enregistrerMouvement(mvtRequest, userEmail);
         }
 
+        // Mettre à jour le solde du fournisseur
+        Fournisseur fournisseur = commande.getFournisseur();
+        if (fournisseur != null) {
+            fournisseur.setSoldeDette(fournisseur.getSoldeDette().add(totalReceptionVal));
+            fournisseurRepository.save(fournisseur);
+        }
+
         // Mettre à jour le statut
         if (commande.isEntierementRecue()) {
             commande.setStatut(StatutCommande.RECUE);
@@ -165,7 +183,9 @@ public class AchatService {
             log.info("Commande partiellement reçue: {}", commande.getNumero());
         }
 
-        return commandeRepository.save(commande);
+        CommandeFournisseur saved = commandeRepository.save(commande);
+        auditService.logAction("RECEIVE", "Achat", saved.getId(), "Réception commande fournisseur " + saved.getNumero() + " (" + saved.getStatut() + ")");
+        return saved;
     }
 
     // =================== LECTURE ===================
