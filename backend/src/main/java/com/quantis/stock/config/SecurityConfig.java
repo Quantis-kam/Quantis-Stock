@@ -51,7 +51,7 @@ public class SecurityConfig {
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 // Endpoints publics
-                .requestMatchers("/auth/login", "/auth/refresh").permitAll()
+                .requestMatchers("/auth/login", "/auth/refresh", "/auth/health").permitAll()
                 .requestMatchers("/health").permitAll()
                 .requestMatchers("/actuator/health").permitAll()
                 // OPTIONS (CORS preflight)

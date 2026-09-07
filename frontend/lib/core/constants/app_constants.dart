@@ -10,8 +10,15 @@ class ApiConstants {
       final host = Uri.base.host.isNotEmpty ? Uri.base.host : 'localhost';
       return 'http://$host:8080/api/v1';
     }
-    return 'http://localhost:8080/api/v1';
+    return 'http://192.168.11.108:8080/api/v1';
   }
+
+  /// Adresses IP suggérées pour la connexion réseau local
+  static const List<String> serverPresets = [
+    'http://192.168.11.108:8080/api/v1', // Serveur Wi-Fi principal
+    'http://10.0.2.2:8080/api/v1',        // Émulateur Android
+    'http://localhost:8080/api/v1',       // Local
+  ];
 
   static String baseUrl = defaultBaseUrl;
 

@@ -83,10 +83,13 @@ class ApiClient {
         _userPermissions = permsString.split(',');
       }
       final savedUrl = await _readStorage('custom_server_url');
-      if (savedUrl != null && savedUrl.trim().isNotEmpty && !savedUrl.contains('192.168.11.119')) {
+      final isInvalidMobileUrl = !kIsWeb && (savedUrl?.contains('localhost') == true ||
+                                            savedUrl?.contains('127.0.0.1') == true ||
+                                            savedUrl?.contains('192.168.11.119') == true);
+      if (savedUrl != null && savedUrl.trim().isNotEmpty && !isInvalidMobileUrl) {
         ApiConstants.baseUrl = savedUrl.trim();
       } else {
-        if (savedUrl != null && savedUrl.contains('192.168.11.119')) {
+        if (isInvalidMobileUrl) {
           await _deleteStorage('custom_server_url');
         }
         ApiConstants.baseUrl = ApiConstants.defaultBaseUrl;
