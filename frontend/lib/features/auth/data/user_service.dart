@@ -121,11 +121,15 @@ class UserService {
 
   // =================== AUDIT LOGS ===================
 
-  Future<List<AuditLogModel>> getAuditLogs({int page = 0, int size = 50}) async {
-    final response = await _dio.get('/audit-logs', queryParameters: {
+  Future<List<AuditLogModel>> getAuditLogs({int page = 0, int size = 50, int? entrepriseId}) async {
+    final Map<String, dynamic> params = {
       'page': page,
       'size': size,
-    });
+    };
+    if (entrepriseId != null) {
+      params['entrepriseId'] = entrepriseId;
+    }
+    final response = await _dio.get('/audit-logs', queryParameters: params);
     final data = response.data['data']['content'] as List;
     return data.map((e) => AuditLogModel.fromJson(e)).toList();
   }

@@ -46,67 +46,96 @@ class DashboardScreen extends StatelessWidget {
                   value: '—',
                   icon: Icons.inventory_2,
                   color: QuantisColors.royalBlue,
-                  width: isWide ? 200 : null,
+                  width: isWide ? 200 : (MediaQuery.of(context).size.width - 44) / 2,
                 ),
                 _KpiCard(
                   title: 'Clients',
                   value: '—',
                   icon: Icons.people,
                   color: QuantisColors.info,
-                  width: isWide ? 200 : null,
+                  width: isWide ? 200 : (MediaQuery.of(context).size.width - 44) / 2,
                 ),
                 _KpiCard(
                   title: 'Alertes stock',
                   value: '—',
                   icon: Icons.warning_amber,
                   color: QuantisColors.warning,
-                  width: isWide ? 200 : null,
+                  width: isWide ? 200 : (MediaQuery.of(context).size.width - 44) / 2,
                 ),
                 _KpiCard(
                   title: 'Ruptures',
                   value: '—',
                   icon: Icons.error_outline,
                   color: QuantisColors.error,
-                  width: isWide ? 200 : null,
+                  width: isWide ? 200 : (MediaQuery.of(context).size.width - 44) / 2,
                 ),
               ],
             ),
             const SizedBox(height: 20),
 
             // CA du mois
-            Row(
-              children: [
-                Expanded(
-                  child: _BigKpiCard(
+            if (isWide)
+              Row(
+                children: [
+                  Expanded(
+                    child: _BigKpiCard(
+                      title: 'CA du mois',
+                      value: '— FCFA',
+                      subtitle: 'Entrées de caisse',
+                      icon: Icons.trending_up,
+                      color: QuantisColors.success,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _BigKpiCard(
+                      title: 'Dépenses',
+                      value: '— FCFA',
+                      subtitle: 'Sorties de caisse',
+                      icon: Icons.trending_down,
+                      color: QuantisColors.error,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _BigKpiCard(
+                      title: 'Marge',
+                      value: '— FCFA',
+                      subtitle: 'CA − Dépenses',
+                      icon: Icons.account_balance_wallet,
+                      color: QuantisColors.luxuryGold,
+                    ),
+                  ),
+                ],
+              )
+            else
+              Column(
+                children: [
+                  _BigKpiCard(
                     title: 'CA du mois',
                     value: '— FCFA',
                     subtitle: 'Entrées de caisse',
                     icon: Icons.trending_up,
                     color: QuantisColors.success,
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _BigKpiCard(
+                  const SizedBox(height: 12),
+                  _BigKpiCard(
                     title: 'Dépenses',
                     value: '— FCFA',
                     subtitle: 'Sorties de caisse',
                     icon: Icons.trending_down,
                     color: QuantisColors.error,
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _BigKpiCard(
+                  const SizedBox(height: 12),
+                  _BigKpiCard(
                     title: 'Marge',
                     value: '— FCFA',
                     subtitle: 'CA − Dépenses',
                     icon: Icons.account_balance_wallet,
                     color: QuantisColors.luxuryGold,
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
             const SizedBox(height: 24),
 
             // Graphique

@@ -162,8 +162,11 @@ class _QuantisChatViewState extends ConsumerState<QuantisChatView> {
   }
 
   Widget _buildHeader(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isCompact = screenWidth < 420;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: EdgeInsets.symmetric(horizontal: isCompact ? 12 : 16, vertical: 10),
       decoration: const BoxDecoration(
         color: QuantisColors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -197,21 +200,26 @@ class _QuantisChatViewState extends ConsumerState<QuantisChatView> {
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
                 Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text(
-                      'Quantis AI',
-                      style: TextStyle(
-                        fontFamily: 'SpaceGrotesk',
-                        fontWeight: FontWeight.w700,
-                        fontSize: 16,
-                        color: QuantisColors.royalBlue,
+                    const Flexible(
+                      child: Text(
+                        'Quantis AI',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: 'SpaceGrotesk',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                          color: QuantisColors.royalBlue,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 6),
@@ -225,16 +233,19 @@ class _QuantisChatViewState extends ConsumerState<QuantisChatView> {
                     ),
                   ],
                 ),
-                const Text(
-                  'Assistant Vocal & Stock connecté',
-                  style: TextStyle(
-                    fontSize: 12,
+                Text(
+                  isCompact ? 'Assistant Stock & IA' : 'Assistant Vocal & Stock connecté',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11,
                     color: QuantisColors.textSecondary,
                   ),
                 ),
               ],
             ),
           ),
+          const SizedBox(width: 6),
           // Bouton Mode Vocal Jarvis
           Tooltip(
             message: 'Ouvrir le Mode Vocal Jarvis',
@@ -242,7 +253,7 @@ class _QuantisChatViewState extends ConsumerState<QuantisChatView> {
               onTap: () => JarvisVoiceModal.show(context),
               borderRadius: BorderRadius.circular(12),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: EdgeInsets.symmetric(horizontal: isCompact ? 8 : 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: const Color(0xFF00E5FF).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
@@ -250,18 +261,18 @@ class _QuantisChatViewState extends ConsumerState<QuantisChatView> {
                     color: const Color(0xFF00E5FF).withValues(alpha: 0.5),
                   ),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.graphic_eq_rounded,
                       color: Color(0xFF00B4D8),
                       size: 18,
                     ),
-                    SizedBox(width: 4),
+                    const SizedBox(width: 4),
                     Text(
-                      'Vocal Jarvis',
-                      style: TextStyle(
+                      isCompact ? 'Jarvis' : 'Vocal Jarvis',
+                      style: const TextStyle(
                         color: Color(0xFF0077B6),
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
@@ -272,7 +283,7 @@ class _QuantisChatViewState extends ConsumerState<QuantisChatView> {
               ),
             ),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 4),
           IconButton(
             icon: const Icon(Icons.refresh_rounded, color: QuantisColors.textSecondary),
             tooltip: 'Nouvelle conversation',

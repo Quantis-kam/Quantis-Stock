@@ -44,6 +44,18 @@ public interface StockCourantRepository extends JpaRepository<StockCourant, Long
     @Query("SELECT s FROM StockCourant s WHERE s.depot.id = :depotId AND s.quantite <= s.produit.seuilAlerte AND s.produit.actif = true")
     List<StockCourant> findAlertesBassesByDepot(@Param("depotId") Long depotId);
 
+    @EntityGraph(attributePaths = {"produit", "variante", "depot"})
+    @Query("SELECT s FROM StockCourant s WHERE s.depot.entreprise.id = :entrepriseId")
+    List<StockCourant> findByEntrepriseId(@Param("entrepriseId") Long entrepriseId);
+
+    @EntityGraph(attributePaths = {"produit", "variante", "depot"})
+    @Query("SELECT s FROM StockCourant s WHERE s.depot.entreprise.id = :entrepriseId AND s.quantite <= s.produit.seuilAlerte AND s.produit.actif = true")
+    List<StockCourant> findAlertesBassesByEntrepriseId(@Param("entrepriseId") Long entrepriseId);
+
+    @EntityGraph(attributePaths = {"produit", "variante", "depot"})
+    @Query("SELECT s FROM StockCourant s WHERE s.depot.entreprise.id = :entrepriseId AND s.quantite <= 0 AND s.produit.actif = true")
+    List<StockCourant> findRupturesByEntrepriseId(@Param("entrepriseId") Long entrepriseId);
+
     @Query("SELECT COALESCE(SUM(s.quantite), 0) FROM StockCourant s WHERE s.produit.id = :produitId")
     java.math.BigDecimal getQuantiteTotaleParProduit(@Param("produitId") Long produitId);
 }

@@ -1,9 +1,19 @@
+import 'package:flutter/foundation.dart';
+
 /// Constantes de l'API backend.
 class ApiConstants {
   ApiConstants._();
 
-  /// URL de base de l'API (dev)
-  static const String baseUrl = 'http://localhost:8080/api/v1';
+  /// URL de base de l'API (s'adapte dynamiquement au host courant sur le Web)
+  static String get defaultBaseUrl {
+    if (kIsWeb) {
+      final host = Uri.base.host.isNotEmpty ? Uri.base.host : 'localhost';
+      return 'http://$host:8080/api/v1';
+    }
+    return 'http://localhost:8080/api/v1';
+  }
+
+  static String baseUrl = defaultBaseUrl;
 
   /// Timeout en secondes
   static const int connectTimeout = 15;

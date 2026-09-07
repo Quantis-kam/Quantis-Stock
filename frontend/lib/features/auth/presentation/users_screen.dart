@@ -127,27 +127,39 @@ class _UsersScreenState extends State<UsersScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isMobile = MediaQuery.of(context).size.width < 650;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Gestion des Utilisateurs', style: TextStyle(fontFamily: 'SpaceGrotesk', fontWeight: FontWeight.bold)),
+        title: Text(
+          isMobile ? 'Utilisateurs' : 'Gestion des Utilisateurs',
+          style: const TextStyle(fontFamily: 'SpaceGrotesk', fontWeight: FontWeight.bold),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadData,
+            tooltip: 'Actualiser',
           ),
           if (PermissionHelper.hasPermission('CRUD_UTILISATEURS'))
-            Padding(
-              padding: const EdgeInsets.only(right: 16.0, left: 8.0),
-              child: ElevatedButton.icon(
-                onPressed: () => _showUserForm(),
-                icon: const Icon(Icons.add, color: Colors.white),
-                label: const Text('Nouvel Utilisateur'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: QuantisColors.royalBlue,
-                  foregroundColor: Colors.white,
-                ),
-              ),
-            ),
+            isMobile
+                ? IconButton(
+                    icon: const Icon(Icons.person_add_alt_1, color: QuantisColors.royalBlue),
+                    tooltip: 'Nouvel Utilisateur',
+                    onPressed: () => _showUserForm(),
+                  )
+                : Padding(
+                    padding: const EdgeInsets.only(right: 16.0, left: 8.0),
+                    child: ElevatedButton.icon(
+                      onPressed: () => _showUserForm(),
+                      icon: const Icon(Icons.add, color: Colors.white),
+                      label: const Text('Nouvel Utilisateur'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: QuantisColors.royalBlue,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ),
         ],
       ),
       body: _loading && _users.isEmpty
@@ -166,7 +178,7 @@ class _UsersScreenState extends State<UsersScreen> {
               : _users.isEmpty
                   ? const Center(child: Text('Aucun utilisateur enregistré.'))
                   : Padding(
-                      padding: const EdgeInsets.all(24.0),
+                      padding: EdgeInsets.all(isMobile ? 10.0 : 24.0),
                       child: Card(
                         elevation: 0,
                         shape: RoundedRectangleBorder(
@@ -178,95 +190,156 @@ class _UsersScreenState extends State<UsersScreen> {
                           separatorBuilder: (context, index) => const Divider(height: 1, color: QuantisColors.border),
                           itemBuilder: (context, index) {
                             final user = _users[index];
+                            final roleBadge = Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: _getRoleColor(user.role).withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                user.role,
+                                style: TextStyle(
+                                  color: _getRoleColor(user.role),
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            );
+
+                            final actifBadge = Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: user.actif
+                                    ? QuantisColors.success.withValues(alpha: 0.15)
+                                    : QuantisColors.error.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                user.actif ? 'Actif' : 'Inactif',
+                                style: TextStyle(
+                                  color: user.actif ? QuantisColors.success : QuantisColors.error,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            );
+
                             return ListTile(
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                              contentPadding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 24, vertical: 6),
                               leading: CircleAvatar(
                                 backgroundColor: _getRoleColor(user.role).withValues(alpha: 0.1),
                                 foregroundColor: _getRoleColor(user.role),
                                 child: Text(user.prenom.isNotEmpty ? user.prenom[0].toUpperCase() : 'U'),
                               ),
-                              title: Row(
+                              title: Wrap(
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 6,
+                                runSpacing: 4,
                                 children: [
                                   Text(
                                     '${user.prenom} ${user.nom}',
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                                   ),
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: _getRoleColor(user.role).withValues(alpha: 0.15),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Text(
-                                      user.role,
-                                      style: TextStyle(
-                                        color: _getRoleColor(user.role),
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: user.actif
-                                          ? QuantisColors.success.withValues(alpha: 0.15)
-                                          : QuantisColors.error.withValues(alpha: 0.15),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Text(
-                                      user.actif ? 'Actif' : 'Inactif',
-                                      style: TextStyle(
-                                        color: user.actif ? QuantisColors.success : QuantisColors.error,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
+                                  roleBadge,
+                                  actifBadge,
                                 ],
                               ),
                               subtitle: Padding(
                                 padding: const EdgeInsets.only(top: 4.0),
                                 child: Text(
                                   'Email : ${user.email}  |  Dépôt : ${user.depotName ?? "Tous les dépôts"}',
-                                  style: TextStyle(color: QuantisColors.textMuted, fontSize: 13),
+                                  style: const TextStyle(color: QuantisColors.textMuted, fontSize: 12),
                                 ),
                               ),
                               trailing: PermissionHelper.hasPermission('CRUD_UTILISATEURS')
-                                  ? Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        IconButton(
-                                          icon: const Icon(Icons.security, color: QuantisColors.luxuryGold),
-                                          onPressed: () {
-                                            showDialog(
-                                              context: context,
-                                              builder: (ctx) => UserPermissionsDialog(
-                                                userId: user.id,
-                                                userName: '${user.prenom} ${user.nom}',
-                                                userRole: user.role,
-                                              ),
-                                            );
+                                  ? (isMobile
+                                      ? PopupMenuButton<String>(
+                                          icon: const Icon(Icons.more_vert),
+                                          onSelected: (action) {
+                                            if (action == 'permissions') {
+                                              showDialog(
+                                                context: context,
+                                                builder: (ctx) => UserPermissionsDialog(
+                                                  userId: user.id,
+                                                  userName: '${user.prenom} ${user.nom}',
+                                                  userRole: user.role,
+                                                ),
+                                              );
+                                            } else if (action == 'edit') {
+                                              _showUserForm(user);
+                                            } else if (action == 'toggle') {
+                                              _toggleUserStatus(user);
+                                            }
                                           },
-                                          tooltip: 'Gérer les droits',
-                                        ),
-                                        IconButton(
-                                          icon: const Icon(Icons.edit_outlined, color: Colors.blue),
-                                          onPressed: () => _showUserForm(user),
-                                          tooltip: 'Modifier',
-                                        ),
-                                        IconButton(
-                                          icon: Icon(
-                                            user.actif ? Icons.block_outlined : Icons.check_circle_outline,
-                                            color: user.actif ? Colors.red : Colors.green,
-                                          ),
-                                          onPressed: () => _toggleUserStatus(user),
-                                          tooltip: user.actif ? 'Désactiver' : 'Activer',
-                                        ),
-                                      ],
-                                    )
+                                          itemBuilder: (ctx) => [
+                                            const PopupMenuItem(
+                                              value: 'permissions',
+                                              child: Row(
+                                                children: [
+                                                  Icon(Icons.security, size: 18, color: QuantisColors.luxuryGold),
+                                                  SizedBox(width: 8),
+                                                  Text('Gérer les droits'),
+                                                ],
+                                              ),
+                                            ),
+                                            const PopupMenuItem(
+                                              value: 'edit',
+                                              child: Row(
+                                                children: [
+                                                  Icon(Icons.edit_outlined, size: 18, color: Colors.blue),
+                                                  SizedBox(width: 8),
+                                                  Text('Modifier'),
+                                                ],
+                                              ),
+                                            ),
+                                            PopupMenuItem(
+                                              value: 'toggle',
+                                              child: Row(
+                                                children: [
+                                                  Icon(
+                                                    user.actif ? Icons.block_outlined : Icons.check_circle_outline,
+                                                    size: 18,
+                                                    color: user.actif ? Colors.red : Colors.green,
+                                                  ),
+                                                  SizedBox(width: 8),
+                                                  Text(user.actif ? 'Désactiver' : 'Activer'),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        )
+                                      : Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            IconButton(
+                                              icon: const Icon(Icons.security, color: QuantisColors.luxuryGold),
+                                              onPressed: () {
+                                                showDialog(
+                                                  context: context,
+                                                  builder: (ctx) => UserPermissionsDialog(
+                                                    userId: user.id,
+                                                    userName: '${user.prenom} ${user.nom}',
+                                                    userRole: user.role,
+                                                  ),
+                                                );
+                                              },
+                                              tooltip: 'Gérer les droits',
+                                            ),
+                                            IconButton(
+                                              icon: const Icon(Icons.edit_outlined, color: Colors.blue),
+                                              onPressed: () => _showUserForm(user),
+                                              tooltip: 'Modifier',
+                                            ),
+                                            IconButton(
+                                              icon: Icon(
+                                                user.actif ? Icons.block_outlined : Icons.check_circle_outline,
+                                                color: user.actif ? Colors.red : Colors.green,
+                                              ),
+                                              onPressed: () => _toggleUserStatus(user),
+                                              tooltip: user.actif ? 'Désactiver' : 'Activer',
+                                            ),
+                                          ],
+                                        ))
                                   : null,
                             );
                           },

@@ -38,14 +38,30 @@ public interface MouvementStockRepository extends JpaRepository<MouvementStock, 
     Page<MouvementStock> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
     @EntityGraph(attributePaths = {"produit", "variante", "depotSource", "depotDest", "utilisateur"})
-    @org.springframework.data.jpa.repository.Query("SELECT m FROM MouvementStock m WHERE " +
-           "(:depotId IS NULL OR m.depotSource.id = :depotId OR m.depotDest.id = :depotId) AND " +
+    @org.springframework.data.jpa.repository.Query("SELECT m FROM MouvementStock m " +
+           "LEFT JOIN m.depotSource ds " +
+           "LEFT JOIN m.depotDest dd " +
+           "LEFT JOIN m.produit p " +
+           "WHERE (ds.entreprise.id = :entrepriseId OR dd.entreprise.id = :entrepriseId OR (ds IS NULL AND dd IS NULL AND p.entreprise.id = :entrepriseId)) " +
+           "ORDER BY m.createdAt DESC")
+    Page<MouvementStock> findByEntrepriseIdOrderByCreatedAtDesc(
+            @org.springframework.data.repository.query.Param("entrepriseId") Long entrepriseId,
+            Pageable pageable);
+
+    @EntityGraph(attributePaths = {"produit", "variante", "depotSource", "depotDest", "utilisateur"})
+    @org.springframework.data.jpa.repository.Query("SELECT m FROM MouvementStock m " +
+           "LEFT JOIN m.depotSource ds " +
+           "LEFT JOIN m.depotDest dd " +
+           "LEFT JOIN m.produit p " +
+           "WHERE (:entrepriseId IS NULL OR ds.entreprise.id = :entrepriseId OR dd.entreprise.id = :entrepriseId OR (ds IS NULL AND dd IS NULL AND p.entreprise.id = :entrepriseId)) AND " +
+           "(:depotId IS NULL OR ds.id = :depotId OR dd.id = :depotId) AND " +
            "(:type IS NULL OR m.type = :type) AND " +
-           "(:produitId IS NULL OR m.produit.id = :produitId) AND " +
+           "(:produitId IS NULL OR p.id = :produitId) AND " +
            "(cast(:start as timestamp) IS NULL OR m.createdAt >= :start) AND " +
            "(cast(:end as timestamp) IS NULL OR m.createdAt <= :end) " +
            "ORDER BY m.createdAt DESC")
     Page<MouvementStock> filterMouvements(
+            @org.springframework.data.repository.query.Param("entrepriseId") Long entrepriseId,
             @org.springframework.data.repository.query.Param("depotId") Long depotId,
             @org.springframework.data.repository.query.Param("type") TypeMouvement type,
             @org.springframework.data.repository.query.Param("produitId") Long produitId,

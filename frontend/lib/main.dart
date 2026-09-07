@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme/quantis_theme.dart';
 import 'core/network/api_client.dart';
+import 'core/utils/permission_helper.dart';
 import 'core/widgets/sync_indicator.dart';
 import 'core/widgets/command_palette_dialog.dart';
 import 'features/auth/presentation/login_screen.dart';
@@ -89,32 +90,64 @@ class _MainShellState extends State<MainShell> {
 
   List<_NavItem> get _desktopItems {
     return [
-      _NavItem(Icons.insights_outlined, Icons.insights, 'Tableau de bord', ActionDashboardScreen(onNavigate: (idx) => setState(() => _currentIndex = idx))),
-      _NavItem(Icons.auto_awesome_outlined, Icons.auto_awesome, 'Quantis AI', const QuantisAiScreen()),
-      _NavItem(Icons.point_of_sale_outlined, Icons.point_of_sale, 'Caisse POS', const PosScreen()),
-      _NavItem(Icons.receipt_long_outlined, Icons.receipt_long, 'Factures & Devis', const DocumentsScreen()),
-      _NavItem(Icons.category_outlined, Icons.category, 'Articles & Produits', const ProduitsScreen()),
-      _NavItem(Icons.people_alt_outlined, Icons.people, 'Clients', const ClientsScreen()),
-      _NavItem(Icons.inventory_2_outlined, Icons.inventory_2, 'Stock', const StockScreen()),
-      _NavItem(Icons.camera_alt_outlined, Icons.camera_alt, 'Arrêts Stock', const ArretStockScreen()),
-      _NavItem(Icons.shopping_cart_outlined, Icons.shopping_cart, 'Achats', const AchatsScreen()),
-      _NavItem(Icons.business_outlined, Icons.business, 'Fournisseurs', const FournisseursScreen()),
-      _NavItem(Icons.account_balance_wallet_outlined, Icons.account_balance_wallet, 'Caisse & Compta', const ComptabiliteScreen()),
-      _NavItem(Icons.table_view_outlined, Icons.table_view, 'Exports Compta', const ExportsScreen()),
-      _NavItem(Icons.storefront_outlined, Icons.storefront, 'Entreprise', const EntrepriseScreen()),
-      _NavItem(Icons.manage_accounts_outlined, Icons.manage_accounts, 'Utilisateurs', const UsersScreen()),
-      _NavItem(Icons.history_edu_outlined, Icons.history_edu, 'Logs Audit', const AuditLogsScreen()),
+      if (PermissionHelper.canViewDashboard)
+        _NavItem(Icons.insights_outlined, Icons.insights, 'Tableau de bord', ActionDashboardScreen(onNavigate: _onNavigateToModule)),
+      if (PermissionHelper.canAccessAi)
+        _NavItem(Icons.auto_awesome_outlined, Icons.auto_awesome, 'Quantis AI', const QuantisAiScreen()),
+      if (PermissionHelper.canAccessPos)
+        _NavItem(Icons.point_of_sale_outlined, Icons.point_of_sale, 'Caisse POS', const PosScreen()),
+      if (PermissionHelper.canAccessDocuments)
+        _NavItem(Icons.receipt_long_outlined, Icons.receipt_long, 'Factures & Devis', const DocumentsScreen()),
+      if (PermissionHelper.canAccessProduits)
+        _NavItem(Icons.category_outlined, Icons.category, 'Articles & Produits', const ProduitsScreen()),
+      if (PermissionHelper.canAccessClients)
+        _NavItem(Icons.people_alt_outlined, Icons.people, 'Clients', const ClientsScreen()),
+      if (PermissionHelper.canAccessStock)
+        _NavItem(Icons.inventory_2_outlined, Icons.inventory_2, 'Stock', const StockScreen()),
+      if (PermissionHelper.canAccessArretStock)
+        _NavItem(Icons.camera_alt_outlined, Icons.camera_alt, 'Arrêts Stock', const ArretStockScreen()),
+      if (PermissionHelper.canAccessAchats)
+        _NavItem(Icons.shopping_cart_outlined, Icons.shopping_cart, 'Achats', const AchatsScreen()),
+      if (PermissionHelper.canAccessFournisseurs)
+        _NavItem(Icons.business_outlined, Icons.business, 'Fournisseurs', const FournisseursScreen()),
+      if (PermissionHelper.canAccessComptabilite)
+        _NavItem(Icons.account_balance_wallet_outlined, Icons.account_balance_wallet, 'Caisse & Compta', const ComptabiliteScreen()),
+      if (PermissionHelper.canAccessExports)
+        _NavItem(Icons.table_view_outlined, Icons.table_view, 'Exports Compta', const ExportsScreen()),
+      if (PermissionHelper.canAccessEntreprise)
+        _NavItem(Icons.storefront_outlined, Icons.storefront, 'Entreprise', const EntrepriseScreen()),
+      if (PermissionHelper.canAccessUsers)
+        _NavItem(Icons.manage_accounts_outlined, Icons.manage_accounts, 'Utilisateurs', const UsersScreen()),
+      if (PermissionHelper.canAccessAudit)
+        _NavItem(Icons.history_edu_outlined, Icons.history_edu, 'Logs Audit', const AuditLogsScreen()),
     ];
   }
 
   List<_NavItem> get _mobileItems {
-    return [
-      _NavItem(Icons.insights_outlined, Icons.insights, 'Rapports', ActionDashboardScreen(onNavigate: (idx) => setState(() => _currentIndex = idx))),
-      _NavItem(Icons.point_of_sale_outlined, Icons.point_of_sale, 'Caisse POS', const PosScreen()),
-      _NavItem(Icons.receipt_long_outlined, Icons.receipt_long, 'Factures', const DocumentsScreen()),
-      _NavItem(Icons.inventory_2_outlined, Icons.inventory_2, 'Stock', const StockScreen()),
-      _NavItem(Icons.more_horiz_outlined, Icons.more_horiz, 'Plus', _buildPlusMenu()),
-    ];
+    final list = <_NavItem>[];
+    if (PermissionHelper.canViewDashboard) {
+      list.add(_NavItem(Icons.insights_outlined, Icons.insights, 'Rapports', ActionDashboardScreen(onNavigate: _onNavigateToModule)));
+    }
+    if (PermissionHelper.canAccessPos) {
+      list.add(_NavItem(Icons.point_of_sale_outlined, Icons.point_of_sale, 'Caisse POS', const PosScreen()));
+    }
+    if (PermissionHelper.canAccessDocuments) {
+      list.add(_NavItem(Icons.receipt_long_outlined, Icons.receipt_long, 'Factures', const DocumentsScreen()));
+    }
+    if (PermissionHelper.canAccessStock) {
+      list.add(_NavItem(Icons.inventory_2_outlined, Icons.inventory_2, 'Stock', const StockScreen()));
+    }
+    // Menu Plus pour les fonctionnalités autorisées restantes et paramètres de compte
+    list.add(_NavItem(Icons.more_horiz_outlined, Icons.more_horiz, 'Plus', _buildPlusMenu()));
+    return list;
+  }
+
+  void _onNavigateToModule(int targetIndex) {
+    final isWide = MediaQuery.of(context).size.width >= 800;
+    final items = isWide ? _desktopItems : _mobileItems;
+    if (targetIndex >= 0 && targetIndex < items.length) {
+      setState(() => _currentIndex = targetIndex);
+    }
   }
 
   Widget _buildPlusMenu() {
@@ -123,103 +156,150 @@ class _MainShellState extends State<MainShell> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Container(
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [QuantisColors.royalBlue, QuantisColors.blueDark],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+          if (PermissionHelper.canAccessAi) ...[
+            Container(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [QuantisColors.royalBlue, QuantisColors.blueDark],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: QuantisColors.luxuryGold, width: 1.5),
               ),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: QuantisColors.luxuryGold, width: 1.5),
-            ),
-            child: ListTile(
-              leading: const Icon(Icons.auto_awesome, color: QuantisColors.luxuryGold),
-              title: const Text(
-                'Quantis AI Assistant',
-                style: TextStyle(
-                  color: QuantisColors.white,
-                  fontWeight: FontWeight.bold,
+              child: ListTile(
+                leading: const Icon(Icons.auto_awesome, color: QuantisColors.luxuryGold),
+                title: const Text(
+                  'Quantis AI Assistant',
+                  style: TextStyle(
+                    color: QuantisColors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                subtitle: const Text(
+                  'Expert en stock & actions automatisées',
+                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+                trailing: const Icon(Icons.chevron_right, color: QuantisColors.luxuryGold),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const QuantisAiScreen()),
                 ),
               ),
-              subtitle: const Text(
-                'Expert en stock & actions automatisées',
-                style: TextStyle(color: Colors.white70, fontSize: 12),
-              ),
-              trailing: const Icon(Icons.chevron_right, color: QuantisColors.luxuryGold),
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const QuantisAiScreen()),
-              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.category, color: QuantisColors.royalBlue),
-            title: const Text('Catalogue Articles & Produits'),
-            subtitle: const Text('Créer des articles, prix, marges, codes-barres et catégories'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProduitsScreen())),
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.people, color: QuantisColors.royalBlue),
-            title: const Text('Clients & Débiteurs'),
-            subtitle: const Text('Gestion de la base clients et créances'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ClientsScreen())),
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.account_balance, color: Colors.amber),
-            title: const Text('Vue Débiteurs & Créances'),
-            subtitle: const Text('Gestion dédiée des impayés et relances'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DebiteursScreen())),
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.camera_alt, color: QuantisColors.royalBlue),
-            title: const Text('Arrêts de Stock (Snapshots)'),
-            subtitle: const Text('Gel du stock et audits de valorisation'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ArretStockScreen())),
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.business, color: Colors.teal),
-            title: const Text('Fournisseurs'),
-            subtitle: const Text('Gestion des partenaires et achats'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FournisseursScreen())),
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.shopping_cart, color: Colors.purple),
-            title: const Text('Commandes Achats'),
-            subtitle: const Text('Achats fournisseurs et approvisionnement'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AchatsScreen())),
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.storefront, color: QuantisColors.royalBlue),
-            title: const Text('Profil Entreprise & Logo'),
-            subtitle: const Text('Raison sociale, NIF, RCCM, logo, devise et facturation'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EntrepriseScreen())),
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.manage_accounts, color: QuantisColors.luxuryGold),
-            title: const Text('Utilisateurs & Permissions'),
-            subtitle: const Text('Gestion des comptes et droits granulaires'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UsersScreen())),
-          ),
-          const Divider(),
-          const Divider(),
+            const SizedBox(height: 12),
+            const Divider(),
+          ],
+          if (PermissionHelper.canAccessProduits) ...[
+            ListTile(
+              leading: const Icon(Icons.category, color: QuantisColors.royalBlue),
+              title: const Text('Catalogue Articles & Produits'),
+              subtitle: const Text('Créer des articles, prix, marges, codes-barres et catégories'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProduitsScreen())),
+            ),
+            const Divider(),
+          ],
+          if (PermissionHelper.canAccessClients) ...[
+            ListTile(
+              leading: const Icon(Icons.people, color: QuantisColors.royalBlue),
+              title: const Text('Clients & Débiteurs'),
+              subtitle: const Text('Gestion de la base clients et créances'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ClientsScreen())),
+            ),
+            const Divider(),
+          ],
+          if (PermissionHelper.canAccessDebiteurs) ...[
+            ListTile(
+              leading: const Icon(Icons.account_balance, color: Colors.amber),
+              title: const Text('Vue Débiteurs & Créances'),
+              subtitle: const Text('Gestion dédiée des impayés et relances'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DebiteursScreen())),
+            ),
+            const Divider(),
+          ],
+          if (PermissionHelper.canAccessArretStock) ...[
+            ListTile(
+              leading: const Icon(Icons.camera_alt, color: QuantisColors.royalBlue),
+              title: const Text('Arrêts de Stock (Snapshots)'),
+              subtitle: const Text('Gel du stock et audits de valorisation'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ArretStockScreen())),
+            ),
+            const Divider(),
+          ],
+          if (PermissionHelper.canAccessFournisseurs) ...[
+            ListTile(
+              leading: const Icon(Icons.business, color: Colors.teal),
+              title: const Text('Fournisseurs'),
+              subtitle: const Text('Gestion des partenaires et achats'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FournisseursScreen())),
+            ),
+            const Divider(),
+          ],
+          if (PermissionHelper.canAccessAchats) ...[
+            ListTile(
+              leading: const Icon(Icons.shopping_cart, color: Colors.purple),
+              title: const Text('Commandes Achats'),
+              subtitle: const Text('Achats fournisseurs et approvisionnement'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AchatsScreen())),
+            ),
+            const Divider(),
+          ],
+          if (PermissionHelper.canAccessComptabilite) ...[
+            ListTile(
+              leading: const Icon(Icons.account_balance_wallet, color: QuantisColors.royalBlue),
+              title: const Text('Caisse & Comptabilité'),
+              subtitle: const Text('Journal de caisse, sessions, Grand Livre et clôtures'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ComptabiliteScreen())),
+            ),
+            const Divider(),
+          ],
+          if (PermissionHelper.canAccessExports) ...[
+            ListTile(
+              leading: const Icon(Icons.table_view_outlined, color: Colors.teal),
+              title: const Text('Exports Comptables & Fiscaux'),
+              subtitle: const Text('Exports CSV pour comptabilité, ventes, caisse, créances'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ExportsScreen())),
+            ),
+            const Divider(),
+          ],
+          if (PermissionHelper.canAccessEntreprise) ...[
+            ListTile(
+              leading: const Icon(Icons.storefront, color: QuantisColors.royalBlue),
+              title: const Text('Profil Entreprise & Logo'),
+              subtitle: const Text('Raison sociale, NIF, RCCM, logo, devise et facturation'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EntrepriseScreen())),
+            ),
+            const Divider(),
+          ],
+          if (PermissionHelper.canAccessUsers) ...[
+            ListTile(
+              leading: const Icon(Icons.manage_accounts, color: QuantisColors.luxuryGold),
+              title: const Text('Utilisateurs & Permissions'),
+              subtitle: const Text('Gestion des comptes et droits granulaires'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UsersScreen())),
+            ),
+            const Divider(),
+          ],
+          if (PermissionHelper.canAccessAudit) ...[
+            ListTile(
+              leading: const Icon(Icons.history_edu, color: Colors.blueGrey),
+              title: const Text('Logs d\'Audit & Sécurité'),
+              subtitle: const Text('Traçabilité des opérations et actions sensibles'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AuditLogsScreen())),
+            ),
+            const Divider(),
+          ],
           ListTile(
             leading: const Icon(Icons.lock_reset, color: QuantisColors.royalBlue),
             title: const Text('Modifier mon mot de passe'),
@@ -246,8 +326,11 @@ class _MainShellState extends State<MainShell> {
 
   Widget _buildPage(int index, bool isWide) {
     final items = isWide ? _desktopItems : _mobileItems;
+    if (items.isEmpty) {
+      return const SizedBox.shrink();
+    }
     if (index < 0 || index >= items.length) {
-      return const ActionDashboardScreen();
+      return items[0].page;
     }
     return items[index].page;
   }
@@ -266,6 +349,45 @@ class _MainShellState extends State<MainShell> {
   Widget build(BuildContext context) {
     final isWide = MediaQuery.of(context).size.width >= 800;
     final items = isWide ? _desktopItems : _mobileItems;
+
+    if (items.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(ApiClient.entrepriseNom),
+          actions: [
+            IconButton(icon: const Icon(Icons.logout), onPressed: _logout),
+          ],
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.security, size: 64, color: QuantisColors.luxuryGold),
+                const SizedBox(height: 16),
+                const Text(
+                  'Espace utilisateur restreint',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Votre compte (${ApiClient.userEmail}) n\'a aucun module attribué pour le moment.\nVeuillez contacter votre administrateur.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.grey),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: _logout,
+                  icon: const Icon(Icons.logout),
+                  label: const Text('Déconnexion'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     // Ajuster l'index si la liste d'items a changé
     if (_currentIndex >= items.length) {
@@ -624,6 +746,7 @@ class _MainShellState extends State<MainShell> {
       content = CallbackShortcuts(
         bindings: shortcuts,
         child: Scaffold(
+          drawer: _buildMobileDrawer(),
           body: _buildPage(_currentIndex, isWide),
           bottomNavigationBar: NavigationBar(
             selectedIndex: _currentIndex,
@@ -639,6 +762,115 @@ class _MainShellState extends State<MainShell> {
     }
 
     return content;
+  }
+
+  Widget _buildMobileDrawer() {
+    return Drawer(
+      child: SafeArea(
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [QuantisColors.royalBlue, QuantisColors.blueDark],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white,
+                    ),
+                    child: ClipOval(
+                      child: Padding(
+                        padding: const EdgeInsets.all(2),
+                        child: Image.asset(
+                          'assets/images/quantis_emblem_circle.png',
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) => const Center(
+                            child: Text('Q', style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: QuantisColors.royalBlue,
+                              fontSize: 20,
+                            )),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          ApiClient.entrepriseNom,
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${ApiClient.userName ?? "Utilisateur"} • ${ApiClient.userRole ?? "ADMIN"}',
+                          style: const TextStyle(color: Colors.white70, fontSize: 11),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                children: [
+                  for (final item in _desktopItems)
+                    ListTile(
+                      leading: Icon(item.icon, color: QuantisColors.royalBlue),
+                      title: Text(item.label, style: const TextStyle(fontWeight: FontWeight.w500)),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => item.page),
+                        );
+                      },
+                    ),
+                  const Divider(),
+                  ListTile(
+                    leading: const Icon(Icons.lock_reset, color: QuantisColors.royalBlue),
+                    title: const Text('Modifier mot de passe'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      showDialog(
+                        context: context,
+                        builder: (_) => const ChangePasswordDialog(),
+                      );
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.logout, color: QuantisColors.error),
+                    title: const Text('Déconnexion', style: TextStyle(color: QuantisColors.error, fontWeight: FontWeight.bold)),
+                    onTap: () {
+                      Navigator.pop(context);
+                      _logout();
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

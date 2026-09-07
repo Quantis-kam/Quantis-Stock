@@ -178,14 +178,28 @@ public class DocumentService {
 
     @Transactional(readOnly = true)
     public Document findById(Long id) {
-        return documentRepository.findById(id)
+        Document doc = documentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Document", "id", id));
+        if (!securityUtils.isSuperAdmin()) {
+            Long entId = securityUtils.getCurrentEntrepriseId();
+            if (doc.getEntreprise() != null && !doc.getEntreprise().getId().equals(entId)) {
+                throw new BusinessException("Accès refusé : ce document n'appartient pas à votre entreprise");
+            }
+        }
+        return doc;
     }
 
     @Transactional(readOnly = true)
     public Document findByNumero(String numero) {
-        return documentRepository.findByNumero(numero)
+        Document doc = documentRepository.findByNumero(numero)
                 .orElseThrow(() -> new ResourceNotFoundException("Document", "numero", numero));
+        if (!securityUtils.isSuperAdmin()) {
+            Long entId = securityUtils.getCurrentEntrepriseId();
+            if (doc.getEntreprise() != null && !doc.getEntreprise().getId().equals(entId)) {
+                throw new BusinessException("Accès refusé : ce document n'appartient pas à votre entreprise");
+            }
+        }
+        return doc;
     }
 
     @Transactional(readOnly = true)
@@ -398,7 +412,9 @@ public class DocumentService {
         } else if (utilisateur.getDepot() != null) {
             depot = utilisateur.getDepot();
         } else {
-            depot = depotRepository.findAll().stream().findFirst()
+            Long entId = entrepriseCourante != null ? entrepriseCourante.getId() : null;
+            depot = (entId != null ? depotRepository.findByEntrepriseIdAndEstActifTrue(entId) : depotRepository.findByEstActifTrue())
+                    .stream().findFirst()
                     .orElseThrow(() -> new BusinessException("Aucun dépôt disponible pour la vente"));
         }
 
@@ -555,7 +571,7 @@ public class DocumentService {
 
         // Si l'entreprise a défini un format spécifique pour les factures
         if (type == TypeDocument.FACTURE) {
-            var optEnt = entrepriseRepository.findAll().stream().findFirst();
+            var optEnt = securityUtils.getCurrentEntreprise();
             if (optEnt.isPresent() && optEnt.get().getFormatFacture() != null && !optEnt.get().getFormatFacture().isBlank()) {
                 String fmt = optEnt.get().getFormatFacture();
                 String year = String.valueOf(Year.now().getValue());

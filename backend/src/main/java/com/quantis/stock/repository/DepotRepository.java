@@ -11,5 +11,9 @@ public interface DepotRepository extends JpaRepository<Depot, Long> {
 
     List<Depot> findByEstActifTrue();
 
+    List<Depot> findByEntrepriseId(Long entrepriseId);
+
+    List<Depot> findByEntrepriseIdAndEstActifTrue(Long entrepriseId);
+
     boolean existsByNom(String nom);
 }

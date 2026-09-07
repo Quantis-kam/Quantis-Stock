@@ -14,7 +14,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.Collections;
 import java.util.List;
+import com.quantis.stock.security.SecurityUtils;
 
 /**
  * Service de gestion de stock — mouvements et mise à jour du stock courant.
@@ -31,6 +33,7 @@ public class StockService {
     private final DepotRepository depotRepository;
     private final UtilisateurRepository utilisateurRepository;
     private final AuditService auditService;
+    private final SecurityUtils securityUtils;
 
     // =================== MOUVEMENTS ===================
 
@@ -115,36 +118,83 @@ public class StockService {
 
     @Transactional(readOnly = true)
     public List<StockCourant> getStockByProduit(Long produitId) {
+        if (!securityUtils.isSuperAdmin()) {
+            Long entrepriseId = securityUtils.getCurrentEntrepriseId();
+            Produit produit = produitRepository.findById(produitId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Produit", "id", produitId));
+            if (produit.getEntreprise() != null && !produit.getEntreprise().getId().equals(entrepriseId)) {
+                throw new BusinessException("Accès refusé : ce produit n'appartient pas à votre entreprise");
+            }
+        }
         return stockCourantRepository.findByProduitId(produitId);
     }
 
     @Transactional(readOnly = true)
     public List<StockCourant> getStockByDepot(Long depotId) {
+        Depot depot = depotRepository.findById(depotId)
+                .orElseThrow(() -> new ResourceNotFoundException("Dépôt", "id", depotId));
+        if (!securityUtils.isSuperAdmin()) {
+            Long currentEntrepriseId = securityUtils.getCurrentEntrepriseId();
+            if (depot.getEntreprise() == null || !depot.getEntreprise().getId().equals(currentEntrepriseId)) {
+                throw new BusinessException("Accès refusé : ce dépôt n'appartient pas à votre entreprise");
+            }
+        }
         return stockCourantRepository.findByDepotId(depotId);
     }
 
     @Transactional(readOnly = true)
     public List<StockCourant> getAlertesBasses() {
-        return stockCourantRepository.findAlertesBasses();
+        if (securityUtils.isSuperAdmin()) {
+            return stockCourantRepository.findAlertesBasses();
+        }
+        Long entrepriseId = securityUtils.getCurrentEntrepriseId();
+        return entrepriseId != null ? stockCourantRepository.findAlertesBassesByEntrepriseId(entrepriseId) : Collections.emptyList();
     }
 
     @Transactional(readOnly = true)
     public List<StockCourant> getRuptures() {
-        return stockCourantRepository.findRuptures();
+        if (securityUtils.isSuperAdmin()) {
+            return stockCourantRepository.findRuptures();
+        }
+        Long entrepriseId = securityUtils.getCurrentEntrepriseId();
+        return entrepriseId != null ? stockCourantRepository.findRupturesByEntrepriseId(entrepriseId) : Collections.emptyList();
     }
 
     @Transactional(readOnly = true)
     public List<StockCourant> getAlertesParDepot(Long depotId) {
+        Depot depot = depotRepository.findById(depotId)
+                .orElseThrow(() -> new ResourceNotFoundException("Dépôt", "id", depotId));
+        if (!securityUtils.isSuperAdmin()) {
+            Long currentEntrepriseId = securityUtils.getCurrentEntrepriseId();
+            if (depot.getEntreprise() == null || !depot.getEntreprise().getId().equals(currentEntrepriseId)) {
+                throw new BusinessException("Accès refusé : ce dépôt n'appartient pas à votre entreprise");
+            }
+        }
         return stockCourantRepository.findAlertesBassesByDepot(depotId);
     }
 
     @Transactional(readOnly = true)
     public Page<MouvementStock> getHistoriqueMouvements(Pageable pageable) {
-        return mouvementStockRepository.findAllByOrderByCreatedAtDesc(pageable);
+        if (securityUtils.isSuperAdmin()) {
+            return mouvementStockRepository.findAllByOrderByCreatedAtDesc(pageable);
+        }
+        Long entrepriseId = securityUtils.getCurrentEntrepriseId();
+        if (entrepriseId != null) {
+            return mouvementStockRepository.findByEntrepriseIdOrderByCreatedAtDesc(entrepriseId, pageable);
+        }
+        return Page.empty(pageable);
     }
 
     @Transactional(readOnly = true)
     public Page<MouvementStock> getMouvementsByProduit(Long produitId, Pageable pageable) {
+        if (!securityUtils.isSuperAdmin()) {
+            Long entrepriseId = securityUtils.getCurrentEntrepriseId();
+            Produit produit = produitRepository.findById(produitId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Produit", "id", produitId));
+            if (produit.getEntreprise() != null && !produit.getEntreprise().getId().equals(entrepriseId)) {
+                throw new BusinessException("Accès refusé : ce produit n'appartient pas à votre entreprise");
+            }
+        }
         return mouvementStockRepository.findByProduitId(produitId, pageable);
     }
 
@@ -152,12 +202,17 @@ public class StockService {
     public Page<MouvementStock> filterMouvements(
             Long depotId, TypeMouvement type, Long produitId,
             java.time.Instant start, java.time.Instant end, Pageable pageable) {
-        return mouvementStockRepository.filterMouvements(depotId, type, produitId, start, end, pageable);
+        Long entrepriseId = securityUtils.isSuperAdmin() ? null : securityUtils.getCurrentEntrepriseId();
+        return mouvementStockRepository.filterMouvements(entrepriseId, depotId, type, produitId, start, end, pageable);
     }
 
     @Transactional(readOnly = true)
     public List<Depot> getAllDepots() {
-        return depotRepository.findAll();
+        if (securityUtils.isSuperAdmin()) {
+            return depotRepository.findByEstActifTrue();
+        }
+        Long entrepriseId = securityUtils.getCurrentEntrepriseId();
+        return entrepriseId != null ? depotRepository.findByEntrepriseIdAndEstActifTrue(entrepriseId) : Collections.emptyList();
     }
 
     @Transactional

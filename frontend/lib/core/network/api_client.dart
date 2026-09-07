@@ -22,28 +22,98 @@ class ApiClient {
   static bool _isSuperAdmin = false;
   static List<String> _userPermissions = [];
   static bool _isRefreshing = false;
-  static final _storage = const FlutterSecureStorage();
+  static final _storage = const FlutterSecureStorage(
+    webOptions: WebOptions(
+      dbName: 'quantis_stock_db',
+      publicKey: 'quantis_stock_public_key',
+    ),
+  );
+  static final Map<String, String> _memoryStorage = {};
   static Function? onSessionExpired;
 
+  static Future<void> _writeStorage(String key, String value) async {
+    _memoryStorage[key] = value;
+    try {
+      await _storage.write(key: key, value: value);
+    } catch (_) {}
+  }
+
+  static Future<String?> _readStorage(String key) async {
+    try {
+      final val = await _storage.read(key: key);
+      if (val != null) {
+        _memoryStorage[key] = val;
+        return val;
+      }
+    } catch (_) {}
+    return _memoryStorage[key];
+  }
+
+  static Future<void> _deleteStorage(String key) async {
+    _memoryStorage.remove(key);
+    try {
+      await _storage.delete(key: key);
+    } catch (_) {}
+  }
+
+  static Future<void> saveTokens(String access, String refresh) async {
+    _accessToken = access;
+    _refreshToken = refresh;
+    await _writeStorage('access_token', access);
+    await _writeStorage('refresh_token', refresh);
+  }
+
   static Future<void> initialize() async {
-    _accessToken = await _storage.read(key: 'access_token');
-    _refreshToken = await _storage.read(key: 'refresh_token');
-    _userRole = await _storage.read(key: 'user_role');
-    _userName = await _storage.read(key: 'user_name');
-    _userEmail = await _storage.read(key: 'user_email');
-    _entrepriseId = await _storage.read(key: 'entreprise_id');
-    _isSuperAdmin = (await _storage.read(key: 'is_super_admin')) == 'true' ||
-                    _userRole == 'SUPER_ADMIN' || _userRole == 'ROLE_SUPER_ADMIN';
-    _entrepriseNom = await _storage.read(key: 'entreprise_nom');
-    _entrepriseNif = await _storage.read(key: 'entreprise_nif');
-    _entrepriseMonnaie = await _storage.read(key: 'entreprise_monnaie');
-    _formatFacture = await _storage.read(key: 'format_facture');
-    _logoUrl = await _storage.read(key: 'logo_url');
-    final permsString = await _storage.read(key: 'user_permissions');
-    if (permsString != null) {
-      _userPermissions = permsString.split(',');
+    try {
+      _accessToken = await _readStorage('access_token');
+      _refreshToken = await _readStorage('refresh_token');
+      _userRole = await _readStorage('user_role');
+      _userName = await _readStorage('user_name');
+      _userEmail = await _readStorage('user_email');
+      _entrepriseId = await _readStorage('entreprise_id');
+      _isSuperAdmin = (await _readStorage('is_super_admin')) == 'true' ||
+                      _userRole == 'SUPER_ADMIN' || _userRole == 'ROLE_SUPER_ADMIN';
+      _entrepriseNom = await _readStorage('entreprise_nom');
+      _entrepriseNif = await _readStorage('entreprise_nif');
+      _entrepriseMonnaie = await _readStorage('entreprise_monnaie');
+      _formatFacture = await _readStorage('format_facture');
+      _logoUrl = await _readStorage('logo_url');
+      final permsString = await _readStorage('user_permissions');
+      if (permsString != null) {
+        _userPermissions = permsString.split(',');
+      }
+      final savedUrl = await _readStorage('custom_server_url');
+      if (savedUrl != null && savedUrl.trim().isNotEmpty && !savedUrl.contains('192.168.11.119')) {
+        ApiConstants.baseUrl = savedUrl.trim();
+      } else {
+        if (savedUrl != null && savedUrl.contains('192.168.11.119')) {
+          await _deleteStorage('custom_server_url');
+        }
+        ApiConstants.baseUrl = ApiConstants.defaultBaseUrl;
+      }
+    } catch (e) {
+      debugPrint('Notice storage read in initialize: $e');
     }
     authStateNotifier.value = isAuthenticated;
+  }
+
+  static Future<void> setCustomServerUrl(String url) async {
+    String cleanUrl = url.trim();
+    if (cleanUrl.endsWith('/')) {
+      cleanUrl = cleanUrl.substring(0, cleanUrl.length - 1);
+    }
+    if (!cleanUrl.endsWith('/api/v1')) {
+      cleanUrl = '$cleanUrl/api/v1';
+    }
+    ApiConstants.baseUrl = cleanUrl;
+    await _writeStorage('custom_server_url', cleanUrl);
+    _dio = null;
+  }
+
+  static Future<void> resetCustomServerUrl() async {
+    ApiConstants.baseUrl = ApiConstants.defaultBaseUrl;
+    await _deleteStorage('custom_server_url');
+    _dio = null;
   }
 
   static Dio get instance {
@@ -84,9 +154,9 @@ class ApiClient {
             if (newRefreshToken != null) _refreshToken = newRefreshToken;
 
             // Sauvegarder les nouveaux tokens
-            await _storage.write(key: 'access_token', value: _accessToken);
+            await _writeStorage('access_token', _accessToken!);
             if (newRefreshToken != null) {
-              await _storage.write(key: 'refresh_token', value: newRefreshToken);
+              await _writeStorage('refresh_token', newRefreshToken);
             }
 
             _isRefreshing = false;
@@ -139,24 +209,28 @@ class ApiClient {
     _logoUrl = logoUrl;
     _entrepriseId = entrepriseId;
     _isSuperAdmin = isSuperAdmin ?? (role == 'SUPER_ADMIN' || role == 'ROLE_SUPER_ADMIN');
-
-    await _storage.write(key: 'user_role', value: role);
-    await _storage.write(key: 'user_name', value: name);
-    await _storage.write(key: 'user_email', value: email);
-    await _storage.write(key: 'user_permissions', value: permissions.join(','));
-    await _storage.write(key: 'entreprise_nom', value: _entrepriseNom!);
-    await _storage.write(key: 'entreprise_monnaie', value: _entrepriseMonnaie!);
-    await _storage.write(key: 'format_facture', value: _formatFacture!);
-    await _storage.write(key: 'is_super_admin', value: _isSuperAdmin ? 'true' : 'false');
-    if (_entrepriseId != null) {
-      await _storage.write(key: 'entreprise_id', value: _entrepriseId!);
-    } else {
-      await _storage.delete(key: 'entreprise_id');
-    }
-    if (_logoUrl != null) {
-      await _storage.write(key: 'logo_url', value: _logoUrl!);
-    }
     authStateNotifier.value = true;
+
+    try {
+      await _writeStorage('user_role', role);
+      await _writeStorage('user_name', name);
+      await _writeStorage('user_email', email);
+      await _writeStorage('user_permissions', permissions.join(','));
+      await _writeStorage('entreprise_nom', _entrepriseNom!);
+      await _writeStorage('entreprise_monnaie', _entrepriseMonnaie!);
+      await _writeStorage('format_facture', _formatFacture!);
+      await _writeStorage('is_super_admin', _isSuperAdmin ? 'true' : 'false');
+      if (_entrepriseId != null) {
+        await _writeStorage('entreprise_id', _entrepriseId!);
+      } else {
+        await _deleteStorage('entreprise_id');
+      }
+      if (_logoUrl != null) {
+        await _writeStorage('logo_url', _logoUrl!);
+      }
+    } catch (e) {
+      debugPrint('Notice storage write in setUserInfo: $e');
+    }
   }
 
   static Future<void> updateEntrepriseInfo({
@@ -169,14 +243,16 @@ class ApiClient {
     _entrepriseMonnaie = monnaie;
     _formatFacture = formatFacture;
     _logoUrl = logoUrl;
-    await _storage.write(key: 'entreprise_nom', value: nom);
-    await _storage.write(key: 'entreprise_monnaie', value: monnaie);
-    await _storage.write(key: 'format_facture', value: formatFacture);
-    if (logoUrl != null && logoUrl.isNotEmpty) {
-      await _storage.write(key: 'logo_url', value: logoUrl);
-    } else {
-      await _storage.delete(key: 'logo_url');
-    }
+    try {
+      await _writeStorage('entreprise_nom', nom);
+      await _writeStorage('entreprise_monnaie', monnaie);
+      await _writeStorage('format_facture', formatFacture);
+      if (logoUrl != null && logoUrl.isNotEmpty) {
+        await _writeStorage('logo_url', logoUrl);
+      } else {
+        await _deleteStorage('logo_url');
+      }
+    } catch (_) {}
   }
 
   static void clearToken() {
@@ -192,19 +268,21 @@ class ApiClient {
     _formatFacture = null;
     _logoUrl = null;
     _userPermissions = [];
-    _storage.delete(key: 'access_token');
-    _storage.delete(key: 'refresh_token');
-    _storage.delete(key: 'user_role');
-    _storage.delete(key: 'user_name');
-    _storage.delete(key: 'user_email');
-    _storage.delete(key: 'entreprise_id');
-    _storage.delete(key: 'is_super_admin');
-    _storage.delete(key: 'entreprise_nom');
-    _storage.delete(key: 'entreprise_monnaie');
-    _storage.delete(key: 'format_facture');
-    _storage.delete(key: 'logo_url');
-    _storage.delete(key: 'user_permissions');
     authStateNotifier.value = false;
+    try {
+      _deleteStorage('access_token');
+      _deleteStorage('refresh_token');
+      _deleteStorage('user_role');
+      _deleteStorage('user_name');
+      _deleteStorage('user_email');
+      _deleteStorage('entreprise_id');
+      _deleteStorage('is_super_admin');
+      _deleteStorage('entreprise_nom');
+      _deleteStorage('entreprise_monnaie');
+      _deleteStorage('format_facture');
+      _deleteStorage('logo_url');
+      _deleteStorage('user_permissions');
+    } catch (_) {}
   }
 
   static bool get isAuthenticated => _accessToken != null;

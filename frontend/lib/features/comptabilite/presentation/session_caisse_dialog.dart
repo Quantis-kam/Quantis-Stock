@@ -77,13 +77,19 @@ class _SessionCaisseDialogState extends State<SessionCaisseDialog> {
     final theme = Theme.of(context);
     final active = widget.activeSession;
     final soldeTheorique = active != null ? (active['soldeTheorique'] as num? ?? 0).toDouble() : 0.0;
+    final isMobile = MediaQuery.of(context).size.width < 600;
+    final screenWidth = MediaQuery.of(context).size.width;
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 12 : 40,
+        vertical: isMobile ? 16 : 24,
+      ),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 480),
+        constraints: BoxConstraints(maxWidth: isMobile ? screenWidth * 0.95 : 480),
         child: Padding(
-          padding: const EdgeInsets.all(24.0),
+          padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
           child: Form(
             key: _formKey,
             child: Column(
@@ -103,7 +109,7 @@ class _SessionCaisseDialogState extends State<SessionCaisseDialog> {
                     Expanded(
                       child: Text(
                         _isOpen ? 'Clôture de Caisse' : 'Ouverture de Caisse',
-                        style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                        style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, fontSize: isMobile ? 18 : null),
                       ),
                     ),
                     IconButton(
@@ -182,27 +188,51 @@ class _SessionCaisseDialogState extends State<SessionCaisseDialog> {
                     child: Text(_error!, style: const TextStyle(color: QuantisColors.error, fontSize: 12)),
                   ),
 
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('Annuler'),
-                    ),
-                    const SizedBox(width: 8),
-                    ElevatedButton.icon(
-                      onPressed: _loading ? null : _submit,
-                      icon: _loading
-                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : Icon(_isOpen ? Icons.lock : Icons.check_circle_outline, size: 18),
-                      label: Text(_isOpen ? 'Fermer la Caisse' : 'Ouvrir la Caisse'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _isOpen ? QuantisColors.warning : QuantisColors.royalBlue,
-                        foregroundColor: Colors.white,
+                if (isMobile)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: _loading ? null : _submit,
+                        icon: _loading
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : Icon(_isOpen ? Icons.lock : Icons.check_circle_outline, size: 18),
+                        label: Text(_isOpen ? 'Fermer la Caisse' : 'Ouvrir la Caisse'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _isOpen ? QuantisColors.warning : QuantisColors.royalBlue,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
+                      const SizedBox(height: 8),
+                      OutlinedButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('Annuler'),
+                      ),
+                    ],
+                  )
+                else
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('Annuler'),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        onPressed: _loading ? null : _submit,
+                        icon: _loading
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : Icon(_isOpen ? Icons.lock : Icons.check_circle_outline, size: 18),
+                        label: Text(_isOpen ? 'Fermer la Caisse' : 'Ouvrir la Caisse'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _isOpen ? QuantisColors.warning : QuantisColors.royalBlue,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
               ],
             ),
           ),

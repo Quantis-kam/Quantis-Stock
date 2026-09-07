@@ -77,41 +77,81 @@ class _DebiteursScreenState extends State<DebiteursScreen> {
                         color: Colors.amber.shade900,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         child: Padding(
-                          padding: const EdgeInsets.all(20.0),
-                          child: Row(
-                            children: [
-                              const CircleAvatar(
-                                radius: 24,
-                                backgroundColor: Colors.white24,
-                                child: Icon(Icons.account_balance_wallet, color: Colors.white, size: 28),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
+                          padding: const EdgeInsets.all(16.0),
+                          child: MediaQuery.of(context).size.width < 600
+                              ? Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Text('TOTAL CRÉANCES CLIENTS À RECOUVRER', style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      '${totalCreances.toStringAsFixed(0)} FCFA',
-                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22),
+                                    Row(
+                                      children: [
+                                        const CircleAvatar(
+                                          radius: 20,
+                                          backgroundColor: Colors.white24,
+                                          child: Icon(Icons.account_balance_wallet, color: Colors.white, size: 24),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              const Text('TOTAL CRÉANCES CLIENTS', style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold)),
+                                              Text(
+                                                '${totalCreances.toStringAsFixed(0)} FCFA',
+                                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 19),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Text(
+                                        '${_debiteurs.length} client${_debiteurs.length > 1 ? "s" : ""} débiteur${_debiteurs.length > 1 ? "s" : ""}',
+                                        style: TextStyle(color: Colors.amber.shade900, fontWeight: FontWeight.bold, fontSize: 11),
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : Row(
+                                  children: [
+                                    const CircleAvatar(
+                                      radius: 24,
+                                      backgroundColor: Colors.white24,
+                                      child: Icon(Icons.account_balance_wallet, color: Colors.white, size: 28),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const Text('TOTAL CRÉANCES CLIENTS À RECOUVRER', style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            '${totalCreances.toStringAsFixed(0)} FCFA',
+                                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Text(
+                                        '${_debiteurs.length} clients débiteurs',
+                                        style: TextStyle(color: Colors.amber.shade900, fontWeight: FontWeight.bold, fontSize: 12),
+                                      ),
                                     ),
                                   ],
                                 ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  '${_debiteurs.length} clients débiteurs',
-                                  style: TextStyle(color: Colors.amber.shade900, fontWeight: FontWeight.bold, fontSize: 12),
-                                ),
-                              ),
-                            ],
-                          ),
                         ),
                       ),
                     ),

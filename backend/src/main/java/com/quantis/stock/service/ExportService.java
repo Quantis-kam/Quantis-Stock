@@ -17,6 +17,8 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import com.quantis.stock.security.SecurityUtils;
+import org.springframework.data.domain.Pageable;
 import java.util.List;
 
 @Slf4j
@@ -29,6 +31,7 @@ public class ExportService {
     private final MouvementCaisseRepository mouvementCaisseRepository;
     private final ClientRepository clientRepository;
     private final StockCourantRepository stockCourantRepository;
+    private final SecurityUtils securityUtils;
 
     private static final String UTF8_BOM = "\uFEFF";
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
@@ -41,7 +44,13 @@ public class ExportService {
         sb.append(UTF8_BOM);
         sb.append("Date;Numéro;Type;Client;Statut;Total HT;Total TVA;Total TTC;Montant Payé;Solde Restant;Notes\n");
 
-        List<Document> docs = documentRepository.findAll();
+        Long entId = securityUtils.getCurrentEntrepriseId();
+        boolean isSuperAdmin = securityUtils.isSuperAdmin();
+
+        List<Document> docs = (isSuperAdmin || entId == null)
+                ? documentRepository.findAll()
+                : documentRepository.findByEntrepriseId(entId, Pageable.unpaged()).getContent();
+
         for (Document d : docs) {
             if (debut != null && d.getDateDocument().isBefore(debut)) continue;
             if (fin != null && d.getDateDocument().isAfter(fin)) continue;
@@ -73,7 +82,13 @@ public class ExportService {
         sb.append(UTF8_BOM);
         sb.append("Date;Type Mouvement;Libellé;Montant (FCFA);Catégorie;Référence;Document lié;Utilisateur\n");
 
-        List<MouvementCaisse> mvts = mouvementCaisseRepository.findAll();
+        Long entId = securityUtils.getCurrentEntrepriseId();
+        boolean isSuperAdmin = securityUtils.isSuperAdmin();
+
+        List<MouvementCaisse> mvts = (isSuperAdmin || entId == null)
+                ? mouvementCaisseRepository.findAll()
+                : mouvementCaisseRepository.findByEntrepriseId(entId);
+
         for (MouvementCaisse m : mvts) {
             LocalDate mDate = m.getDateMouvement() != null ? m.getDateMouvement() : LocalDate.now();
             if (debut != null && mDate.isBefore(debut)) continue;
@@ -106,7 +121,13 @@ public class ExportService {
         sb.append(UTF8_BOM);
         sb.append("Client;Téléphone;Email;Adresse;Solde Dû (FCFA);Statut\n");
 
-        List<Client> clients = clientRepository.findAll();
+        Long entId = securityUtils.getCurrentEntrepriseId();
+        boolean isSuperAdmin = securityUtils.isSuperAdmin();
+
+        List<Client> clients = (isSuperAdmin || entId == null)
+                ? clientRepository.findDebiteurs()
+                : clientRepository.findDebiteursByEntreprise(entId);
+
         for (Client c : clients) {
             BigDecimal solde = c.getSoldeCredit() != null ? c.getSoldeCredit() : BigDecimal.ZERO;
             if (solde.compareTo(BigDecimal.ZERO) <= 0) continue; // Seulement les débiteurs
@@ -130,7 +151,13 @@ public class ExportService {
         sb.append(UTF8_BOM);
         sb.append("Code SKU;Désignation Article;Catégorie;Dépôt;Quantité en Stock;Prix Achat Unitaire;Valeur Totale (FCFA);Seuil Alerte\n");
 
-        List<StockCourant> stocks = stockCourantRepository.findAll();
+        Long entId = securityUtils.getCurrentEntrepriseId();
+        boolean isSuperAdmin = securityUtils.isSuperAdmin();
+
+        List<StockCourant> stocks = (isSuperAdmin || entId == null)
+                ? stockCourantRepository.findAll()
+                : stockCourantRepository.findByEntrepriseId(entId);
+
         for (StockCourant sc : stocks) {
             String sku = sc.getProduit() != null ? sc.getProduit().getSku() : "—";
             String nom = sc.getProduit() != null ? sc.getProduit().getNom().replace(";", " ") : "—";

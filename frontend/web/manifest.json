@@ -1,11 +1,11 @@
 {
-    "name": "quantis_stock",
-    "short_name": "quantis_stock",
+    "name": "Quantis Stock - Gestion de Stock & Ventes",
+    "short_name": "Quantis Stock",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#202978",
+    "theme_color": "#202978",
+    "description": "Quantis Stock — Application de gestion de stock, ventes et facturation.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

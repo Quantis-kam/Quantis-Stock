@@ -121,10 +121,12 @@ class _DebiteursScreenState extends State<DebiteursScreen> {
       return c.nom.toLowerCase().contains(q) || (c.telephone?.contains(q) ?? false);
     }).toList();
 
+    final isMobile = MediaQuery.of(context).size.width < 750;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text('Débiteurs & Créances Clients', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Débiteurs & Créances', style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -136,51 +138,90 @@ class _DebiteursScreenState extends State<DebiteursScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
+              padding: EdgeInsets.all(isMobile ? 12.0 : 24.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // KPI Cards
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildSummaryCard(
+                  if (isMobile)
+                    Column(
+                      children: [
+                        _buildSummaryCard(
                           'Total Créances à Recouvrer',
                           '${_totalCreances.toStringAsFixed(0)} ${ApiClient.entrepriseMonnaie}',
                           Icons.account_balance_wallet,
                           QuantisColors.error,
                           'Montant global dû par les clients',
                         ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _buildSummaryCard(
-                          'Clients Débiteurs',
-                          '$_nbDebiteurs clients',
-                          Icons.people_alt,
-                          Colors.amber.shade900,
-                          'Comptes clients à solde débiteur',
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildSummaryCard(
+                                'Clients Débiteurs',
+                                '$_nbDebiteurs clients',
+                                Icons.people_alt,
+                                Colors.amber.shade900,
+                                'Comptes débiteurs',
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: _buildSummaryCard(
+                                'Créance Moyenne',
+                                _nbDebiteurs > 0
+                                    ? '${(_totalCreances / _nbDebiteurs).toStringAsFixed(0)} ${ApiClient.entrepriseMonnaie}'
+                                    : '0 ${ApiClient.entrepriseMonnaie}',
+                                Icons.analytics,
+                                QuantisColors.royalBlue,
+                                'Par client',
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _buildSummaryCard(
-                          'Créance Moyenne',
-                          _nbDebiteurs > 0
-                              ? '${(_totalCreances / _nbDebiteurs).toStringAsFixed(0)} ${ApiClient.entrepriseMonnaie}'
-                              : '0 ${ApiClient.entrepriseMonnaie}',
-                          Icons.analytics,
-                          QuantisColors.royalBlue,
-                          'Moyenne par client débiteur',
+                      ],
+                    )
+                  else
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildSummaryCard(
+                            'Total Créances à Recouvrer',
+                            '${_totalCreances.toStringAsFixed(0)} ${ApiClient.entrepriseMonnaie}',
+                            Icons.account_balance_wallet,
+                            QuantisColors.error,
+                            'Montant global dû par les clients',
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 28),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildSummaryCard(
+                            'Clients Débiteurs',
+                            '$_nbDebiteurs clients',
+                            Icons.people_alt,
+                            Colors.amber.shade900,
+                            'Comptes clients à solde débiteur',
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildSummaryCard(
+                            'Créance Moyenne',
+                            _nbDebiteurs > 0
+                                ? '${(_totalCreances / _nbDebiteurs).toStringAsFixed(0)} ${ApiClient.entrepriseMonnaie}'
+                                : '0 ${ApiClient.entrepriseMonnaie}',
+                            Icons.analytics,
+                            QuantisColors.royalBlue,
+                            'Moyenne par client débiteur',
+                          ),
+                        ),
+                      ],
+                    ),
+                  const SizedBox(height: 20),
 
                   // Barre de Recherche & Filtre
                   Container(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
@@ -192,7 +233,7 @@ class _DebiteursScreenState extends State<DebiteursScreen> {
                           child: TextField(
                             controller: _searchCtrl,
                             decoration: InputDecoration(
-                              hintText: 'Rechercher un client débiteur (nom, téléphone)...',
+                              hintText: 'Rechercher un client débiteur...',
                               prefixIcon: const Icon(Icons.search, color: QuantisColors.royalBlue),
                               suffixIcon: _searchQuery.isNotEmpty
                                   ? IconButton(
@@ -212,9 +253,9 @@ class _DebiteursScreenState extends State<DebiteursScreen> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
 
-                  // Tableau des Débiteurs
+                  // Tableau ou Liste Mobile des Débiteurs
                   if (filtered.isEmpty)
                     Container(
                       width: double.infinity,
@@ -236,6 +277,90 @@ class _DebiteursScreenState extends State<DebiteursScreen> {
                           ),
                         ],
                       ),
+                    )
+                  else if (isMobile)
+                    ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: filtered.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                      itemBuilder: (context, i) {
+                        final d = filtered[i];
+                        return Card(
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          child: Padding(
+                            padding: const EdgeInsets.all(14),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    CircleAvatar(
+                                      backgroundColor: QuantisColors.royalBlue.withValues(alpha: 0.1),
+                                      radius: 18,
+                                      child: Text(
+                                        d.nom.isNotEmpty ? d.nom[0].toUpperCase() : 'C',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, color: QuantisColors.royalBlue, fontSize: 14),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(d.nom, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                                          if (d.telephone != null)
+                                            Text(d.telephone!, style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                                        ],
+                                      ),
+                                    ),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                      children: [
+                                        Text(
+                                          '${d.soldeCredit.toStringAsFixed(0)} ${ApiClient.entrepriseMonnaie}',
+                                          style: const TextStyle(fontWeight: FontWeight.w900, color: QuantisColors.error, fontSize: 15),
+                                        ),
+                                        const Text('Dû', style: TextStyle(fontSize: 10, color: QuantisColors.textMuted)),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: ElevatedButton.icon(
+                                        onPressed: () => _encaisserClient(d),
+                                        icon: const Icon(Icons.payments, size: 16),
+                                        label: const Text('Encaisser'),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: QuantisColors.success,
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(vertical: 10),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: OutlinedButton.icon(
+                                        onPressed: () => _relancerClient(d),
+                                        icon: const Icon(Icons.message, size: 16),
+                                        label: const Text('Relancer'),
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: QuantisColors.royalBlue,
+                                          padding: const EdgeInsets.symmetric(vertical: 10),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
                     )
                   else
                     Card(

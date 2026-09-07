@@ -45,7 +45,13 @@ class _PosScreenState extends State<PosScreen> {
       final resCats = await _api.get('/categories');
       final resDepots = await _api.get('/stock/depots');
       final resClients = await _api.get('/clients?size=100');
-      final resSession = await _api.get('/comptabilite/session/active');
+      dynamic sessionData;
+      try {
+        final resSession = await _api.get('/caisses/session-active');
+        sessionData = resSession.data['data'];
+      } catch (se) {
+        debugPrint('Notice session caisse info: $se');
+      }
 
       if (mounted) {
         setState(() {
@@ -53,7 +59,7 @@ class _PosScreenState extends State<PosScreen> {
           _categories = resCats.data['data'] ?? [];
           _depots = resDepots.data['data'] ?? [];
           _clients = resClients.data['data']?['content'] ?? [];
-          _sessionCaisse = resSession.data['data'];
+          _sessionCaisse = sessionData;
 
           if (_depots.isNotEmpty && _selectedDepotId == null) {
             _selectedDepotId = _depots.first['id'];
@@ -208,18 +214,27 @@ class _PosScreenState extends State<PosScreen> {
     final bool isWide = MediaQuery.of(context).size.width >= 950;
     final bool isCaisseOuverte = _sessionCaisse != null && _sessionCaisse!['statut'] == 'OUVERTE';
 
+    final bool isMobile = MediaQuery.of(context).size.width < 750;
+
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
         title: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(Icons.point_of_sale, color: QuantisColors.royalBlue),
             const SizedBox(width: 8),
-            const Text('Caisse Comptoir / POS Tactile', style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(width: 16),
+            Flexible(
+              child: Text(
+                isMobile ? 'POS Tactile' : 'Caisse Comptoir / POS Tactile',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
             // Badge Caisse
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: (isCaisseOuverte ? QuantisColors.success : QuantisColors.warning).withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(20),
@@ -228,10 +243,10 @@ class _PosScreenState extends State<PosScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(isCaisseOuverte ? Icons.check_circle : Icons.warning_amber,
-                      size: 14, color: isCaisseOuverte ? QuantisColors.success : QuantisColors.warning),
-                  const SizedBox(width: 6),
+                      size: 13, color: isCaisseOuverte ? QuantisColors.success : QuantisColors.warning),
+                  const SizedBox(width: 4),
                   Text(
-                    isCaisseOuverte ? 'Caisse Ouverte' : 'Caisse Fermée',
+                    isCaisseOuverte ? 'Ouverte' : 'Fermée',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
@@ -257,77 +272,142 @@ class _PosScreenState extends State<PosScreen> {
               children: [
                 // Barre de Contrôle Supérieure (Dépôt, Client, Recherche)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   color: Colors.white,
-                  child: Row(
-                    children: [
-                      // Sélecteur Dépôt
-                      SizedBox(
-                        width: 180,
-                        child: DropdownButtonFormField<int>(
-                          value: _selectedDepotId,
-                          isExpanded: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Dépôt Vente',
-                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          ),
-                          items: _depots.map((d) {
-                            return DropdownMenuItem<int>(
-                              value: d['id'] as int,
-                              child: Text(d['nom'] ?? 'Dépôt', overflow: TextOverflow.ellipsis),
-                            );
-                          }).toList(),
-                          onChanged: (val) => setState(() => _selectedDepotId = val),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-
-                      // Sélecteur Client
-                      SizedBox(
-                        width: 220,
-                        child: DropdownButtonFormField<int?>(
-                          value: _selectedClientId,
-                          isExpanded: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Client',
-                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          ),
-                          items: [
-                            const DropdownMenuItem<int?>(
-                              value: null,
-                              child: Text('Client Divers / Comptoir', style: TextStyle(fontStyle: FontStyle.italic)),
+                  child: isMobile
+                      ? Column(
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: DropdownButtonFormField<int>(
+                                    value: _selectedDepotId,
+                                    isExpanded: true,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Dépôt Vente',
+                                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    ),
+                                    items: _depots.map((d) {
+                                      return DropdownMenuItem<int>(
+                                        value: d['id'] as int,
+                                        child: Text(d['nom'] ?? 'Dépôt', overflow: TextOverflow.ellipsis),
+                                      );
+                                    }).toList(),
+                                    onChanged: (val) => setState(() => _selectedDepotId = val),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: DropdownButtonFormField<int?>(
+                                    value: _selectedClientId,
+                                    isExpanded: true,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Client',
+                                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    ),
+                                    items: [
+                                      const DropdownMenuItem<int?>(
+                                        value: null,
+                                        child: Text('Divers / Comptoir', style: TextStyle(fontStyle: FontStyle.italic), overflow: TextOverflow.ellipsis),
+                                      ),
+                                      ..._clients.map((c) {
+                                        return DropdownMenuItem<int?>(
+                                          value: c['id'] as int,
+                                          child: Text(c['nom'] ?? 'Client', overflow: TextOverflow.ellipsis),
+                                        );
+                                      }),
+                                    ],
+                                    onChanged: (val) => setState(() => _selectedClientId = val),
+                                  ),
+                                ),
+                              ],
                             ),
-                            ..._clients.map((c) {
-                              return DropdownMenuItem<int?>(
-                                value: c['id'] as int,
-                                child: Text(c['nom'] ?? 'Client', overflow: TextOverflow.ellipsis),
-                              );
-                            }),
+                            const SizedBox(height: 8),
+                            TextField(
+                              decoration: InputDecoration(
+                                hintText: 'Scanner code-barres ou rechercher article...',
+                                prefixIcon: const Icon(Icons.search, size: 20),
+                                suffixIcon: _searchQuery.isNotEmpty
+                                    ? IconButton(
+                                        icon: const Icon(Icons.clear, size: 18),
+                                        onPressed: () => setState(() => _searchQuery = ''),
+                                      )
+                                    : null,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              ),
+                              onChanged: (val) => setState(() => _searchQuery = val),
+                            ),
                           ],
-                          onChanged: (val) => setState(() => _selectedClientId = val),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
+                        )
+                      : Row(
+                          children: [
+                            // Sélecteur Dépôt
+                            SizedBox(
+                              width: 180,
+                              child: DropdownButtonFormField<int>(
+                                value: _selectedDepotId,
+                                isExpanded: true,
+                                decoration: const InputDecoration(
+                                  labelText: 'Dépôt Vente',
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                ),
+                                items: _depots.map((d) {
+                                  return DropdownMenuItem<int>(
+                                    value: d['id'] as int,
+                                    child: Text(d['nom'] ?? 'Dépôt', overflow: TextOverflow.ellipsis),
+                                  );
+                                }).toList(),
+                                onChanged: (val) => setState(() => _selectedDepotId = val),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
 
-                      // Champ de recherche / Code-barres
-                      Expanded(
-                        child: TextField(
-                          decoration: InputDecoration(
-                            hintText: 'Scanner code-barres ou rechercher article (Nom, SKU)...',
-                            prefixIcon: const Icon(Icons.search, size: 20),
-                            suffixIcon: _searchQuery.isNotEmpty
-                                ? IconButton(
-                                    icon: const Icon(Icons.clear, size: 18),
-                                    onPressed: () => setState(() => _searchQuery = ''),
-                                  )
-                                : null,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          ),
-                          onChanged: (val) => setState(() => _searchQuery = val),
+                            // Sélecteur Client
+                            SizedBox(
+                              width: 220,
+                              child: DropdownButtonFormField<int?>(
+                                value: _selectedClientId,
+                                isExpanded: true,
+                                decoration: const InputDecoration(
+                                  labelText: 'Client',
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                ),
+                                items: [
+                                  const DropdownMenuItem<int?>(
+                                    value: null,
+                                    child: Text('Client Divers / Comptoir', style: TextStyle(fontStyle: FontStyle.italic)),
+                                  ),
+                                  ..._clients.map((c) {
+                                    return DropdownMenuItem<int?>(
+                                      value: c['id'] as int,
+                                      child: Text(c['nom'] ?? 'Client', overflow: TextOverflow.ellipsis),
+                                    );
+                                  }),
+                                ],
+                                onChanged: (val) => setState(() => _selectedClientId = val),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+
+                            // Champ de recherche / Code-barres
+                            Expanded(
+                              child: TextField(
+                                decoration: InputDecoration(
+                                  hintText: 'Scanner code-barres ou rechercher article (Nom, SKU)...',
+                                  prefixIcon: const Icon(Icons.search, size: 20),
+                                  suffixIcon: _searchQuery.isNotEmpty
+                                      ? IconButton(
+                                          icon: const Icon(Icons.clear, size: 18),
+                                          onPressed: () => setState(() => _searchQuery = ''),
+                                        )
+                                      : null,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                ),
+                                onChanged: (val) => setState(() => _searchQuery = val),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
-                  ),
                 ),
 
                 // Corps Principal
@@ -338,19 +418,19 @@ class _PosScreenState extends State<PosScreen> {
                             // Colonne Gauche : Catalogue Produits
                             Expanded(flex: 6, child: _buildCatalogSection()),
                             // Colonne Droite : Panier
-                            SizedBox(width: 380, child: _buildCartSection()),
+                            SizedBox(width: 380, child: _buildCartSection(isWide: true)),
                           ],
                         )
                       : Column(
                           children: [
                             Expanded(child: _buildCatalogSection()),
                             Container(
-                              height: 220,
-                              decoration: BoxDecoration(
+                              height: 250,
+                              decoration: const BoxDecoration(
                                 color: Colors.white,
                                 boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
                               ),
-                              child: _buildCartSection(),
+                              child: _buildCartSection(isWide: false),
                             ),
                           ],
                         ),
@@ -506,14 +586,14 @@ class _PosScreenState extends State<PosScreen> {
     );
   }
 
-  Widget _buildCartSection() {
+  Widget _buildCartSection({bool isWide = true}) {
     return Container(
       color: Colors.white,
       child: Column(
         children: [
           // En-tête Panier
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
               color: QuantisColors.royalBlue.withValues(alpha: 0.05),
               border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
@@ -561,7 +641,7 @@ class _PosScreenState extends State<PosScreen> {
                       final totalLigne = qte * pu;
 
                       return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        padding: const EdgeInsets.symmetric(vertical: 4),
                         child: Row(
                           children: [
                             Expanded(
@@ -584,12 +664,26 @@ class _PosScreenState extends State<PosScreen> {
                             // Contrôleurs Quantité
                             IconButton(
                               icon: const Icon(Icons.remove_circle_outline, size: 20),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
                               onPressed: () => _modifierQuantite(i, -1),
                             ),
-                            Text('${qte.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              child: Text(qte.toStringAsFixed(0), style: const TextStyle(fontWeight: FontWeight.bold)),
+                            ),
                             IconButton(
                               icon: const Icon(Icons.add_circle_outline, size: 20, color: QuantisColors.royalBlue),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
                               onPressed: () => _modifierQuantite(i, 1),
+                            ),
+                            const SizedBox(width: 4),
+                            IconButton(
+                              icon: const Icon(Icons.close, size: 18, color: Colors.grey),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              onPressed: () => _supprimerDuPanier(i),
                             ),
                           ],
                         ),
@@ -600,7 +694,7 @@ class _PosScreenState extends State<PosScreen> {
 
           // Résumé et Bouton d'Encaissement
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
               color: Colors.white,
               boxShadow: [
@@ -615,20 +709,20 @@ class _PosScreenState extends State<PosScreen> {
                     const Text('Total Net :', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                     Text(
                       '${_totalPanier.toStringAsFixed(0)} FCFA',
-                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20, color: QuantisColors.royalBlue),
+                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: QuantisColors.royalBlue),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 SizedBox(
                   width: double.infinity,
-                  height: 48,
+                  height: 44,
                   child: ElevatedButton.icon(
                     onPressed: _panier.isEmpty ? null : _lancerEncaissement,
-                    icon: const Icon(Icons.payment, size: 20),
-                    label: const Text(
-                      'ENCAISSER (F10)',
-                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, letterSpacing: 0.5),
+                    icon: const Icon(Icons.payment, size: 18),
+                    label: Text(
+                      isWide ? 'ENCAISSER (F10)' : 'ENCAISSER',
+                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 0.5),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: QuantisColors.royalBlue,

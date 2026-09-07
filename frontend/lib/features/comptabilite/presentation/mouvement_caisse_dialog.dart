@@ -82,13 +82,19 @@ class _MouvementCaisseDialogState extends State<MouvementCaisseDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final categories = _type == 'ENTREE' ? _categoriesEntree : _categoriesSortie;
+    final isMobile = MediaQuery.of(context).size.width < 600;
+    final screenWidth = MediaQuery.of(context).size.width;
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 12 : 40,
+        vertical: isMobile ? 16 : 24,
+      ),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 500),
+        constraints: BoxConstraints(maxWidth: isMobile ? screenWidth * 0.95 : 500),
         child: Padding(
-          padding: const EdgeInsets.all(24.0),
+          padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
           child: Form(
             key: _formKey,
             child: Column(
@@ -107,8 +113,8 @@ class _MouvementCaisseDialogState extends State<MouvementCaisseDialog> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'Nouveau Mouvement de Caisse',
-                        style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                        'Mouvement de Caisse',
+                        style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, fontSize: isMobile ? 18 : null),
                       ),
                     ),
                     IconButton(
@@ -128,8 +134,8 @@ class _MouvementCaisseDialogState extends State<MouvementCaisseDialog> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(Icons.arrow_downward, size: 16, color: QuantisColors.success),
-                            SizedBox(width: 6),
-                            Text('Entrée (Recette)'),
+                            SizedBox(width: 4),
+                            Flexible(child: Text('Entrée', overflow: TextOverflow.ellipsis)),
                           ],
                         ),
                         selected: _type == 'ENTREE',
@@ -144,15 +150,15 @@ class _MouvementCaisseDialogState extends State<MouvementCaisseDialog> {
                         },
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: ChoiceChip(
                         label: const Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(Icons.arrow_upward, size: 16, color: QuantisColors.error),
-                            SizedBox(width: 6),
-                            Text('Sortie (Dépense)'),
+                            SizedBox(width: 4),
+                            Flexible(child: Text('Sortie', overflow: TextOverflow.ellipsis)),
                           ],
                         ),
                         selected: _type == 'SORTIE',
@@ -215,7 +221,7 @@ class _MouvementCaisseDialogState extends State<MouvementCaisseDialog> {
                   ),
                   items: categories.map((c) => DropdownMenuItem(
                     value: c['code'],
-                    child: Text(c['label']!),
+                    child: Text(c['label']!, overflow: TextOverflow.ellipsis),
                   )).toList(),
                   onChanged: (val) {
                     if (val != null) setState(() => _categorie = val);
@@ -228,7 +234,7 @@ class _MouvementCaisseDialogState extends State<MouvementCaisseDialog> {
                   controller: _notesController,
                   maxLines: 2,
                   decoration: const InputDecoration(
-                    labelText: 'Notes ou référence justificatif (optionnel)',
+                    labelText: 'Notes ou référence (optionnel)',
                     hintText: 'Ex: Reçu N° 4528, facture Sonabel...',
                     prefixIcon: Icon(Icons.receipt_outlined),
                     border: OutlineInputBorder(),
@@ -242,27 +248,51 @@ class _MouvementCaisseDialogState extends State<MouvementCaisseDialog> {
                     child: Text(_error!, style: const TextStyle(color: QuantisColors.error, fontSize: 12)),
                   ),
 
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('Annuler'),
-                    ),
-                    const SizedBox(width: 8),
-                    ElevatedButton.icon(
-                      onPressed: _loading ? null : _submit,
-                      icon: _loading
-                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : const Icon(Icons.check, size: 18),
-                      label: const Text('Enregistrer le Mouvement'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _type == 'ENTREE' ? QuantisColors.success : QuantisColors.error,
-                        foregroundColor: Colors.white,
+                if (isMobile)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: _loading ? null : _submit,
+                        icon: _loading
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : const Icon(Icons.check, size: 18),
+                        label: const Text('Enregistrer le Mouvement'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _type == 'ENTREE' ? QuantisColors.success : QuantisColors.error,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
+                      const SizedBox(height: 8),
+                      OutlinedButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('Annuler'),
+                      ),
+                    ],
+                  )
+                else
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('Annuler'),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        onPressed: _loading ? null : _submit,
+                        icon: _loading
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : const Icon(Icons.check, size: 18),
+                        label: const Text('Enregistrer le Mouvement'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _type == 'ENTREE' ? QuantisColors.success : QuantisColors.error,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
               ],
             ),
           ),

@@ -78,6 +78,8 @@ class _DocumentsScreenState extends State<DocumentsScreen> with SingleTickerProv
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Documents Commerciaux'),
@@ -94,9 +96,10 @@ class _DocumentsScreenState extends State<DocumentsScreen> with SingleTickerProv
         ),
         actions: [
           // Bouton Mode POS Rapide
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-            child: ElevatedButton.icon(
+          if (isMobile)
+            IconButton(
+              icon: const Icon(Icons.point_of_sale, color: QuantisColors.luxuryGold),
+              tooltip: 'Caisse POS Comptoir',
               onPressed: () async {
                 await Navigator.push(
                   context,
@@ -104,15 +107,27 @@ class _DocumentsScreenState extends State<DocumentsScreen> with SingleTickerProv
                 );
                 _load();
               },
-              icon: const Icon(Icons.point_of_sale, size: 18),
-              label: const Text('Caisse POS Comptoir'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: QuantisColors.luxuryGold,
-                foregroundColor: Colors.black87,
-                elevation: 1,
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const PosScreen()),
+                  );
+                  _load();
+                },
+                icon: const Icon(Icons.point_of_sale, size: 18),
+                label: const Text('Caisse POS Comptoir'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: QuantisColors.luxuryGold,
+                  foregroundColor: Colors.black87,
+                  elevation: 1,
+                ),
               ),
             ),
-          ),
           IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
         ],
       ),

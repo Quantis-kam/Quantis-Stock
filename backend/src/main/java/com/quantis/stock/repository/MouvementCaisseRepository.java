@@ -18,8 +18,19 @@ public interface MouvementCaisseRepository extends JpaRepository<MouvementCaisse
     Page<MouvementCaisse> findByDateMouvementBetweenOrderByDateMouvementDesc(
             LocalDate debut, LocalDate fin, Pageable pageable);
 
+    Page<MouvementCaisse> findByEntrepriseIdAndDateMouvementBetweenOrderByDateMouvementDesc(
+            Long entrepriseId, LocalDate debut, LocalDate fin, Pageable pageable);
+
     Page<MouvementCaisse> findByTypeAndDateMouvementBetween(
             TypeCaisse type, LocalDate debut, LocalDate fin, Pageable pageable);
+
+    Page<MouvementCaisse> findByEntrepriseIdAndTypeAndDateMouvementBetween(
+            Long entrepriseId, TypeCaisse type, LocalDate debut, LocalDate fin, Pageable pageable);
+
+    java.util.List<MouvementCaisse> findByEntrepriseIdAndDateMouvementBetweenOrderByDateMouvementAsc(
+            Long entrepriseId, LocalDate debut, LocalDate fin);
+
+    java.util.List<MouvementCaisse> findByEntrepriseId(Long entrepriseId);
 
     @Query("SELECT COALESCE(SUM(m.montant), 0) FROM MouvementCaisse m " +
            "WHERE m.type = :type AND m.dateMouvement BETWEEN :debut AND :fin")
@@ -39,4 +50,11 @@ public interface MouvementCaisseRepository extends JpaRepository<MouvementCaisse
     @Query("SELECT COALESCE(SUM(m.montant), 0) FROM MouvementCaisse m " +
            "WHERE m.entreprise.id = :entrepriseId AND m.type = com.quantis.stock.model.enums.TypeCaisse.SORTIE")
     BigDecimal sumSortiesByEntrepriseId(@Param("entrepriseId") Long entrepriseId);
+
+    @Query("SELECT COALESCE(SUM(m.montant), 0) FROM MouvementCaisse m " +
+           "WHERE m.entreprise.id = :entrepriseId AND m.type = :type AND m.dateMouvement BETWEEN :debut AND :fin")
+    BigDecimal sumByTypeAndPeriodeAndEntrepriseId(@Param("type") TypeCaisse type,
+                                                  @Param("debut") LocalDate debut,
+                                                  @Param("fin") LocalDate fin,
+                                                  @Param("entrepriseId") Long entrepriseId);
 }

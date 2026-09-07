@@ -27,4 +27,6 @@ public class RegisterRequest {
     private Role role;
 
     private Long depotId;
+
+    private Long entrepriseId;
 }

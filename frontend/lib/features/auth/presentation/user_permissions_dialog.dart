@@ -134,8 +134,10 @@ class _UserPermissionsDialogState extends State<UserPermissionsDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    final bool isMobile = MediaQuery.of(context).size.width < 600;
+
     return Dialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      insetPadding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 24, vertical: isMobile ? 16 : 24),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 700, maxHeight: 750),
         child: Column(
@@ -235,39 +237,89 @@ class _UserPermissionsDialogState extends State<UserPermissionsDialog> {
 
             // Footer
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
                 border: Border(top: BorderSide(color: Colors.grey.shade200)),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    '${_selectedPermissions.length} permissions sélectionnées',
-                    style: theme.textTheme.bodySmall?.copyWith(color: QuantisColors.textMuted),
-                  ),
-                  Row(
-                    children: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('Annuler'),
-                      ),
-                      const SizedBox(width: 8),
-                      ElevatedButton.icon(
-                        onPressed: _saving ? null : _save,
-                        icon: _saving
-                            ? const SizedBox(width: 16, height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                            : const Icon(Icons.save, size: 18),
-                        label: const Text('Enregistrer'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: QuantisColors.royalBlue,
-                          foregroundColor: Colors.white,
+              child: Builder(
+                builder: (context) {
+                  final bool isMobile = MediaQuery.of(context).size.width < 550;
+                  if (isMobile) {
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          '${_selectedPermissions.length} permissions sélectionnées',
+                          style: theme.textTheme.bodySmall?.copyWith(color: QuantisColors.textMuted),
+                          textAlign: TextAlign.center,
                         ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => Navigator.of(context).pop(),
+                                child: const Text('Annuler'),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: _saving ? null : _save,
+                                icon: _saving
+                                    ? const SizedBox(
+                                        width: 14,
+                                        height: 14,
+                                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                      )
+                                    : const Icon(Icons.save, size: 16),
+                                label: const Text('Enregistrer'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: QuantisColors.royalBlue,
+                                  foregroundColor: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    );
+                  }
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '${_selectedPermissions.length} permissions sélectionnées',
+                        style: theme.textTheme.bodySmall?.copyWith(color: QuantisColors.textMuted),
+                      ),
+                      Row(
+                        children: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            child: const Text('Annuler'),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton.icon(
+                            onPressed: _saving ? null : _save,
+                            icon: _saving
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  )
+                                : const Icon(Icons.save, size: 18),
+                            label: const Text('Enregistrer'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: QuantisColors.royalBlue,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
-                  ),
-                ],
+                  );
+                },
               ),
             ),
           ],

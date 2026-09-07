@@ -37,6 +37,7 @@ public class AchatService {
     private final UtilisateurRepository utilisateurRepository;
     private final StockService stockService;
     private final AuditService auditService;
+    private final com.quantis.stock.security.SecurityUtils securityUtils;
 
     // =================== COMMANDES ===================
 
@@ -47,6 +48,16 @@ public class AchatService {
 
         Depot depot = depotRepository.findById(request.getDepotId())
                 .orElseThrow(() -> new ResourceNotFoundException("Dépôt", "id", request.getDepotId()));
+
+        if (!securityUtils.isSuperAdmin()) {
+            Long entId = securityUtils.getCurrentEntrepriseId();
+            if (fournisseur.getEntreprise() != null && !fournisseur.getEntreprise().getId().equals(entId)) {
+                throw new BusinessException("Accès refusé : ce fournisseur n'appartient pas à votre entreprise");
+            }
+            if (depot.getEntreprise() != null && !depot.getEntreprise().getId().equals(entId)) {
+                throw new BusinessException("Accès refusé : ce dépôt n'appartient pas à votre entreprise");
+            }
+        }
 
         Utilisateur utilisateur = utilisateurRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "email", userEmail));
@@ -192,23 +203,49 @@ public class AchatService {
 
     @Transactional(readOnly = true)
     public CommandeFournisseur findById(Long id) {
-        return commandeRepository.findById(id)
+        CommandeFournisseur commande = commandeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Commande", "id", id));
+        if (!securityUtils.isSuperAdmin()) {
+            Long entId = securityUtils.getCurrentEntrepriseId();
+            if (commande.getDepot() != null && commande.getDepot().getEntreprise() != null
+                    && !commande.getDepot().getEntreprise().getId().equals(entId)) {
+                throw new BusinessException("Accès refusé : cette commande n'appartient pas à votre entreprise");
+            }
+        }
+        return commande;
     }
 
     @Transactional(readOnly = true)
     public Page<CommandeFournisseur> findAll(Pageable pageable) {
-        return commandeRepository.findAllByOrderByCreatedAtDesc(pageable);
+        if (securityUtils.isSuperAdmin()) {
+            return commandeRepository.findAllByOrderByCreatedAtDesc(pageable);
+        }
+        Long entId = securityUtils.getCurrentEntrepriseId();
+        return entId != null
+                ? commandeRepository.findByDepotEntrepriseIdOrderByCreatedAtDesc(entId, pageable)
+                : Page.empty(pageable);
     }
 
     @Transactional(readOnly = true)
     public Page<CommandeFournisseur> findByStatut(StatutCommande statut, Pageable pageable) {
-        return commandeRepository.findByStatut(statut, pageable);
+        if (securityUtils.isSuperAdmin()) {
+            return commandeRepository.findByStatut(statut, pageable);
+        }
+        Long entId = securityUtils.getCurrentEntrepriseId();
+        return entId != null
+                ? commandeRepository.findByDepotEntrepriseIdAndStatut(entId, statut, pageable)
+                : Page.empty(pageable);
     }
 
     @Transactional(readOnly = true)
     public Page<CommandeFournisseur> findByFournisseur(Long fournisseurId, Pageable pageable) {
-        return commandeRepository.findByFournisseurId(fournisseurId, pageable);
+        if (securityUtils.isSuperAdmin()) {
+            return commandeRepository.findByFournisseurId(fournisseurId, pageable);
+        }
+        Long entId = securityUtils.getCurrentEntrepriseId();
+        return entId != null
+                ? commandeRepository.findByDepotEntrepriseIdAndFournisseurId(entId, fournisseurId, pageable)
+                : Page.empty(pageable);
     }
 
     // =================== NUMÉROTATION ===================

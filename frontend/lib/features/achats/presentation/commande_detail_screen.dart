@@ -388,13 +388,13 @@ class _CommandeDetailScreenState extends State<CommandeDetailScreen> {
               const SizedBox(height: 8),
 
               // Quantités
-              Row(
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
                 children: [
                   _qtyChip('Commandée', ligne.quantiteCommandee, QuantisColors.royalBlue),
-                  const SizedBox(width: 8),
                   _qtyChip('Reçue', ligne.quantiteRecue,
                       isComplete ? QuantisColors.success : QuantisColors.warning),
-                  const SizedBox(width: 8),
                   if (ligne.quantiteRestante > 0)
                     _qtyChip('Restante', ligne.quantiteRestante, QuantisColors.error),
                 ],

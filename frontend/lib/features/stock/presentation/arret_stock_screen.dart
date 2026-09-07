@@ -220,42 +220,84 @@ class _ArretStockScreenState extends State<ArretStockScreen> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         color: QuantisColors.royalBlue,
                         child: Padding(
-                          padding: const EdgeInsets.all(20.0),
-                          child: Row(
-                            children: [
-                              const CircleAvatar(
-                                radius: 24,
-                                backgroundColor: Colors.white24,
-                                child: Icon(Icons.camera_alt, color: Colors.white, size: 28),
-                              ),
-                              const SizedBox(width: 16),
-                              const Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                          padding: const EdgeInsets.all(16.0),
+                          child: MediaQuery.of(context).size.width < 600
+                              ? Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
                                   children: [
-                                    Text('GEL & AUDIT DE STOCK', style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold)),
-                                    SizedBox(height: 4),
-                                    Text(
-                                      'Créer un instantané du stock',
-                                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                    const Row(
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 20,
+                                          backgroundColor: Colors.white24,
+                                          child: Icon(Icons.camera_alt, color: Colors.white, size: 22),
+                                        ),
+                                        SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text('GEL & AUDIT DE STOCK', style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold)),
+                                              SizedBox(height: 2),
+                                              Text(
+                                                'Instantané du stock',
+                                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    ElevatedButton.icon(
+                                      onPressed: _creating ? null : _creerArretStock,
+                                      icon: _creating
+                                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+                                          : const Icon(Icons.add_a_photo, size: 18),
+                                      label: const Text('Générer Arrêt'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: QuantisColors.luxuryGold,
+                                        foregroundColor: Colors.black87,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : Row(
+                                  children: [
+                                    const CircleAvatar(
+                                      radius: 24,
+                                      backgroundColor: Colors.white24,
+                                      child: Icon(Icons.camera_alt, color: Colors.white, size: 28),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    const Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text('GEL & AUDIT DE STOCK', style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold)),
+                                          SizedBox(height: 4),
+                                          Text(
+                                            'Créer un instantané du stock',
+                                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    ElevatedButton.icon(
+                                      onPressed: _creating ? null : _creerArretStock,
+                                      icon: _creating
+                                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+                                          : const Icon(Icons.add_a_photo, size: 18),
+                                      label: const Text('Générer Arrêt'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: QuantisColors.luxuryGold,
+                                        foregroundColor: Colors.black87,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                      ),
                                     ),
                                   ],
                                 ),
-                              ),
-                              ElevatedButton.icon(
-                                onPressed: _creating ? null : _creerArretStock,
-                                icon: _creating
-                                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
-                                    : const Icon(Icons.add_a_photo, size: 18),
-                                label: const Text('Générer Arrêt'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: QuantisColors.luxuryGold,
-                                  foregroundColor: Colors.black87,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                                ),
-                              ),
-                            ],
-                          ),
                         ),
                       ),
                     ),

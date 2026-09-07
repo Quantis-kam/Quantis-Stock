@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../../core/theme/quantis_theme.dart';
 import '../../../core/network/api_client.dart';
+import '../../documents/data/document_models.dart';
+import '../../documents/presentation/invoice_pdf_generator.dart';
 
 /// Modal d'aperçu et d'impression de reçu thermique (80mm) et facture A4
 class TicketReceiptDialog extends StatefulWidget {
@@ -20,6 +22,129 @@ class TicketReceiptDialog extends StatefulWidget {
 
 class _TicketReceiptDialogState extends State<TicketReceiptDialog> {
   int _selectedFormat = 0; // 0: Ticket 80mm, 1: Facture A4
+  bool _isProcessing = false;
+
+  DocumentModel _getDocumentModel() {
+    final docMap = widget.saleData['document'] as Map<String, dynamic>? ?? {};
+    try {
+      return DocumentModel.fromJson(docMap);
+    } catch (_) {
+      final lignesRaw = (docMap['lignes'] as List<dynamic>?) ?? [];
+      final montantPaye = (widget.saleData['montantPaye'] ?? docMap['montantPaye'] ?? 0).toDouble();
+      return DocumentModel(
+        id: docMap['id'] ?? 0,
+        numero: docMap['numero'] ?? widget.saleData['numero'] ?? 'FAC-001',
+        type: docMap['type'] ?? 'FACTURE',
+        statut: docMap['statut'] ?? 'VALIDE',
+        totalHt: (docMap['totalHt'] ?? 0).toDouble(),
+        totalTva: (docMap['totalTva'] ?? 0).toDouble(),
+        totalTtc: (widget.saleData['montantTotal'] ?? docMap['totalTtc'] ?? 0).toDouble(),
+        dateDocument: docMap['dateDocument'] ?? widget.saleData['date'] ?? DateTime.now().toString().substring(0, 10),
+        clientNom: widget.saleData['clientNom'] ?? docMap['clientNom'],
+        clientTelephone: widget.saleData['clientTelephone'] ?? docMap['clientTelephone'],
+        lignes: lignesRaw.map((l) {
+          if (l is LigneDocumentModel) return l;
+          final m = l as Map<String, dynamic>;
+          return LigneDocumentModel(
+            id: m['id'] ?? 0,
+            designation: m['designation'] ?? m['produit']?['nom'] ?? 'Article',
+            quantite: (m['quantite'] ?? 1).toDouble(),
+            prixUnitaire: (m['prixUnitaire'] ?? 0).toDouble(),
+            tauxTva: (m['tauxTva'] ?? 0).toDouble(),
+            montantTtc: (m['totalTtc'] ?? m['montantTtc'] ?? 0).toDouble(),
+          );
+        }).toList(),
+        paiements: [
+          if (montantPaye > 0)
+            PaiementModel(
+              montant: montantPaye,
+              moyen: 'ESPECES',
+              datePaiement: DateTime.now().toString().substring(0, 10),
+            ),
+        ],
+      );
+    }
+  }
+
+  Map<String, dynamic> _getEntrepriseMap() {
+    return {
+      'nom': widget.saleData['entrepriseNom'] ?? ApiClient.entrepriseNom,
+      'nif': widget.saleData['entrepriseNif'] ?? ApiClient.entrepriseNif,
+      'rccm': widget.saleData['entrepriseRccm'],
+      'telephone': widget.saleData['entrepriseTelephone'],
+      'adresse': widget.saleData['entrepriseAdresse'],
+      'monnaie': widget.saleData['entrepriseMonnaie'] ?? ApiClient.entrepriseMonnaie,
+    };
+  }
+
+  Future<void> _imprimer() async {
+    setState(() => _isProcessing = true);
+    try {
+      if (_selectedFormat == 0) {
+        await InvoicePdfGenerator.printThermalTicket(widget.saleData);
+      } else {
+        final docModel = _getDocumentModel();
+        await InvoicePdfGenerator.printDocument(docModel, entreprise: _getEntrepriseMap());
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur impression: $e'), backgroundColor: QuantisColors.error),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
+  Future<void> _partagerWhatsApp() async {
+    setState(() => _isProcessing = true);
+    try {
+      if (_selectedFormat == 0) {
+        await InvoicePdfGenerator.shareThermalTicket(widget.saleData);
+      } else {
+        final docModel = _getDocumentModel();
+        await InvoicePdfGenerator.sharePdf(docModel, entreprise: _getEntrepriseMap());
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur partage: $e'), backgroundColor: QuantisColors.error),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
+  Future<void> _telecharger() async {
+    setState(() => _isProcessing = true);
+    try {
+      if (_selectedFormat == 0) {
+        await InvoicePdfGenerator.downloadThermalTicket(widget.saleData);
+      } else {
+        final docModel = _getDocumentModel();
+        await InvoicePdfGenerator.downloadPdf(docModel, entreprise: _getEntrepriseMap());
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Document PDF téléchargé avec succès !'),
+            backgroundColor: QuantisColors.success,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur téléchargement: $e'), backgroundColor: QuantisColors.error),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
 
   Widget _buildLogo(String? logoUrl) {
     if (logoUrl == null || logoUrl.isEmpty) {
@@ -85,14 +210,18 @@ class _TicketReceiptDialogState extends State<TicketReceiptDialog> {
     final num soldeRestant = widget.saleData['soldeRestant'] ?? 0;
     final String moyenPaiement = paiement?['moyen'] ?? 'ESPECES';
 
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      insetPadding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 40, vertical: 16),
       child: Container(
-        width: _selectedFormat == 0 ? 460 : 680,
+        width: isMobile ? screenWidth * 0.95 : (_selectedFormat == 0 ? 460 : 680),
         constraints: BoxConstraints(
           maxHeight: MediaQuery.of(context).size.height * 0.9,
         ),
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.all(isMobile ? 14 : 20),
         child: Column(
           children: [
             // Header Dialog avec switch format
@@ -285,35 +414,96 @@ class _TicketReceiptDialogState extends State<TicketReceiptDialog> {
             ),
             const SizedBox(height: 16),
 
-            // Actions d'impression et fermeture
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                OutlinedButton.icon(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close, size: 18),
-                  label: const Text('Fermer'),
-                ),
-                const SizedBox(width: 12),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Impression lancée vers l\'imprimante par défaut...'),
-                        backgroundColor: QuantisColors.success,
+            // Actions d'impression, partage et téléchargement
+            if (isMobile)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _isProcessing ? null : _imprimer,
+                          icon: const Icon(Icons.print, size: 18),
+                          label: Text(_selectedFormat == 0 ? 'Imprimer' : 'Imprimer A4'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: QuantisColors.royalBlue,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
                       ),
-                    );
-                  },
-                  icon: const Icon(Icons.print, size: 18),
-                  label: const Text('Imprimer le Reçu'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: QuantisColors.royalBlue,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _isProcessing ? null : _partagerWhatsApp,
+                          icon: const Icon(Icons.chat_outlined, size: 18),
+                          label: const Text('WhatsApp'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF25D366),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
-            ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _isProcessing ? null : _telecharger,
+                          icon: const Icon(Icons.download, size: 18),
+                          label: const Text('Télécharger PDF'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Fermer'),
+                      ),
+                    ],
+                  ),
+                ],
+              )
+            else
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Fermer'),
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    onPressed: _isProcessing ? null : _telecharger,
+                    icon: const Icon(Icons.download, size: 18),
+                    label: const Text('Télécharger PDF'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: _isProcessing ? null : _partagerWhatsApp,
+                    icon: const Icon(Icons.chat_outlined, size: 18),
+                    label: const Text('WhatsApp'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF25D366),
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: _isProcessing ? null : _imprimer,
+                    icon: const Icon(Icons.print, size: 18),
+                    label: Text(_selectedFormat == 0 ? 'Imprimer Ticket' : 'Imprimer A4'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: QuantisColors.royalBlue,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
+                  ),
+                ],
+              ),
           ],
         ),
       ),

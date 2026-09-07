@@ -38,6 +38,7 @@ public class ComptabiliteService {
     private final StockCourantRepository stockCourantRepository;
     private final ClientRepository clientRepository;
     private final FournisseurRepository fournisseurRepository;
+    private final com.quantis.stock.security.SecurityUtils securityUtils;
 
     // =================== JOURNAL DE CAISSE ===================
 
@@ -46,6 +47,7 @@ public class ComptabiliteService {
         var utilisateur = utilisateurRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "email", userEmail));
         mouvement.setUtilisateur(utilisateur);
+        mouvement.setEntreprise(utilisateur.getEntreprise());
         if (mouvement.getDateMouvement() == null) {
             mouvement.setDateMouvement(LocalDate.now());
         }
@@ -72,7 +74,13 @@ public class ComptabiliteService {
 
     @Transactional(readOnly = true)
     public Page<MouvementCaisse> getJournal(LocalDate debut, LocalDate fin, Pageable pageable) {
-        return caisseRepository.findByDateMouvementBetweenOrderByDateMouvementDesc(debut, fin, pageable);
+        if (securityUtils.isSuperAdmin()) {
+            return caisseRepository.findByDateMouvementBetweenOrderByDateMouvementDesc(debut, fin, pageable);
+        }
+        Long entId = securityUtils.getCurrentEntrepriseId();
+        return entId != null
+                ? caisseRepository.findByEntrepriseIdAndDateMouvementBetweenOrderByDateMouvementDesc(entId, debut, fin, pageable)
+                : Page.empty(pageable);
     }
 
     // =================== GRAND LIVRE GÉNÉRAL ===================
@@ -80,10 +88,14 @@ public class ComptabiliteService {
     @Transactional(readOnly = true)
     public List<EcritureGrandLivreDto> getGrandLivre(LocalDate debut, LocalDate fin) {
         List<EcritureGrandLivreDto> ecritures = new ArrayList<>();
+        Long entId = securityUtils.getCurrentEntrepriseId();
+        boolean isSuperAdmin = securityUtils.isSuperAdmin();
 
         // 1. Factures de Vente Validées (Ventes de marchandises / Produits d'exploitation)
-        List<Document> factures = documentRepository.findByDateDocumentBetweenAndStatut(
-                debut, fin, StatutDocument.VALIDE);
+        List<Document> factures = (isSuperAdmin || entId == null)
+                ? documentRepository.findByDateDocumentBetweenAndStatut(debut, fin, StatutDocument.VALIDE)
+                : documentRepository.findByEntrepriseIdAndDateDocumentBetweenAndStatut(entId, debut, fin, StatutDocument.VALIDE);
+
         for (Document f : factures) {
             if (f.getType() == TypeDocument.FACTURE || f.getType() == TypeDocument.BON_LIVRAISON) {
                 String clientNom = f.getClient() != null ? f.getClient().getNom() : "Client Comptoir";
@@ -100,7 +112,10 @@ public class ComptabiliteService {
         }
 
         // 2. Commandes d'Achat Fournisseurs (Charges / Achats de marchandises)
-        List<CommandeFournisseur> achats = commandeFournisseurRepository.findByDateCommandeBetween(debut, fin);
+        List<CommandeFournisseur> achats = (isSuperAdmin || entId == null)
+                ? commandeFournisseurRepository.findByDateCommandeBetween(debut, fin)
+                : commandeFournisseurRepository.findByDepotEntrepriseIdAndDateCommandeBetween(entId, debut, fin);
+
         for (CommandeFournisseur a : achats) {
             if (a.getStatut() != com.quantis.stock.model.enums.StatutCommande.ANNULEE
                     && a.getStatut() != com.quantis.stock.model.enums.StatutCommande.BROUILLON) {
@@ -118,7 +133,10 @@ public class ComptabiliteService {
         }
 
         // 3. Mouvements de Caisse (Encaissements & Décaissements effectifs)
-        List<MouvementCaisse> mouvements = caisseRepository.findByDateMouvementBetweenOrderByDateMouvementAsc(debut, fin);
+        List<MouvementCaisse> mouvements = (isSuperAdmin || entId == null)
+                ? caisseRepository.findByDateMouvementBetweenOrderByDateMouvementAsc(debut, fin)
+                : caisseRepository.findByEntrepriseIdAndDateMouvementBetweenOrderByDateMouvementAsc(entId, debut, fin);
+
         for (MouvementCaisse m : mouvements) {
             boolean isEntree = m.getType() == TypeCaisse.ENTREE;
             ecritures.add(EcritureGrandLivreDto.builder()
@@ -149,9 +167,14 @@ public class ComptabiliteService {
 
     @Transactional(readOnly = true)
     public ClotureSyntheseDto simulerCloture(LocalDate debut, LocalDate fin, String periode) {
+        Long entId = securityUtils.getCurrentEntrepriseId();
+        boolean isSuperAdmin = securityUtils.isSuperAdmin();
+
         // 1. Chiffre d'affaires & TVA
-        List<Document> factures = documentRepository.findByDateDocumentBetweenAndStatut(
-                debut, fin, StatutDocument.VALIDE);
+        List<Document> factures = (isSuperAdmin || entId == null)
+                ? documentRepository.findByDateDocumentBetweenAndStatut(debut, fin, StatutDocument.VALIDE)
+                : documentRepository.findByEntrepriseIdAndDateDocumentBetweenAndStatut(entId, debut, fin, StatutDocument.VALIDE);
+
         BigDecimal caTtc = BigDecimal.ZERO;
         BigDecimal caHt = BigDecimal.ZERO;
         BigDecimal tvaCollectee = BigDecimal.ZERO;
@@ -167,7 +190,10 @@ public class ComptabiliteService {
         }
 
         // 2. Achats fournisseurs
-        List<CommandeFournisseur> achats = commandeFournisseurRepository.findByDateCommandeBetween(debut, fin);
+        List<CommandeFournisseur> achats = (isSuperAdmin || entId == null)
+                ? commandeFournisseurRepository.findByDateCommandeBetween(debut, fin)
+                : commandeFournisseurRepository.findByDepotEntrepriseIdAndDateCommandeBetween(entId, debut, fin);
+
         BigDecimal achatsHt = BigDecimal.ZERO;
         int nbAchats = 0;
 
@@ -179,8 +205,14 @@ public class ComptabiliteService {
         }
 
         // 3. Mouvements de Caisse
-        BigDecimal totalEntrees = caisseRepository.sumByTypeAndPeriode(TypeCaisse.ENTREE, debut, fin);
-        BigDecimal totalSorties = caisseRepository.sumByTypeAndPeriode(TypeCaisse.SORTIE, debut, fin);
+        BigDecimal totalEntrees = (isSuperAdmin || entId == null)
+                ? caisseRepository.sumByTypeAndPeriode(TypeCaisse.ENTREE, debut, fin)
+                : caisseRepository.sumByTypeAndPeriodeAndEntrepriseId(TypeCaisse.ENTREE, debut, fin, entId);
+
+        BigDecimal totalSorties = (isSuperAdmin || entId == null)
+                ? caisseRepository.sumByTypeAndPeriode(TypeCaisse.SORTIE, debut, fin)
+                : caisseRepository.sumByTypeAndPeriodeAndEntrepriseId(TypeCaisse.SORTIE, debut, fin, entId);
+
         if (totalEntrees == null) totalEntrees = BigDecimal.ZERO;
         if (totalSorties == null) totalSorties = BigDecimal.ZERO;
         BigDecimal soldeCaisse = totalEntrees.subtract(totalSorties);
@@ -189,7 +221,10 @@ public class ComptabiliteService {
         BigDecimal margeBrute = caHt.subtract(achatsHt);
 
         // 5. Valorisation du Stock final
-        List<StockCourant> stocks = stockCourantRepository.findAll();
+        List<StockCourant> stocks = (isSuperAdmin || entId == null)
+                ? stockCourantRepository.findAll()
+                : stockCourantRepository.findByEntrepriseId(entId);
+
         BigDecimal valeurStock = BigDecimal.ZERO;
         for (StockCourant sc : stocks) {
             if (sc.getQuantite() != null && sc.getQuantite().compareTo(BigDecimal.ZERO) > 0) {
@@ -201,12 +236,19 @@ public class ComptabiliteService {
         }
 
         // 6. Créances & Dettes
-        BigDecimal creances = clientRepository.sumSoldeCredit();
+        BigDecimal creances = (isSuperAdmin || entId == null)
+                ? clientRepository.sumSoldeCredit()
+                : clientRepository.sumSoldeCreditByEntreprise(entId);
         if (creances == null) creances = BigDecimal.ZERO;
-        BigDecimal dettes = fournisseurRepository.sumSoldeDette();
+
+        BigDecimal dettes = (isSuperAdmin || entId == null)
+                ? fournisseurRepository.sumSoldeDette()
+                : fournisseurRepository.sumSoldeDetteByEntreprise(entId);
         if (dettes == null) dettes = BigDecimal.ZERO;
 
-        boolean dejaCloturee = clotureRepository.existsByPeriode(periode);
+        boolean dejaCloturee = (isSuperAdmin || entId == null)
+                ? clotureRepository.existsByPeriode(periode)
+                : clotureRepository.existsByEntrepriseIdAndPeriode(entId, periode);
 
         return ClotureSyntheseDto.builder()
                 .periode(periode)
@@ -235,14 +277,23 @@ public class ComptabiliteService {
         var utilisateur = utilisateurRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "email", userEmail));
 
+        Long entId = utilisateur.getEntreprise() != null ? utilisateur.getEntreprise().getId() : null;
+
         // Vérifier si déjà clôturé
-        clotureRepository.findByPeriode(req.getPeriode()).ifPresent(c -> {
-            throw new IllegalArgumentException("La période « " + req.getPeriode() + " » a déjà fait l'objet d'une clôture verrouillée.");
-        });
+        if (entId != null) {
+            clotureRepository.findByEntrepriseIdAndPeriode(entId, req.getPeriode()).ifPresent(c -> {
+                throw new IllegalArgumentException("La période « " + req.getPeriode() + " » a déjà fait l'objet d'une clôture verrouillée.");
+            });
+        } else {
+            clotureRepository.findByPeriode(req.getPeriode()).ifPresent(c -> {
+                throw new IllegalArgumentException("La période « " + req.getPeriode() + " » a déjà fait l'objet d'une clôture verrouillée.");
+            });
+        }
 
         ClotureSyntheseDto synthese = simulerCloture(req.getDateDebut(), req.getDateFin(), req.getPeriode());
 
         ClotureComptable cloture = ClotureComptable.builder()
+                .entreprise(utilisateur.getEntreprise())
                 .periode(req.getPeriode())
                 .libelle(req.getLibelle() != null && !req.getLibelle().isBlank() ? req.getLibelle() : "Arrêté Mensuel " + req.getPeriode())
                 .dateDebut(req.getDateDebut())
@@ -273,15 +324,30 @@ public class ComptabiliteService {
 
     @Transactional(readOnly = true)
     public List<ClotureComptable> getHistoriqueClotures() {
-        return clotureRepository.findAllByOrderByDateClotureDesc();
+        if (securityUtils.isSuperAdmin()) {
+            return clotureRepository.findAllByOrderByDateClotureDesc();
+        }
+        Long entId = securityUtils.getCurrentEntrepriseId();
+        return entId != null
+                ? clotureRepository.findByEntrepriseIdOrderByDateClotureDesc(entId)
+                : Collections.emptyList();
     }
 
     // =================== RAPPORTS SIMPLES ===================
 
     @Transactional(readOnly = true)
     public Map<String, Object> getRapportPeriode(LocalDate debut, LocalDate fin) {
-        BigDecimal totalEntrees = caisseRepository.sumByTypeAndPeriode(TypeCaisse.ENTREE, debut, fin);
-        BigDecimal totalSorties = caisseRepository.sumByTypeAndPeriode(TypeCaisse.SORTIE, debut, fin);
+        Long entId = securityUtils.getCurrentEntrepriseId();
+        boolean isSuperAdmin = securityUtils.isSuperAdmin();
+
+        BigDecimal totalEntrees = (isSuperAdmin || entId == null)
+                ? caisseRepository.sumByTypeAndPeriode(TypeCaisse.ENTREE, debut, fin)
+                : caisseRepository.sumByTypeAndPeriodeAndEntrepriseId(TypeCaisse.ENTREE, debut, fin, entId);
+
+        BigDecimal totalSorties = (isSuperAdmin || entId == null)
+                ? caisseRepository.sumByTypeAndPeriode(TypeCaisse.SORTIE, debut, fin)
+                : caisseRepository.sumByTypeAndPeriodeAndEntrepriseId(TypeCaisse.SORTIE, debut, fin, entId);
+
         if (totalEntrees == null) totalEntrees = BigDecimal.ZERO;
         if (totalSorties == null) totalSorties = BigDecimal.ZERO;
         BigDecimal solde = totalEntrees.subtract(totalSorties);

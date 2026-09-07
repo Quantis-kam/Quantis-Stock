@@ -41,7 +41,13 @@ public interface UtilisateurRepository extends JpaRepository<Utilisateur, Long> 
     Page<Utilisateur> findByDepotId(Long depotId, Pageable pageable);
 
     @EntityGraph(attributePaths = {"depot", "entreprise"})
+    Page<Utilisateur> findByDepotIdAndRoleNot(Long depotId, Role role, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"depot", "entreprise"})
     Page<Utilisateur> findByEntrepriseId(Long entrepriseId, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"depot", "entreprise"})
+    Page<Utilisateur> findByEntrepriseIdAndRoleNot(Long entrepriseId, Role role, Pageable pageable);
 
     @EntityGraph(attributePaths = {"depot", "entreprise"})
     List<Utilisateur> findByEntrepriseId(Long entrepriseId);

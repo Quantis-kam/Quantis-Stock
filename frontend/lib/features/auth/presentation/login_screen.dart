@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/sync/sync_manager.dart';
 import '../../../core/theme/quantis_theme.dart';
@@ -20,7 +21,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailCtrl = TextEditingController(text: 'admin@quantis.tech');
   final _passwordCtrl = TextEditingController();
-  final _storage = const FlutterSecureStorage();
 
   bool _loading = false;
   bool _obscure = true;
@@ -32,7 +32,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       final response = await Dio(BaseOptions(
-        baseUrl: 'http://localhost:8080/api/v1',
+        baseUrl: ApiConstants.baseUrl,
         connectTimeout: const Duration(seconds: 15),
       )).post('/auth/login', data: {
         'email': _emailCtrl.text.trim(),
@@ -45,16 +45,7 @@ class _LoginScreenState extends State<LoginScreen> {
       final userMap = data['utilisateur'] as Map<String, dynamic>;
 
       // Persister les tokens
-      try {
-        await _storage.write(key: 'access_token', value: accessToken);
-        await _storage.write(key: 'refresh_token', value: refreshToken);
-      } catch (e) {
-        debugPrint('Notice secure storage write: $e');
-      }
-
-      // Configurer le client API
-      ApiClient.setToken(accessToken);
-      ApiClient.setRefreshToken(refreshToken);
+      await ApiClient.saveTokens(accessToken, refreshToken);
       final permissionsList = (userMap['permissions'] as List<dynamic>?)
           ?.map((e) => e.toString())
           .toList() ?? [];
@@ -270,6 +261,18 @@ class _LoginScreenState extends State<LoginScreen> {
                           : const Text('Se connecter'),
                     ),
                   ),
+                  const SizedBox(height: 16),
+                  TextButton.icon(
+                    onPressed: _showServerSettingsDialog,
+                    icon: const Icon(Icons.settings_ethernet, size: 16),
+                    label: Text(
+                      'Serveur : ${ApiConstants.baseUrl.replaceAll('/api/v1', '')}',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    style: TextButton.styleFrom(
+                      foregroundColor: QuantisColors.textMuted,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -278,6 +281,140 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
+
+  void _showServerSettingsDialog() {
+    final controller = TextEditingController(text: ApiConstants.baseUrl);
+    bool isTesting = false;
+    String? testResult;
+    bool isSuccess = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final screenWidth = MediaQuery.of(context).size.width;
+          final isMobile = screenWidth < 600;
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            insetPadding: EdgeInsets.symmetric(
+              horizontal: isMobile ? 12 : 40,
+              vertical: 16,
+            ),
+            title: const Row(
+              children: [
+                Icon(Icons.dns_rounded, color: QuantisColors.royalBlue),
+                SizedBox(width: 8),
+                Text('Adresse Serveur API', style: TextStyle(fontSize: 18)),
+              ],
+            ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Entrez l\'adresse IP ou l\'URL du serveur backend (ex: ${ApiConstants.defaultBaseUrl}) :',
+                style: const TextStyle(fontSize: 13, color: QuantisColors.textMuted),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: controller,
+                decoration: InputDecoration(
+                  labelText: 'URL de l\'API',
+                  hintText: ApiConstants.defaultBaseUrl,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  prefixIcon: const Icon(Icons.link),
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (testResult != null) ...[
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: (isSuccess ? Colors.green : Colors.red).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(isSuccess ? Icons.check_circle : Icons.error, color: isSuccess ? Colors.green : Colors.red, size: 16),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          testResult!,
+                          style: TextStyle(fontSize: 12, color: isSuccess ? Colors.green.shade800 : Colors.red.shade800),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  TextButton.icon(
+                    onPressed: () {
+                      controller.text = ApiConstants.defaultBaseUrl;
+                      setDialogState(() {
+                        testResult = null;
+                      });
+                    },
+                    icon: const Icon(Icons.refresh, size: 16),
+                    label: const Text('Par défaut', style: TextStyle(fontSize: 12)),
+                  ),
+                  TextButton.icon(
+                    onPressed: isTesting ? null : () async {
+                      setDialogState(() {
+                        isTesting = true;
+                        testResult = null;
+                      });
+                      try {
+                        String testUrl = controller.text.trim();
+                        if (testUrl.endsWith('/')) testUrl = testUrl.substring(0, testUrl.length - 1);
+                        if (!testUrl.endsWith('/api/v1')) testUrl = '$testUrl/api/v1';
+                        final dio = Dio(BaseOptions(connectTimeout: const Duration(seconds: 5)));
+                        final res = await dio.get('$testUrl/auth/health');
+                        setDialogState(() {
+                          isTesting = false;
+                          isSuccess = true;
+                          testResult = 'Serveur accessible (${res.statusCode}) !';
+                        });
+                      } catch (e) {
+                        setDialogState(() {
+                          isTesting = false;
+                          isSuccess = false;
+                          testResult = 'Échec de connexion : $e';
+                        });
+                      }
+                    },
+                    icon: isTesting
+                        ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.wifi_tethering, size: 16),
+                    label: const Text('Tester', style: TextStyle(fontSize: 12)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                await ApiClient.setCustomServerUrl(controller.text);
+                if (ctx.mounted) Navigator.of(ctx).pop();
+                if (mounted) setState(() {});
+              },
+              child: const Text('Enregistrer'),
+            ),
+          ],
+        );
+      },
+    ),
+  );
+}
 }
 
 /// Modal de renouvellement d'abonnement / licence affiché en cas de fin de mois ou expiration
@@ -320,6 +457,9 @@ class _LicenceRenewalDialogState extends State<_LicenceRenewalDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
+
     final nom = widget.data['entrepriseNom'] ?? 'Votre Entreprise';
     final codeUssd = widget.data['codeUssd'] ?? '*144*2*1*65189261*20200#';
     final dateExp = widget.data['dateExpiration'] ?? 'Fin de mois';
@@ -331,13 +471,18 @@ class _LicenceRenewalDialogState extends State<_LicenceRenewalDialog> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       elevation: 16,
       backgroundColor: Colors.white,
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 500),
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 12 : 40,
+        vertical: 16,
+      ),
+      child: SingleChildScrollView(
+        child: Container(
+          constraints: BoxConstraints(maxWidth: isMobile ? screenWidth * 0.95 : 500),
+          padding: EdgeInsets.all(isMobile ? 16 : 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
             // Header Alerte Expiration
             Row(
               children: [
@@ -542,44 +687,72 @@ class _LicenceRenewalDialogState extends State<_LicenceRenewalDialog> {
             const SizedBox(height: 20),
 
             // Boutons bas de modal
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Fermer'),
-                  ),
+            if (isMobile) ...[
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: QuantisColors.royalBlue,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  elevation: 2,
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  flex: 2,
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: QuantisColors.royalBlue,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      elevation: 2,
-                    ),
-                    icon: const Icon(Icons.refresh_rounded, size: 18),
-                    label: const Text(
-                      'Paiement fait ? Vérifier',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                    ),
-                    onPressed: widget.onRetryLogin,
-                  ),
+                icon: const Icon(Icons.refresh_rounded, size: 18),
+                label: const Text(
+                  'Paiement fait ? Vérifier',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                 ),
-              ],
-            ),
+                onPressed: widget.onRetryLogin,
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Fermer'),
+              ),
+            ] else ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Fermer'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: QuantisColors.royalBlue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        elevation: 2,
+                      ),
+                      icon: const Icon(Icons.refresh_rounded, size: 18),
+                      label: const Text(
+                        'Paiement fait ? Vérifier',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                      onPressed: widget.onRetryLogin,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildStep(String num, String text) {
     return Padding(

@@ -281,109 +281,256 @@ class _DocumentDetailScreenState extends State<DocumentDetailScreen> {
     final doc = _doc!;
     final theme = kInvoiceThemes[_selectedThemeIndex];
 
+    final bool isMobile = MediaQuery.of(context).size.width < 800;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
       appBar: AppBar(
-        title: Text('${doc.typeLabel} ${doc.numero}', style: const TextStyle(fontWeight: FontWeight.bold)),
-        actions: [
-          // Bouton Impression A4
-          ElevatedButton.icon(
-            onPressed: () => InvoicePdfGenerator.printDocument(doc, entreprise: _entreprise),
-            icon: const Icon(Icons.print, size: 18),
-            label: const Text('Imprimer A4'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: theme.primary,
-              foregroundColor: Colors.white,
-            ),
-          ),
-          const SizedBox(width: 8),
+        title: Text(
+          '${doc.typeLabel} ${doc.numero}',
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          overflow: TextOverflow.ellipsis,
+        ),
+        actions: isMobile
+            ? [
+                if (doc.canPay)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: ElevatedButton.icon(
+                      onPressed: _ouvrirPaiement,
+                      icon: const Icon(Icons.payments, size: 16),
+                      label: const Text('Encaisser', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: QuantisColors.luxuryGold,
+                        foregroundColor: Colors.black87,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        minimumSize: Size.zero,
+                      ),
+                    ),
+                  ),
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert),
+                  tooltip: 'Actions du document',
+                  onSelected: (action) {
+                    if (action == 'print_a4') {
+                      InvoicePdfGenerator.printDocument(doc, entreprise: _entreprise);
+                    } else if (action == 'download_pdf') {
+                      InvoicePdfGenerator.downloadPdf(doc, entreprise: _entreprise);
+                    } else if (action == 'ticket') {
+                      _ouvrirTicketReceipt();
+                    } else if (action == 'whatsapp') {
+                      WhatsappShareDialog.show(context, doc, entreprise: _entreprise);
+                    } else if (action == 'valider') {
+                      _valider();
+                    } else if (action == 'devis_to_commande') {
+                      _convertir('COMMANDE_CLIENT');
+                    } else if (action == 'devis_to_facture' || action == 'commande_to_facture') {
+                      _convertir('FACTURE');
+                    } else if (action == 'commande_to_bl') {
+                      _convertir('BON_LIVRAISON');
+                    }
+                  },
+                  itemBuilder: (ctx) => [
+                    const PopupMenuItem(
+                      value: 'print_a4',
+                      child: Row(
+                        children: [
+                          Icon(Icons.print, size: 18),
+                          SizedBox(width: 8),
+                          Text('Imprimer A4'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'download_pdf',
+                      child: Row(
+                        children: [
+                          Icon(Icons.download, size: 18),
+                          SizedBox(width: 8),
+                          Text('Télécharger PDF'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'ticket',
+                      child: Row(
+                        children: [
+                          Icon(Icons.receipt, size: 18),
+                          SizedBox(width: 8),
+                          Text('Ticket 80mm'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'whatsapp',
+                      child: Row(
+                        children: [
+                          Icon(Icons.chat_outlined, size: 18, color: Color(0xFF25D366)),
+                          SizedBox(width: 8),
+                          Text('Partager WhatsApp'),
+                        ],
+                      ),
+                    ),
+                    if (doc.canValidate)
+                      const PopupMenuItem(
+                        value: 'valider',
+                        child: Row(
+                          children: [
+                            Icon(Icons.check_circle, size: 18, color: QuantisColors.success),
+                            SizedBox(width: 8),
+                            Text('Valider le document'),
+                          ],
+                        ),
+                      ),
+                    if (doc.statut == 'VALIDE' && doc.type == 'DEVIS') ...[
+                      const PopupMenuDivider(),
+                      const PopupMenuItem(
+                        value: 'devis_to_commande',
+                        child: Row(
+                          children: [
+                            Icon(Icons.shopping_bag_outlined, size: 18, color: Colors.indigo),
+                            SizedBox(width: 8),
+                            Text('Créer Commande'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'devis_to_facture',
+                        child: Row(
+                          children: [
+                            Icon(Icons.receipt_long, size: 18, color: QuantisColors.royalBlue),
+                            SizedBox(width: 8),
+                            Text('Facturer'),
+                          ],
+                        ),
+                      ),
+                    ],
+                    if (doc.statut == 'VALIDE' && doc.type == 'COMMANDE_CLIENT') ...[
+                      const PopupMenuDivider(),
+                      const PopupMenuItem(
+                        value: 'commande_to_facture',
+                        child: Row(
+                          children: [
+                            Icon(Icons.receipt_long, size: 18, color: QuantisColors.royalBlue),
+                            SizedBox(width: 8),
+                            Text('Facturer la Commande'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'commande_to_bl',
+                        child: Row(
+                          children: [
+                            Icon(Icons.local_shipping, size: 18),
+                            SizedBox(width: 8),
+                            Text('Bon de Livraison'),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(width: 8),
+              ]
+            : [
+                // Bouton Impression A4
+                ElevatedButton.icon(
+                  onPressed: () => InvoicePdfGenerator.printDocument(doc, entreprise: _entreprise),
+                  icon: const Icon(Icons.print, size: 18),
+                  label: const Text('Imprimer A4'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: theme.primary,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 8),
 
-          // Bouton Télécharger PDF
-          OutlinedButton.icon(
-            onPressed: () => InvoicePdfGenerator.downloadPdf(doc, entreprise: _entreprise),
-            icon: const Icon(Icons.download, size: 18),
-            label: const Text('Télécharger PDF'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: theme.primary,
-            ),
-          ),
-          const SizedBox(width: 8),
+                // Bouton Télécharger PDF
+                OutlinedButton.icon(
+                  onPressed: () => InvoicePdfGenerator.downloadPdf(doc, entreprise: _entreprise),
+                  icon: const Icon(Icons.download, size: 18),
+                  label: const Text('Télécharger PDF'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: theme.primary,
+                  ),
+                ),
+                const SizedBox(width: 8),
 
-          // Bouton Ticket 80mm
-          OutlinedButton.icon(
-            onPressed: _ouvrirTicketReceipt,
-            icon: const Icon(Icons.receipt, size: 18),
-            label: const Text('Ticket 80mm'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: theme.primary,
-            ),
-          ),
-          const SizedBox(width: 8),
+                // Bouton Ticket 80mm
+                OutlinedButton.icon(
+                  onPressed: _ouvrirTicketReceipt,
+                  icon: const Icon(Icons.receipt, size: 18),
+                  label: const Text('Ticket 80mm'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: theme.primary,
+                  ),
+                ),
+                const SizedBox(width: 8),
 
-          // Bouton Partager WhatsApp
-          ElevatedButton.icon(
-            onPressed: () => WhatsappShareDialog.show(context, doc, entreprise: _entreprise),
-            icon: const Icon(Icons.chat_outlined, size: 18),
-            label: const Text('Partager WhatsApp'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF25D366),
-              foregroundColor: Colors.white,
-            ),
-          ),
-          const SizedBox(width: 8),
+                // Bouton Partager WhatsApp
+                ElevatedButton.icon(
+                  onPressed: () => WhatsappShareDialog.show(context, doc, entreprise: _entreprise),
+                  icon: const Icon(Icons.chat_outlined, size: 18),
+                  label: const Text('Partager WhatsApp'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF25D366),
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 8),
 
-          if (doc.canValidate)
-            ElevatedButton.icon(
-              onPressed: _valider,
-              icon: const Icon(Icons.check_circle, size: 18),
-              label: const Text('Valider'),
-              style: ElevatedButton.styleFrom(backgroundColor: QuantisColors.success, foregroundColor: Colors.white),
-            ),
-          if (doc.canValidate) const SizedBox(width: 8),
+                if (doc.canValidate)
+                  ElevatedButton.icon(
+                    onPressed: _valider,
+                    icon: const Icon(Icons.check_circle, size: 18),
+                    label: const Text('Valider'),
+                    style: ElevatedButton.styleFrom(backgroundColor: QuantisColors.success, foregroundColor: Colors.white),
+                  ),
+                if (doc.canValidate) const SizedBox(width: 8),
 
-          // Boutons de conversion si validé
-          if (doc.statut == 'VALIDE' && doc.type == 'DEVIS') ...[
-            ElevatedButton.icon(
-              onPressed: () => _convertir('COMMANDE_CLIENT'),
-              icon: const Icon(Icons.shopping_bag_outlined, size: 16),
-              label: const Text('Créer Commande'),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, foregroundColor: Colors.white),
-            ),
-            const SizedBox(width: 8),
-            ElevatedButton.icon(
-              onPressed: () => _convertir('FACTURE'),
-              icon: const Icon(Icons.receipt_long, size: 16),
-              label: const Text('Facturer'),
-              style: ElevatedButton.styleFrom(backgroundColor: QuantisColors.royalBlue, foregroundColor: Colors.white),
-            ),
-            const SizedBox(width: 8),
-          ],
+                // Boutons de conversion si validé
+                if (doc.statut == 'VALIDE' && doc.type == 'DEVIS') ...[
+                  ElevatedButton.icon(
+                    onPressed: () => _convertir('COMMANDE_CLIENT'),
+                    icon: const Icon(Icons.shopping_bag_outlined, size: 16),
+                    label: const Text('Créer Commande'),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, foregroundColor: Colors.white),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: () => _convertir('FACTURE'),
+                    icon: const Icon(Icons.receipt_long, size: 16),
+                    label: const Text('Facturer'),
+                    style: ElevatedButton.styleFrom(backgroundColor: QuantisColors.royalBlue, foregroundColor: Colors.white),
+                  ),
+                  const SizedBox(width: 8),
+                ],
 
-          if (doc.statut == 'VALIDE' && doc.type == 'COMMANDE_CLIENT') ...[
-            ElevatedButton.icon(
-              onPressed: () => _convertir('FACTURE'),
-              icon: const Icon(Icons.receipt_long, size: 16),
-              label: const Text('Facturer la Commande'),
-              style: ElevatedButton.styleFrom(backgroundColor: QuantisColors.royalBlue, foregroundColor: Colors.white),
-            ),
-            const SizedBox(width: 8),
-            OutlinedButton.icon(
-              onPressed: () => _convertir('BON_LIVRAISON'),
-              icon: const Icon(Icons.local_shipping, size: 16),
-              label: const Text('Bon de Livraison'),
-            ),
-            const SizedBox(width: 8),
-          ],
+                if (doc.statut == 'VALIDE' && doc.type == 'COMMANDE_CLIENT') ...[
+                  ElevatedButton.icon(
+                    onPressed: () => _convertir('FACTURE'),
+                    icon: const Icon(Icons.receipt_long, size: 16),
+                    label: const Text('Facturer la Commande'),
+                    style: ElevatedButton.styleFrom(backgroundColor: QuantisColors.royalBlue, foregroundColor: Colors.white),
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    onPressed: () => _convertir('BON_LIVRAISON'),
+                    icon: const Icon(Icons.local_shipping, size: 16),
+                    label: const Text('Bon de Livraison'),
+                  ),
+                  const SizedBox(width: 8),
+                ],
 
-          if (doc.canPay)
-            ElevatedButton.icon(
-              onPressed: _ouvrirPaiement,
-              icon: const Icon(Icons.payments, size: 18),
-              label: const Text('Encaisser'),
-              style: ElevatedButton.styleFrom(backgroundColor: QuantisColors.luxuryGold, foregroundColor: Colors.black87),
-            ),
-          const SizedBox(width: 16),
-        ],
+                if (doc.canPay)
+                  ElevatedButton.icon(
+                    onPressed: _ouvrirPaiement,
+                    icon: const Icon(Icons.payments, size: 18),
+                    label: const Text('Encaisser'),
+                    style: ElevatedButton.styleFrom(backgroundColor: QuantisColors.luxuryGold, foregroundColor: Colors.black87),
+                  ),
+                const SizedBox(width: 16),
+              ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
@@ -1092,89 +1239,99 @@ class _DocumentDetailScreenState extends State<DocumentDetailScreen> {
   }
 
   Widget _buildTotalsSection(DocumentModel doc, InvoiceColorTheme theme, String monnaie) {
+    final bool isMobile = MediaQuery.of(context).size.width < 750;
+
+    final reglementsWidget = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (doc.paiements.isNotEmpty) ...[
+          Text('RÈGLEMENTS ENREGISTRÉS :', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: theme.primary)),
+          const SizedBox(height: 8),
+          ...doc.paiements.map((p) => Container(
+            margin: const EdgeInsets.only(bottom: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: QuantisColors.success.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: QuantisColors.success.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.check_circle, size: 16, color: QuantisColors.success),
+                const SizedBox(width: 8),
+                Text('${p.montant.toStringAsFixed(0)} $monnaie (${p.moyenLabel})',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                const Spacer(),
+                if (p.datePaiement != null)
+                  Text(p.datePaiement!, style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
+              ],
+            ),
+          )),
+        ],
+        const SizedBox(height: 10),
+        if (doc.notes != null && doc.notes!.isNotEmpty) ...[
+          Text('NOTES :', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.grey.shade700)),
+          const SizedBox(height: 4),
+          Text(doc.notes!, style: TextStyle(fontSize: 12, color: Colors.grey.shade800)),
+        ],
+      ],
+    );
+
+    final totalBoxWidget = Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Column(
+        children: [
+          _rowInfo('Total Brut HT :', '${doc.totalHt.toStringAsFixed(0)} $monnaie'),
+          const SizedBox(height: 8),
+          _rowInfo('Total TVA (18%) :', '${doc.totalTva.toStringAsFixed(0)} $monnaie'),
+          const Divider(height: 20),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(color: theme.primary, borderRadius: BorderRadius.circular(8)),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('TOTAL TTC :', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                Text(
+                  '${doc.totalTtc.toStringAsFixed(0)} $monnaie',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          _rowInfo('Montant Payé :', '${doc.montantPaye.toStringAsFixed(0)} $monnaie', bold: true, color: QuantisColors.success),
+          const SizedBox(height: 6),
+          _rowInfo('Solde Restant :', '${doc.soldeRestant.toStringAsFixed(0)} $monnaie',
+              bold: true, color: doc.soldeRestant > 0 ? QuantisColors.error : QuantisColors.success),
+        ],
+      ),
+    );
+
+    if (isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          totalBoxWidget,
+          if (doc.paiements.isNotEmpty || (doc.notes != null && doc.notes!.isNotEmpty)) ...[
+            const SizedBox(height: 20),
+            reglementsWidget,
+          ],
+        ],
+      );
+    }
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Règlements
-        Expanded(
-          flex: 5,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (doc.paiements.isNotEmpty) ...[
-                Text('RÈGLEMENTS ENREGISTRÉS :', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: theme.primary)),
-                const SizedBox(height: 8),
-                ...doc.paiements.map((p) => Container(
-                  margin: const EdgeInsets.only(bottom: 6),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: QuantisColors.success.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: QuantisColors.success.withValues(alpha: 0.3)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.check_circle, size: 16, color: QuantisColors.success),
-                      const SizedBox(width: 8),
-                      Text('${p.montant.toStringAsFixed(0)} $monnaie (${p.moyenLabel})',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                      const Spacer(),
-                      if (p.datePaiement != null)
-                        Text(p.datePaiement!, style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
-                    ],
-                  ),
-                )),
-              ],
-              const SizedBox(height: 10),
-              if (doc.notes != null && doc.notes!.isNotEmpty) ...[
-                Text('NOTES :', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.grey.shade700)),
-                const SizedBox(height: 4),
-                Text(doc.notes!, style: TextStyle(fontSize: 12, color: Colors.grey.shade800)),
-              ],
-            ],
-          ),
-        ),
+        Expanded(flex: 5, child: reglementsWidget),
         const SizedBox(width: 40),
-
-        // Total Box
-        Expanded(
-          flex: 4,
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade50,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            child: Column(
-              children: [
-                _rowInfo('Total Brut HT :', '${doc.totalHt.toStringAsFixed(0)} $monnaie'),
-                const SizedBox(height: 8),
-                _rowInfo('Total TVA (18%) :', '${doc.totalTva.toStringAsFixed(0)} $monnaie'),
-                const Divider(height: 20),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(color: theme.primary, borderRadius: BorderRadius.circular(8)),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('TOTAL TTC :', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                      Text(
-                        '${doc.totalTtc.toStringAsFixed(0)} $monnaie',
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _rowInfo('Montant Payé :', '${doc.montantPaye.toStringAsFixed(0)} $monnaie', bold: true, color: QuantisColors.success),
-                const SizedBox(height: 6),
-                _rowInfo('Solde Restant :', '${doc.soldeRestant.toStringAsFixed(0)} $monnaie',
-                    bold: true, color: doc.soldeRestant > 0 ? QuantisColors.error : QuantisColors.success),
-              ],
-            ),
-          ),
-        ),
+        Expanded(flex: 4, child: totalBoxWidget),
       ],
     );
   }

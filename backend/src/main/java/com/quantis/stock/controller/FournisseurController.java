@@ -45,10 +45,21 @@ public class FournisseurController {
         return ResponseEntity.ok(ApiResponse.success(toPagedResponse(result)));
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<Fournisseur>> findById(@PathVariable Long id) {
+    private Fournisseur getFournisseurAndCheckEntreprise(Long id) {
         Fournisseur fournisseur = fournisseurRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Fournisseur", "id", id));
+        if (!securityUtils.isSuperAdmin()) {
+            Long entId = securityUtils.getCurrentEntrepriseId();
+            if (fournisseur.getEntreprise() != null && !fournisseur.getEntreprise().getId().equals(entId)) {
+                throw new com.quantis.stock.exception.BusinessException("Accès refusé : ce fournisseur n'appartient pas à votre entreprise");
+            }
+        }
+        return fournisseur;
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<Fournisseur>> findById(@PathVariable Long id) {
+        Fournisseur fournisseur = getFournisseurAndCheckEntreprise(id);
         return ResponseEntity.ok(ApiResponse.success(fournisseur));
     }
 
@@ -74,9 +85,7 @@ public class FournisseurController {
     @PreAuthorize("hasAuthority('CRUD_FOURNISSEURS')")
     public ResponseEntity<ApiResponse<Fournisseur>> create(@Valid @RequestBody Fournisseur fournisseur) {
         fournisseur.setId(null);
-        if (fournisseur.getEntreprise() == null) {
-            fournisseur.setEntreprise(securityUtils.getCurrentEntreprise().orElse(null));
-        }
+        fournisseur.setEntreprise(securityUtils.getCurrentEntreprise().orElse(null));
         if (fournisseur.getSoldeDette() == null) {
             fournisseur.setSoldeDette(java.math.BigDecimal.ZERO);
         }
@@ -88,8 +97,7 @@ public class FournisseurController {
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('CRUD_FOURNISSEURS')")
     public ResponseEntity<ApiResponse<Fournisseur>> update(@PathVariable Long id, @Valid @RequestBody Fournisseur request) {
-        Fournisseur fournisseur = fournisseurRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Fournisseur", "id", id));
+        Fournisseur fournisseur = getFournisseurAndCheckEntreprise(id);
         fournisseur.setNom(request.getNom());
         fournisseur.setTelephone(request.getTelephone());
         fournisseur.setEmail(request.getEmail());
@@ -106,12 +114,11 @@ public class FournisseurController {
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('CRUD_FOURNISSEURS')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
-        Fournisseur fournisseur = fournisseurRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Fournisseur", "id", id));
+        Fournisseur fournisseur = getFournisseurAndCheckEntreprise(id);
         fournisseur.setActif(false);
         fournisseurRepository.save(fournisseur);
         auditService.logAction("DELETE", "Fournisseur", fournisseur.getId(), "Désactivation fournisseur " + fournisseur.getNom());
-        return ResponseEntity.ok(ApiResponse.success("Fournisseur supprimé", null));
+        return ResponseEntity.ok(ApiResponse.success("Fournisseur désactivé", null));
     }
 
     private <T> PagedResponse<T> toPagedResponse(Page<T> page) {

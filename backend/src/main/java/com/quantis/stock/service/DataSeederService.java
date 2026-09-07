@@ -48,13 +48,13 @@ public class DataSeederService {
         ent.setEmail("contact@quantis.tech");
         ent.setAdresse("Avenue Kwame Nkrumah, 01 BP 456 Ouagadougou");
         ent.setMonnaie("FCFA");
-        ent = entrepriseRepository.save(ent);
+        final Entreprise defaultEntreprise = entrepriseRepository.save(ent);
 
         // Utilisateur Admin
         Utilisateur admin = utilisateurRepository.findByEmail("admin@quantis.tech").orElse(null);
 
         // 2. Dépôts
-        Depot depotCentral = depotRepository.findAll().stream()
+        Depot depotCentralTemp = depotRepository.findAll().stream()
                 .filter(d -> d.getNom().contains("Central") || d.getNom().contains("Principal"))
                 .findFirst()
                 .orElseGet(() -> {
@@ -62,11 +62,17 @@ public class DataSeederService {
                     d.setNom("Dépôt Central (Zone Industrielle)");
                     d.setAdresse("Zone Industrielle Gounghin");
                     d.setTelephone("+226 25 34 12 00");
+                    d.setEntreprise(defaultEntreprise);
                     d.setEstActif(true);
                     return depotRepository.save(d);
                 });
+        if (depotCentralTemp.getEntreprise() == null) {
+            depotCentralTemp.setEntreprise(defaultEntreprise);
+            depotCentralTemp = depotRepository.save(depotCentralTemp);
+        }
+        final Depot depotCentral = depotCentralTemp;
 
-        Depot boutique = depotRepository.findAll().stream()
+        Depot boutiqueTemp = depotRepository.findAll().stream()
                 .filter(d -> d.getNom().contains("Boutique") || d.getNom().contains("Comptoir"))
                 .findFirst()
                 .orElseGet(() -> {
@@ -74,9 +80,15 @@ public class DataSeederService {
                     d.setNom("Boutique & Comptoir Vente");
                     d.setAdresse("Avenue Kwame Nkrumah");
                     d.setTelephone("+226 25 30 40 51");
+                    d.setEntreprise(defaultEntreprise);
                     d.setEstActif(true);
                     return depotRepository.save(d);
                 });
+        if (boutiqueTemp.getEntreprise() == null) {
+            boutiqueTemp.setEntreprise(defaultEntreprise);
+            boutiqueTemp = depotRepository.save(boutiqueTemp);
+        }
+        final Depot boutique = boutiqueTemp;
 
         // 3. Unités de mesure
         Map<String, UniteMesure> unites = new HashMap<>();

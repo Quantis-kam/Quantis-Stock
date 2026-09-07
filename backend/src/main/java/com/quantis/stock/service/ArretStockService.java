@@ -27,6 +27,7 @@ public class ArretStockService {
     private final UtilisateurRepository utilisateurRepository;
     private final DepotRepository depotRepository;
     private final AuditService auditService;
+    private final com.quantis.stock.security.SecurityUtils securityUtils;
 
     @Transactional
     public ArretStock creerArretStock(String userEmail, ArretStockRequest request) {
@@ -38,9 +39,16 @@ public class ArretStockService {
         if (request.getDepotId() != null) {
             depot = depotRepository.findById(request.getDepotId())
                     .orElseThrow(() -> new ResourceNotFoundException("Dépôt", "id", request.getDepotId()));
+            if (!securityUtils.isSuperAdmin()) {
+                Long entId = securityUtils.getCurrentEntrepriseId();
+                if (depot.getEntreprise() != null && !depot.getEntreprise().getId().equals(entId)) {
+                    throw new BusinessException("Accès refusé : ce dépôt n'appartient pas à votre entreprise");
+                }
+            }
             stocks = stockCourantRepository.findByDepotId(depot.getId());
         } else {
-            stocks = stockCourantRepository.findAll();
+            Long entId = user.getEntreprise() != null ? user.getEntreprise().getId() : securityUtils.getCurrentEntrepriseId();
+            stocks = entId != null ? stockCourantRepository.findByEntrepriseId(entId) : stockCourantRepository.findAll();
         }
 
         if (stocks.isEmpty()) {
@@ -106,12 +114,23 @@ public class ArretStockService {
 
     @Transactional(readOnly = true)
     public Page<ArretStock> findAll(Pageable pageable) {
-        return arretStockRepository.findAll(pageable);
+        if (securityUtils.isSuperAdmin()) {
+            return arretStockRepository.findAll(pageable);
+        }
+        Long entId = securityUtils.getCurrentEntrepriseId();
+        return entId != null ? arretStockRepository.findByEntrepriseIdOrderByIdDesc(entId, pageable) : Page.empty(pageable);
     }
 
     @Transactional(readOnly = true)
     public ArretStock findById(Long id) {
-        return arretStockRepository.findById(id)
+        ArretStock arretStock = arretStockRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("ArretStock", "id", id));
+        if (!securityUtils.isSuperAdmin()) {
+            Long entId = securityUtils.getCurrentEntrepriseId();
+            if (arretStock.getEntreprise() != null && !arretStock.getEntreprise().getId().equals(entId)) {
+                throw new BusinessException("Accès refusé : cet arrêt de stock n'appartient pas à votre entreprise");
+            }
+        }
+        return arretStock;
     }
 }

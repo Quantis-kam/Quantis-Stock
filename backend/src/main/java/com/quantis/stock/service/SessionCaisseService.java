@@ -29,6 +29,7 @@ public class SessionCaisseService {
     private final UtilisateurRepository utilisateurRepository;
     private final DepotRepository depotRepository;
     private final AuditService auditService;
+    private final com.quantis.stock.security.SecurityUtils securityUtils;
 
     @Transactional
     public SessionCaisse ouvrirSession(String userEmail, OuvrirCaisseRequest request) {
@@ -50,8 +51,10 @@ public class SessionCaisseService {
         } else if (caissier.getDepot() != null) {
             depot = caissier.getDepot();
         } else {
-            depot = depotRepository.findAll().stream().findFirst()
-                    .orElseThrow(() -> new BusinessException("Aucun dépôt disponible"));
+            Long entId = caissier.getEntreprise() != null ? caissier.getEntreprise().getId() : null;
+            depot = (entId != null ? depotRepository.findByEntrepriseIdAndEstActifTrue(entId) : depotRepository.findByEstActifTrue())
+                    .stream().findFirst()
+                    .orElseThrow(() -> new BusinessException("Aucun dépôt disponible pour votre entreprise"));
         }
 
         BigDecimal fond = request.getFondCaisseOuverture() != null ? request.getFondCaisseOuverture() : BigDecimal.ZERO;
@@ -59,6 +62,7 @@ public class SessionCaisseService {
         SessionCaisse session = SessionCaisse.builder()
                 .caissier(caissier)
                 .depot(depot)
+                .entreprise(caissier.getEntreprise())
                 .statut(StatutSessionCaisse.OUVERTE)
                 .dateOuverture(Instant.now())
                 .fondCaisseOuverture(fond)
@@ -125,6 +129,10 @@ public class SessionCaisseService {
 
     @Transactional(readOnly = true)
     public Page<SessionCaisse> findAll(Pageable pageable) {
-        return sessionCaisseRepository.findAll(pageable);
+        if (securityUtils.isSuperAdmin()) {
+            return sessionCaisseRepository.findAll(pageable);
+        }
+        Long entId = securityUtils.getCurrentEntrepriseId();
+        return entId != null ? sessionCaisseRepository.findByEntrepriseId(entId, pageable) : Page.empty(pageable);
     }
 }

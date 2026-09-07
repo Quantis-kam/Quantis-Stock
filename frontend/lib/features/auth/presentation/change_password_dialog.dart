@@ -54,12 +54,19 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 12 : 40,
+        vertical: 16,
+      ),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 400),
+        constraints: BoxConstraints(maxWidth: isMobile ? screenWidth * 0.95 : 400),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(isMobile ? 16 : 24),
           child: Form(
             key: _formKey,
             child: Column(
@@ -73,7 +80,7 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
                       'Modifier le mot de passe',
                       style: TextStyle(
                         fontFamily: 'SpaceGrotesk',
-                        fontSize: 20,
+                        fontSize: isMobile ? 18 : 20,
                         fontWeight: FontWeight.w700,
                         color: QuantisColors.royalBlue,
                       ),
@@ -162,30 +169,53 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
                 ),
                 const SizedBox(height: 24),
 
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: _loading ? null : () => Navigator.of(context).pop(),
-                      child: const Text('Annuler'),
+                if (isMobile) ...[
+                  ElevatedButton(
+                    onPressed: _loading ? null : _submit,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: QuantisColors.royalBlue,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
-                    const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: _loading ? null : _submit,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: QuantisColors.royalBlue,
-                        foregroundColor: Colors.white,
+                    child: _loading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Text('Enregistrer'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: _loading ? null : () => Navigator.of(context).pop(),
+                    child: const Text('Annuler'),
+                  ),
+                ] else ...[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: _loading ? null : () => Navigator.of(context).pop(),
+                        child: const Text('Annuler'),
                       ),
-                      child: _loading
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                            )
-                          : const Text('Enregistrer'),
-                    ),
-                  ],
-                ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: _loading ? null : _submit,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: QuantisColors.royalBlue,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: _loading
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              )
+                            : const Text('Enregistrer'),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),

@@ -46,10 +46,21 @@ public class ClientController {
         return ResponseEntity.ok(ApiResponse.success(toPagedResponse(result)));
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<Client>> findById(@PathVariable Long id) {
+    private Client getClientAndCheckEntreprise(Long id) {
         Client client = clientRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Client", "id", id));
+        if (!securityUtils.isSuperAdmin()) {
+            Long entId = securityUtils.getCurrentEntrepriseId();
+            if (client.getEntreprise() != null && !client.getEntreprise().getId().equals(entId)) {
+                throw new com.quantis.stock.exception.BusinessException("Accès refusé : ce client n'appartient pas à votre entreprise");
+            }
+        }
+        return client;
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<Client>> findById(@PathVariable Long id) {
+        Client client = getClientAndCheckEntreprise(id);
         return ResponseEntity.ok(ApiResponse.success(client));
     }
 
@@ -75,9 +86,7 @@ public class ClientController {
     @PreAuthorize("hasAuthority('CRUD_CLIENTS')")
     public ResponseEntity<ApiResponse<Client>> create(@Valid @RequestBody Client client) {
         client.setId(null);
-        if (client.getEntreprise() == null) {
-            client.setEntreprise(securityUtils.getCurrentEntreprise().orElse(null));
-        }
+        client.setEntreprise(securityUtils.getCurrentEntreprise().orElse(null));
         if (client.getSoldeCredit() == null) {
             client.setSoldeCredit(java.math.BigDecimal.ZERO);
         }
@@ -89,8 +98,7 @@ public class ClientController {
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('CRUD_CLIENTS')")
     public ResponseEntity<ApiResponse<Client>> update(@PathVariable Long id, @Valid @RequestBody Client request) {
-        Client client = clientRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Client", "id", id));
+        Client client = getClientAndCheckEntreprise(id);
         client.setNom(request.getNom());
         client.setTelephone(request.getTelephone());
         client.setEmail(request.getEmail());
@@ -107,8 +115,7 @@ public class ClientController {
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('CRUD_CLIENTS')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
-        Client client = clientRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Client", "id", id));
+        Client client = getClientAndCheckEntreprise(id);
         client.setActif(false);
         clientRepository.save(client);
         auditService.logAction("DELETE", "Client", client.getId(), "Désactivation client " + client.getNom());
@@ -123,8 +130,7 @@ public class ClientController {
      */
     @GetMapping("/{id}/balance")
     public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> getBalance(@PathVariable Long id) {
-        Client client = clientRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Client", "id", id));
+        Client client = getClientAndCheckEntreprise(id);
 
         java.math.BigDecimal totalFactures = documentRepository.sumTotalTtcByClientAndType(id, "FACTURE");
         java.math.BigDecimal totalAvoirs = documentRepository.sumTotalTtcByClientAndType(id, "AVOIR");

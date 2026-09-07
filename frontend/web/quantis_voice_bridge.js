@@ -71,6 +71,7 @@
     
     start: function(onWakeUp) {
       const self = this;
+      if (self._unsupported) return Promise.resolve();
       self._onWakeUp = onWakeUp;
       if (self.isRunning && self.audioContext) {
         if (self.audioContext.state === 'suspended') {
@@ -80,6 +81,7 @@
       }
 
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        self._unsupported = true;
         console.warn('[ClapDetector] getUserMedia non supporté');
         return Promise.resolve();
       }

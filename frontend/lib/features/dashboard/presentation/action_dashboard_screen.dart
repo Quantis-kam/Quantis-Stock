@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/quantis_theme.dart';
+import '../../../core/utils/permission_helper.dart';
 import '../../comptabilite/presentation/session_caisse_dialog.dart';
 import '../../core/presentation/command_palette_dialog.dart';
 import '../../tiers/presentation/debiteurs_screen.dart';
 import '../../produits/presentation/produits_screen.dart';
+import '../../stock/presentation/stock_screen.dart';
+import '../../sales/presentation/pos_screen.dart';
+import '../../documents/presentation/documents_screen.dart';
 import '../../auth/presentation/change_password_dialog.dart';
+import '../../comptabilite/presentation/comptabilite_screen.dart';
+import '../../reports/presentation/exports_screen.dart';
 
 /// Tableau de bord axé sur les ACTIONS rapides par rôle + Synthèse du Patrimoine d'Entreprise.
 class ActionDashboardScreen extends StatefulWidget {
@@ -45,13 +51,13 @@ class _ActionDashboardScreenState extends State<ActionDashboardScreen> {
 
       if (mounted) {
         setState(() {
-          final res0 = results[0];
-          final res1 = results[1];
+          final dynamic res0 = results[0];
+          final dynamic res1 = results[1];
           if (res0 != null) {
-            _activeSession = (res0 as dynamic).data?['data'] as Map<String, dynamic>?;
+            _activeSession = res0.data?['data'] as Map<String, dynamic>?;
           }
           if (res1 != null) {
-            _patrimoine = (res1 as dynamic).data?['data'] as Map<String, dynamic>?;
+            _patrimoine = res1.data?['data'] as Map<String, dynamic>?;
           }
           _loading = false;
         });
@@ -97,7 +103,14 @@ class _ActionDashboardScreenState extends State<ActionDashboardScreen> {
           children: [
             const Icon(Icons.storefront, color: QuantisColors.royalBlue),
             const SizedBox(width: 8),
-            Text('Quantis-Stock — ${ApiClient.entrepriseNom}', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+            Expanded(
+              child: Text(
+                'Quantis-Stock — ${ApiClient.entrepriseNom}',
+                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
+            ),
           ],
         ),
         actions: [
@@ -187,27 +200,45 @@ class _ActionDashboardScreenState extends State<ActionDashboardScreen> {
               const SizedBox(height: 24),
 
               // SYNTHÈSE DU PATRIMOINE D'ENTREPRISE (NAFA STOCK REFERENCE)
-              _buildPatrimoineSection(),
-              const SizedBox(height: 28),
+              if (PermissionHelper.canViewDashboard) ...[
+                _buildPatrimoineSection(),
+                const SizedBox(height: 28),
+              ],
 
               // Action Buttons Section (Section 3.1)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('ACTIONS RAPIDES', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold, color: QuantisColors.textMuted, letterSpacing: 1.2)),
-                  TextButton.icon(
-                    onPressed: _openCommandPalette,
-                    icon: const Icon(Icons.keyboard, size: 16),
-                    label: const Text('Recherche rapide (Ctrl+K)', style: TextStyle(fontSize: 12)),
-                  ),
-                ],
+              Builder(
+                builder: (context) {
+                  final bool isMobile = MediaQuery.of(context).size.width < 600;
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'ACTIONS RAPIDES',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: QuantisColors.textMuted,
+                            letterSpacing: 1.2,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: _openCommandPalette,
+                        icon: const Icon(Icons.search, size: 16),
+                        label: Text(isMobile ? 'Rechercher' : 'Recherche rapide (Ctrl+K)', style: const TextStyle(fontSize: 12)),
+                      ),
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 12),
               _buildActionGrid(),
               const SizedBox(height: 28),
 
               // Status Session Caisse Widget
-              _buildCaisseStatusCard(),
+              if (PermissionHelper.hasPermission('JOURNAL_CAISSE') || PermissionHelper.hasPermission('PAIEMENT_CLIENT'))
+                _buildCaisseStatusCard(),
             ],
           ),
         ),
@@ -289,20 +320,37 @@ class _ActionDashboardScreenState extends State<ActionDashboardScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // En-tête Patrimoine Net
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isSmall = constraints.maxWidth < 500;
+              if (isSmall) {
+                return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Icon(Icons.account_balance, color: QuantisColors.royalBlue, size: 20),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'PATRIMOINE NET DE L\'ENTREPRISE',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: QuantisColors.textMuted, letterSpacing: 0.8),
+                        const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.account_balance, color: QuantisColors.royalBlue, size: 18),
+                            SizedBox(width: 6),
+                            Text(
+                              'PATRIMOINE NET',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: QuantisColors.textMuted, letterSpacing: 0.8),
+                            ),
+                          ],
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: _openDebiteursScreen,
+                          icon: const Icon(Icons.people_alt, size: 14),
+                          label: Text(nbDebiteurs > 0 ? '$nbDebiteurs Débiteurs' : 'Débiteurs', style: const TextStyle(fontSize: 11)),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.amber.shade900,
+                            side: BorderSide(color: Colors.amber.shade400),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            minimumSize: Size.zero,
+                          ),
                         ),
                       ],
                     ),
@@ -310,7 +358,7 @@ class _ActionDashboardScreenState extends State<ActionDashboardScreen> {
                     Text(
                       '${net.toStringAsFixed(0)} $monnaie',
                       style: TextStyle(
-                        fontSize: 28,
+                        fontSize: 24,
                         fontWeight: FontWeight.w900,
                         color: net >= 0 ? const Color(0xFF0F172A) : QuantisColors.error,
                         letterSpacing: 0.5,
@@ -318,22 +366,62 @@ class _ActionDashboardScreenState extends State<ActionDashboardScreen> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Formule de synthèse : Stock + Caisses + Créances Clients − Dettes Fournisseurs',
+                      'Stock + Caisses + Créances − Dettes',
                       style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
                     ),
                   ],
-                ),
-              ),
-              OutlinedButton.icon(
-                onPressed: _openDebiteursScreen,
-                icon: const Icon(Icons.people_alt, size: 16),
-                label: Text(nbDebiteurs > 0 ? '$nbDebiteurs Débiteurs' : 'Débiteurs'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.amber.shade900,
-                  side: BorderSide(color: Colors.amber.shade400),
-                ),
-              ),
-            ],
+                );
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.account_balance, color: QuantisColors.royalBlue, size: 20),
+                            const SizedBox(width: 8),
+                            const Expanded(
+                              child: Text(
+                                'PATRIMOINE NET DE L\'ENTREPRISE',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: QuantisColors.textMuted, letterSpacing: 0.8),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          '${net.toStringAsFixed(0)} $monnaie',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w900,
+                            color: net >= 0 ? const Color(0xFF0F172A) : QuantisColors.error,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Formule de synthèse : Stock + Caisses + Créances Clients − Dettes Fournisseurs',
+                          style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                        ),
+                      ],
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _openDebiteursScreen,
+                    icon: const Icon(Icons.people_alt, size: 16),
+                    label: Text(nbDebiteurs > 0 ? '$nbDebiteurs Débiteurs' : 'Débiteurs'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.amber.shade900,
+                      side: BorderSide(color: Colors.amber.shade400),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
           const Divider(height: 28),
 
@@ -426,28 +514,88 @@ class _ActionDashboardScreenState extends State<ActionDashboardScreen> {
   Widget _buildActionGrid() {
     final actions = <Widget>[];
 
-    if (_userRole == 'CAISSIER') {
-      actions.addAll([
-        _actionCard('Caisse POS', 'Encaissement rapide', Icons.shopping_cart_checkout, QuantisColors.success, () => widget.onNavigate?.call(0)),
-        _actionCard('Débiteurs', 'Encaisser créance client', Icons.payments, Colors.amber.shade800, _openDebiteursScreen),
-        _actionCard(_activeSession != null ? 'Fermer Caisse' : 'Ouvrir Caisse', _activeSession != null ? 'Clôturer la journée' : 'Saisir fond de caisse', Icons.point_of_sale, QuantisColors.royalBlue, _openSessionDialog),
-      ]);
-    } else if (_userRole == 'MAGASINIER') {
-      actions.addAll([
-        _actionCard('Catalogue Articles', 'Créer & voir les produits', Icons.category, Colors.indigo, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProduitsScreen()))),
-        _actionCard('Nouvelle Entrée', 'Réceptionner marchandises', Icons.move_to_inbox, QuantisColors.royalBlue, () => widget.onNavigate?.call(5)),
-        _actionCard('Transfert Stock', 'Déplacer vers dépôt', Icons.swap_horiz, Colors.teal, () => widget.onNavigate?.call(5)),
-        _actionCard('Inventaire', 'Ajuster les quantités', Icons.assignment_turned_in, Colors.purple, () => widget.onNavigate?.call(5)),
-      ]);
-    } else {
-      // ADMIN, GERANT, COMPTABLE
-      actions.addAll([
-        _actionCard('Catalogue Articles', 'Créer & gérer produits', Icons.category, Colors.indigo, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProduitsScreen()))),
-        _actionCard('Caisse POS', 'Vente rapide comptoir', Icons.point_of_sale, QuantisColors.success, () => widget.onNavigate?.call(2)),
-        _actionCard('Factures & Devis', 'Gestion commerciale', Icons.receipt_long, QuantisColors.royalBlue, () => widget.onNavigate?.call(3)),
-        _actionCard('Suivi Débiteurs', 'Créances à recouvrer', Icons.account_balance_wallet, Colors.amber.shade900, _openDebiteursScreen),
-        _actionCard(_activeSession != null ? 'Session Caisse (Ouverte)' : 'Ouvrir Caisse', _activeSession != null ? 'Fond & clôture' : 'Initialiser session', Icons.savings, Colors.purple, _openSessionDialog),
-      ]);
+    if (PermissionHelper.canAccessPos) {
+      actions.add(_actionCard(
+        'Caisse POS',
+        'Vente rapide & encaissement',
+        Icons.point_of_sale,
+        QuantisColors.success,
+        () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PosScreen())),
+      ));
+    }
+
+    if (PermissionHelper.canAccessDocuments) {
+      actions.add(_actionCard(
+        'Factures & Devis',
+        'Gestion commerciale',
+        Icons.receipt_long,
+        QuantisColors.royalBlue,
+        () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DocumentsScreen())),
+      ));
+    }
+
+    if (PermissionHelper.canAccessProduits) {
+      actions.add(_actionCard(
+        'Catalogue Articles',
+        'Créer & gérer produits',
+        Icons.category,
+        Colors.indigo,
+        () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProduitsScreen())),
+      ));
+    }
+
+    if (PermissionHelper.canAccessStock) {
+      actions.add(_actionCard(
+        'Gestion Stock',
+        'Entrées, sorties & inventaire',
+        Icons.inventory_2,
+        Colors.teal,
+        () => Navigator.push(context, MaterialPageRoute(builder: (_) => const StockScreen())),
+      ));
+    }
+
+    if (PermissionHelper.canAccessDebiteurs) {
+      actions.add(_actionCard(
+        'Suivi Débiteurs',
+        'Créances à recouvrer',
+        Icons.account_balance_wallet,
+        Colors.amber.shade900,
+        _openDebiteursScreen,
+      ));
+    }
+
+    if (PermissionHelper.hasPermission('JOURNAL_CAISSE') || PermissionHelper.hasPermission('PAIEMENT_CLIENT')) {
+      actions.add(_actionCard(
+        _activeSession != null ? 'Session Caisse (Ouverte)' : 'Ouvrir Caisse',
+        _activeSession != null ? 'Fond & clôture' : 'Initialiser session',
+        Icons.savings,
+        Colors.purple,
+        _openSessionDialog,
+      ));
+    }
+
+    if (PermissionHelper.canAccessComptabilite) {
+      actions.add(_actionCard(
+        'Caisse & Compta',
+        'Journal, sessions & Grand Livre',
+        Icons.account_balance_wallet,
+        QuantisColors.royalBlue,
+        () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ComptabiliteScreen())),
+      ));
+    }
+
+    if (PermissionHelper.canAccessExports) {
+      actions.add(_actionCard(
+        'Exports Compta',
+        'Grand Livre CSV, TVA & caisse',
+        Icons.table_view_outlined,
+        Colors.teal,
+        () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ExportsScreen())),
+      ));
+    }
+
+    if (actions.isEmpty) {
+      return const SizedBox.shrink();
     }
 
     return LayoutBuilder(

@@ -26,19 +26,35 @@ public class AuditLogController {
     public ResponseEntity<ApiResponse<PagedResponse<AuditLog>>> findAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) Long entrepriseId,
             org.springframework.security.core.Authentication auth) {
         Pageable pageable = PageRequest.of(page, Math.min(size, 100));
+        Utilisateur currentUser = utilisateurRepository.findByEmail(auth.getName()).orElse(null);
+        boolean isSuperAdmin = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_SUPER_ADMIN"));
         boolean isGerant = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_GERANT"));
+
         Page<AuditLog> result;
-        if (isGerant) {
-            Utilisateur currentUser = utilisateurRepository.findByEmail(auth.getName()).orElse(null);
+        if (isSuperAdmin) {
+            if (entrepriseId != null) {
+                result = auditLogRepository.findByUtilisateurEntrepriseIdOrderByCreatedAtDesc(entrepriseId, pageable);
+            } else {
+                result = auditLogRepository.findAllByOrderByCreatedAtDesc(pageable);
+            }
+        } else if (isGerant) {
             if (currentUser != null && currentUser.getDepot() != null) {
                 result = auditLogRepository.findByUtilisateurDepotIdOrderByCreatedAtDesc(currentUser.getDepot().getId(), pageable);
+            } else if (currentUser != null && currentUser.getEntreprise() != null) {
+                result = auditLogRepository.findByUtilisateurEntrepriseIdOrderByCreatedAtDesc(currentUser.getEntreprise().getId(), pageable);
             } else {
                 result = Page.empty();
             }
         } else {
-            result = auditLogRepository.findAllByOrderByCreatedAtDesc(pageable);
+            // Enterprise Admin and others: strictly isolated to their own entreprise!
+            if (currentUser != null && currentUser.getEntreprise() != null) {
+                result = auditLogRepository.findByUtilisateurEntrepriseIdOrderByCreatedAtDesc(currentUser.getEntreprise().getId(), pageable);
+            } else {
+                result = Page.empty();
+            }
         }
         return ResponseEntity.ok(ApiResponse.success(toPagedResponse(result)));
     }

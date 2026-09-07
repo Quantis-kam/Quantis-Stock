@@ -178,14 +178,17 @@ class _DocumentFormDialogState extends State<DocumentFormDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isMobile = MediaQuery.of(context).size.width < 650;
+
     return Dialog(
+      insetPadding: EdgeInsets.symmetric(horizontal: isMobile ? 10 : 24, vertical: isMobile ? 12 : 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
-        width: 750,
+        width: isMobile ? double.infinity : 750,
         constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.9,
+          maxHeight: MediaQuery.of(context).size.height * 0.92,
         ),
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(isMobile ? 14 : 24),
         child: _loading
             ? const Center(child: CircularProgressIndicator())
             : Form(
@@ -195,17 +198,19 @@ class _DocumentFormDialogState extends State<DocumentFormDialog> {
                     // Header
                     Row(
                       children: [
-                        const Icon(Icons.note_add, color: QuantisColors.royalBlue, size: 28),
-                        const SizedBox(width: 12),
-                        const Text(
-                          'Nouveau Document Commercial',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        const Icon(Icons.note_add, color: QuantisColors.royalBlue, size: 24),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Text(
+                            'Nouveau Document',
+                            style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                        const Spacer(),
                         IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
                       ],
                     ),
-                    const Divider(height: 20),
+                    const Divider(height: 16),
 
                     Expanded(
                       child: SingleChildScrollView(
@@ -213,209 +218,357 @@ class _DocumentFormDialogState extends State<DocumentFormDialog> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             // Type de Document
-                            Row(
-                              children: [
-                                const Text('Type :', style: TextStyle(fontWeight: FontWeight.bold)),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: SegmentedButton<String>(
-                                    segments: _types
-                                        .map((t) => ButtonSegment<String>(
-                                              value: t['code']!,
-                                              label: Text(t['label']!),
-                                            ))
-                                        .toList(),
-                                    selected: {_type},
-                                    onSelectionChanged: (set) => setState(() => _type = set.first),
-                                  ),
-                                ),
-                              ],
+                            const Text('Type de Document :', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                            const SizedBox(height: 8),
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: _types.map((t) {
+                                  final isSel = _type == t['code'];
+                                  return Padding(
+                                    padding: const EdgeInsets.only(right: 8),
+                                    child: ChoiceChip(
+                                      label: Text(t['label']!),
+                                      selected: isSel,
+                                      selectedColor: QuantisColors.royalBlue,
+                                      labelStyle: TextStyle(
+                                        color: isSel ? Colors.white : Colors.black87,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
+                                      onSelected: (_) => setState(() => _type = t['code']!),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
                             ),
                             const SizedBox(height: 16),
 
                             // Client & Dépôt
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: DropdownButtonFormField<int>(
-                                    value: _clientId,
-                                    isExpanded: true,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Client *',
-                                      prefixIcon: Icon(Icons.person),
-                                    ),
-                                    items: _clients.map((c) {
-                                      return DropdownMenuItem<int>(
-                                        value: c['id'] as int,
-                                        child: Text(c['nom'] ?? 'Client'),
-                                      );
-                                    }).toList(),
-                                    onChanged: (val) => setState(() => _clientId = val),
-                                    validator: (val) => val == null ? 'Client requis' : null,
-                                  ),
+                            if (isMobile) ...[
+                              DropdownButtonFormField<int>(
+                                value: _clientId,
+                                isExpanded: true,
+                                decoration: const InputDecoration(
+                                  labelText: 'Client *',
+                                  prefixIcon: Icon(Icons.person),
                                 ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: DropdownButtonFormField<int>(
-                                    value: _depotId,
-                                    isExpanded: true,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Dépôt',
-                                      prefixIcon: Icon(Icons.warehouse),
-                                    ),
-                                    items: _depots.map((d) {
-                                      return DropdownMenuItem<int>(
-                                        value: d['id'] as int,
-                                        child: Text(d['nom'] ?? 'Dépôt'),
-                                      );
-                                    }).toList(),
-                                    onChanged: (val) => setState(() => _depotId = val),
-                                  ),
+                                items: _clients.map((c) {
+                                  return DropdownMenuItem<int>(
+                                    value: c['id'] as int,
+                                    child: Text(c['nom'] ?? 'Client'),
+                                  );
+                                }).toList(),
+                                onChanged: (val) => setState(() => _clientId = val),
+                                validator: (val) => val == null ? 'Client requis' : null,
+                              ),
+                              const SizedBox(height: 12),
+                              DropdownButtonFormField<int>(
+                                value: _depotId,
+                                isExpanded: true,
+                                decoration: const InputDecoration(
+                                  labelText: 'Dépôt',
+                                  prefixIcon: Icon(Icons.warehouse),
                                 ),
-                              ],
-                            ),
+                                items: _depots.map((d) {
+                                  return DropdownMenuItem<int>(
+                                    value: d['id'] as int,
+                                    child: Text(d['nom'] ?? 'Dépôt'),
+                                  );
+                                }).toList(),
+                                onChanged: (val) => setState(() => _depotId = val),
+                              ),
+                            ] else ...[
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: DropdownButtonFormField<int>(
+                                      value: _clientId,
+                                      isExpanded: true,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Client *',
+                                        prefixIcon: Icon(Icons.person),
+                                      ),
+                                      items: _clients.map((c) {
+                                        return DropdownMenuItem<int>(
+                                          value: c['id'] as int,
+                                          child: Text(c['nom'] ?? 'Client'),
+                                        );
+                                      }).toList(),
+                                      onChanged: (val) => setState(() => _clientId = val),
+                                      validator: (val) => val == null ? 'Client requis' : null,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: DropdownButtonFormField<int>(
+                                      value: _depotId,
+                                      isExpanded: true,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Dépôt',
+                                        prefixIcon: Icon(Icons.warehouse),
+                                      ),
+                                      items: _depots.map((d) {
+                                        return DropdownMenuItem<int>(
+                                          value: d['id'] as int,
+                                          child: Text(d['nom'] ?? 'Dépôt'),
+                                        );
+                                      }).toList(),
+                                      onChanged: (val) => setState(() => _depotId = val),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                             const SizedBox(height: 16),
 
                             // Dates
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: ListTile(
-                                    contentPadding: EdgeInsets.zero,
-                                    leading: const Icon(Icons.calendar_today, color: QuantisColors.royalBlue),
-                                    title: const Text('Date Document', style: TextStyle(fontSize: 12)),
-                                    subtitle: Text(_dateDocument.toIso8601String().substring(0, 10),
-                                        style: const TextStyle(fontWeight: FontWeight.bold)),
-                                    onTap: () async {
-                                      final d = await showDatePicker(
-                                        context: context,
-                                        initialDate: _dateDocument,
-                                        firstDate: DateTime(2020),
-                                        lastDate: DateTime(2035),
-                                      );
-                                      if (d != null) setState(() => _dateDocument = d);
-                                    },
+                            if (isMobile) ...[
+                              ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                leading: const Icon(Icons.calendar_today, color: QuantisColors.royalBlue),
+                                title: const Text('Date Document', style: TextStyle(fontSize: 12)),
+                                subtitle: Text(_dateDocument.toIso8601String().substring(0, 10),
+                                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                                onTap: () async {
+                                  final d = await showDatePicker(
+                                    context: context,
+                                    initialDate: _dateDocument,
+                                    firstDate: DateTime(2020),
+                                    lastDate: DateTime(2035),
+                                  );
+                                  if (d != null) setState(() => _dateDocument = d);
+                                },
+                              ),
+                              ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                leading: const Icon(Icons.event, color: QuantisColors.warning),
+                                title: const Text('Date d\'Échéance', style: TextStyle(fontSize: 12)),
+                                subtitle: Text(
+                                    _dateEcheance != null
+                                        ? _dateEcheance!.toIso8601String().substring(0, 10)
+                                        : 'Aucune',
+                                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                                onTap: () async {
+                                  final d = await showDatePicker(
+                                    context: context,
+                                    initialDate: _dateEcheance ?? DateTime.now().add(const Duration(days: 30)),
+                                    firstDate: DateTime.now(),
+                                    lastDate: DateTime(2035),
+                                  );
+                                  if (d != null) setState(() => _dateEcheance = d);
+                                },
+                              ),
+                            ] else ...[
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: ListTile(
+                                      contentPadding: EdgeInsets.zero,
+                                      leading: const Icon(Icons.calendar_today, color: QuantisColors.royalBlue),
+                                      title: const Text('Date Document', style: TextStyle(fontSize: 12)),
+                                      subtitle: Text(_dateDocument.toIso8601String().substring(0, 10),
+                                          style: const TextStyle(fontWeight: FontWeight.bold)),
+                                      onTap: () async {
+                                        final d = await showDatePicker(
+                                          context: context,
+                                          initialDate: _dateDocument,
+                                          firstDate: DateTime(2020),
+                                          lastDate: DateTime(2035),
+                                        );
+                                        if (d != null) setState(() => _dateDocument = d);
+                                      },
+                                    ),
                                   ),
-                                ),
-                                Expanded(
-                                  child: ListTile(
-                                    contentPadding: EdgeInsets.zero,
-                                    leading: const Icon(Icons.event, color: QuantisColors.warning),
-                                    title: const Text('Date d\'Échéance', style: TextStyle(fontSize: 12)),
-                                    subtitle: Text(
-                                        _dateEcheance != null
-                                            ? _dateEcheance!.toIso8601String().substring(0, 10)
-                                            : 'Aucune',
-                                        style: const TextStyle(fontWeight: FontWeight.bold)),
-                                    onTap: () async {
-                                      final d = await showDatePicker(
-                                        context: context,
-                                        initialDate: _dateEcheance ?? DateTime.now().add(const Duration(days: 30)),
-                                        firstDate: DateTime.now(),
-                                        lastDate: DateTime(2035),
-                                      );
-                                      if (d != null) setState(() => _dateEcheance = d);
-                                    },
+                                  Expanded(
+                                    child: ListTile(
+                                      contentPadding: EdgeInsets.zero,
+                                      leading: const Icon(Icons.event, color: QuantisColors.warning),
+                                      title: const Text('Date d\'Échéance', style: TextStyle(fontSize: 12)),
+                                      subtitle: Text(
+                                          _dateEcheance != null
+                                              ? _dateEcheance!.toIso8601String().substring(0, 10)
+                                              : 'Aucune',
+                                          style: const TextStyle(fontWeight: FontWeight.bold)),
+                                      onTap: () async {
+                                        final d = await showDatePicker(
+                                          context: context,
+                                          initialDate: _dateEcheance ?? DateTime.now().add(const Duration(days: 30)),
+                                          firstDate: DateTime.now(),
+                                          lastDate: DateTime(2035),
+                                        );
+                                        if (d != null) setState(() => _dateEcheance = d);
+                                      },
+                                    ),
                                   ),
-                                ),
-                              ],
-                            ),
+                                ],
+                              ),
+                            ],
                             const Divider(height: 24),
 
                             // Lignes d'articles
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text('Articles / Prestations', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                const Text('Articles / Prestations',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                                 TextButton.icon(
                                   onPressed: _ajouterLigne,
-                                  icon: const Icon(Icons.add, size: 18),
+                                  icon: const Icon(Icons.add, size: 16),
                                   label: const Text('Ajouter une ligne'),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 8),
 
-                            ...List.generate(_lignes.length, (i) {
-                              final l = _lignes[i];
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 10),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    // Sélecteur Produit
-                                    Expanded(
-                                      flex: 5,
-                                      child: DropdownButtonFormField<int>(
-                                        value: l['produitId'],
-                                        isExpanded: true,
-                                        decoration: const InputDecoration(
-                                          labelText: 'Article',
-                                          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                        ),
-                                        items: _produits.map((p) {
-                                          return DropdownMenuItem<int>(
-                                            value: p['id'] as int,
-                                            child: Text('${p['nom']} (${p['prixVente']} F)'),
-                                          );
-                                        }).toList(),
-                                        onChanged: (val) {
-                                          setState(() {
-                                            l['produitId'] = val;
-                                            final p = _produits.firstWhere((prod) => prod['id'] == val, orElse: () => null);
-                                            if (p != null) {
-                                              l['designation'] = p['nom'];
-                                              l['prixUnitaire'] = (p['prixVente'] as num).toDouble();
-                                              l['tauxTva'] = (p['tauxTva'] as num?)?.toDouble() ?? 0.0;
-                                            }
-                                          });
-                                        },
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-
-                                    // Quantité
-                                    Expanded(
-                                      flex: 2,
-                                      child: TextFormField(
-                                        initialValue: l['quantite'].toString(),
-                                        keyboardType: TextInputType.number,
-                                        decoration: const InputDecoration(
-                                          labelText: 'Qté',
-                                          contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                                        ),
-                                        onChanged: (val) {
-                                          setState(() => l['quantite'] = double.tryParse(val) ?? 1.0);
-                                        },
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-
-                                    // Prix Unitaire
-                                    Expanded(
-                                      flex: 3,
-                                      child: TextFormField(
-                                        key: ValueKey('pu_${l['produitId']}_$i'),
-                                        initialValue: l['prixUnitaire'].toString(),
-                                        keyboardType: TextInputType.number,
-                                        decoration: const InputDecoration(
-                                          labelText: 'P.U. (FCFA)',
-                                          contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                                        ),
-                                        onChanged: (val) {
-                                          setState(() => l['prixUnitaire'] = double.tryParse(val) ?? 0.0);
-                                        },
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-
-                                    // Supprimer ligne
-                                    IconButton(
-                                      icon: const Icon(Icons.delete_outline, color: QuantisColors.error),
-                                      onPressed: () => _supprimerLigne(i),
-                                    ),
-                                  ],
+                            ..._lignes.asMap().entries.map((entry) {
+                              final i = entry.key;
+                              final l = entry.value;
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade50,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.grey.shade200),
                                 ),
+                                child: isMobile
+                                    ? Column(
+                                        children: [
+                                          DropdownButtonFormField<int>(
+                                            value: l['produitId'],
+                                            isExpanded: true,
+                                            decoration: const InputDecoration(
+                                              labelText: 'Article',
+                                              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                            ),
+                                            items: _produits.map((p) {
+                                              return DropdownMenuItem<int>(
+                                                value: p['id'] as int,
+                                                child: Text('${p['nom']} (${p['prixVente']} F)'),
+                                              );
+                                            }).toList(),
+                                            onChanged: (val) {
+                                              setState(() {
+                                                l['produitId'] = val;
+                                                final p = _produits.firstWhere((prod) => prod['id'] == val, orElse: () => null);
+                                                if (p != null) {
+                                                  l['designation'] = p['nom'];
+                                                  l['prixUnitaire'] = (p['prixVente'] as num).toDouble();
+                                                  l['tauxTva'] = (p['tauxTva'] as num?)?.toDouble() ?? 0.0;
+                                                }
+                                              });
+                                            },
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                flex: 2,
+                                                child: TextFormField(
+                                                  initialValue: l['quantite'].toString(),
+                                                  keyboardType: TextInputType.number,
+                                                  decoration: const InputDecoration(
+                                                    labelText: 'Qté',
+                                                    contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                                  ),
+                                                  onChanged: (val) {
+                                                    setState(() => l['quantite'] = double.tryParse(val) ?? 1.0);
+                                                  },
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Expanded(
+                                                flex: 3,
+                                                child: TextFormField(
+                                                  key: ValueKey('pu_${l['produitId']}_$i'),
+                                                  initialValue: l['prixUnitaire'].toString(),
+                                                  keyboardType: TextInputType.number,
+                                                  decoration: const InputDecoration(
+                                                    labelText: 'P.U. (FCFA)',
+                                                    contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                                  ),
+                                                  onChanged: (val) {
+                                                    setState(() => l['prixUnitaire'] = double.tryParse(val) ?? 0.0);
+                                                  },
+                                                ),
+                                              ),
+                                              IconButton(
+                                                icon: const Icon(Icons.delete_outline, color: QuantisColors.error),
+                                                onPressed: () => _supprimerLigne(i),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      )
+                                    : Row(
+                                        children: [
+                                          Expanded(
+                                            flex: 5,
+                                            child: DropdownButtonFormField<int>(
+                                              value: l['produitId'],
+                                              isExpanded: true,
+                                              decoration: const InputDecoration(
+                                                labelText: 'Article',
+                                                contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                              ),
+                                              items: _produits.map((p) {
+                                                return DropdownMenuItem<int>(
+                                                  value: p['id'] as int,
+                                                  child: Text('${p['nom']} (${p['prixVente']} F)'),
+                                                );
+                                              }).toList(),
+                                              onChanged: (val) {
+                                                setState(() {
+                                                  l['produitId'] = val;
+                                                  final p = _produits.firstWhere((prod) => prod['id'] == val, orElse: () => null);
+                                                  if (p != null) {
+                                                    l['designation'] = p['nom'];
+                                                    l['prixUnitaire'] = (p['prixVente'] as num).toDouble();
+                                                    l['tauxTva'] = (p['tauxTva'] as num?)?.toDouble() ?? 0.0;
+                                                  }
+                                                });
+                                              },
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            flex: 2,
+                                            child: TextFormField(
+                                              initialValue: l['quantite'].toString(),
+                                              keyboardType: TextInputType.number,
+                                              decoration: const InputDecoration(
+                                                labelText: 'Qté',
+                                                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                              ),
+                                              onChanged: (val) {
+                                                setState(() => l['quantite'] = double.tryParse(val) ?? 1.0);
+                                              },
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            flex: 3,
+                                            child: TextFormField(
+                                              key: ValueKey('pu_${l['produitId']}_$i'),
+                                              initialValue: l['prixUnitaire'].toString(),
+                                              keyboardType: TextInputType.number,
+                                              decoration: const InputDecoration(
+                                                labelText: 'P.U. (FCFA)',
+                                                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                              ),
+                                              onChanged: (val) {
+                                                setState(() => l['prixUnitaire'] = double.tryParse(val) ?? 0.0);
+                                              },
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          IconButton(
+                                            icon: const Icon(Icons.delete_outline, color: QuantisColors.error),
+                                            onPressed: () => _supprimerLigne(i),
+                                          ),
+                                        ],
+                                      ),
                               );
                             }),
 
@@ -434,7 +587,7 @@ class _DocumentFormDialogState extends State<DocumentFormDialog> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 14),
 
                     // Totaux et Boutons
                     Container(
@@ -444,41 +597,84 @@ class _DocumentFormDialogState extends State<DocumentFormDialog> {
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: Colors.grey.shade300),
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Total HT: ${_totalHt.toStringAsFixed(0)} FCFA', style: const TextStyle(fontSize: 12)),
-                              Text('TVA: ${_totalTva.toStringAsFixed(0)} FCFA', style: const TextStyle(fontSize: 12)),
-                              Text('TOTAL TTC: ${_totalTtc.toStringAsFixed(0)} FCFA',
-                                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: QuantisColors.royalBlue)),
-                            ],
-                          ),
-                          Row(
-                            children: [
-                              OutlinedButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: const Text('Annuler'),
-                              ),
-                              const SizedBox(width: 12),
-                              ElevatedButton.icon(
-                                onPressed: _saving ? null : _soumettre,
-                                icon: _saving
-                                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                                    : const Icon(Icons.save, size: 18),
-                                label: const Text('Enregistrer le document'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: QuantisColors.royalBlue,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                      child: isMobile
+                          ? Column(
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text('HT: ${_totalHt.toStringAsFixed(0)} F', style: const TextStyle(fontSize: 11)),
+                                        Text('TVA: ${_totalTva.toStringAsFixed(0)} F', style: const TextStyle(fontSize: 11)),
+                                      ],
+                                    ),
+                                    Text('TOTAL: ${_totalTtc.toStringAsFixed(0)} FCFA',
+                                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: QuantisColors.royalBlue)),
+                                  ],
                                 ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
+                                const SizedBox(height: 10),
+                                Row(
+                                  children: [
+                                    OutlinedButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      child: const Text('Annuler'),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: ElevatedButton.icon(
+                                        onPressed: _saving ? null : _soumettre,
+                                        icon: _saving
+                                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                            : const Icon(Icons.save, size: 16),
+                                        label: const Text('Enregistrer', style: TextStyle(fontWeight: FontWeight.bold)),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: QuantisColors.royalBlue,
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(vertical: 12),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            )
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('Total HT: ${_totalHt.toStringAsFixed(0)} FCFA', style: const TextStyle(fontSize: 12)),
+                                    Text('TVA: ${_totalTva.toStringAsFixed(0)} FCFA', style: const TextStyle(fontSize: 12)),
+                                    Text('TOTAL TTC: ${_totalTtc.toStringAsFixed(0)} FCFA',
+                                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: QuantisColors.royalBlue)),
+                                  ],
+                                ),
+                                Row(
+                                  children: [
+                                    OutlinedButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      child: const Text('Annuler'),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    ElevatedButton.icon(
+                                      onPressed: _saving ? null : _soumettre,
+                                      icon: _saving
+                                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                          : const Icon(Icons.save, size: 18),
+                                      label: const Text('Enregistrer le document'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: QuantisColors.royalBlue,
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                     ),
                   ],
                 ),

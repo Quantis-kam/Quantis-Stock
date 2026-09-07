@@ -42,8 +42,15 @@ public class ProduitService {
 
     @Transactional(readOnly = true)
     public Produit findById(Long id) {
-        return produitRepository.findById(id)
+        Produit produit = produitRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Produit", "id", id));
+        if (!securityUtils.isSuperAdmin()) {
+            Long entId = securityUtils.getCurrentEntrepriseId();
+            if (produit.getEntreprise() != null && !produit.getEntreprise().getId().equals(entId)) {
+                throw new BusinessException("Accès refusé : ce produit n'appartient pas à votre entreprise");
+            }
+        }
+        return produit;
     }
 
     @Transactional(readOnly = true)
@@ -168,8 +175,13 @@ public class ProduitService {
     public Produit update(Long id, ProduitRequest request) {
         Produit produit = findById(id);
 
+        Long entId = securityUtils.getCurrentEntrepriseId();
+        boolean skuExists = entId != null
+                ? produitRepository.existsByEntrepriseIdAndSku(entId, request.getSku())
+                : produitRepository.existsBySku(request.getSku());
+
         // Vérifier unicité SKU si changé
-        if (!produit.getSku().equals(request.getSku()) && produitRepository.existsBySku(request.getSku())) {
+        if (!produit.getSku().equals(request.getSku()) && skuExists) {
             throw new BusinessException("Un produit avec le SKU '" + request.getSku() + "' existe déjà");
         }
 
@@ -235,7 +247,11 @@ public class ProduitService {
                 
                 if (sku.isEmpty() || nom.isEmpty()) continue;
                 
-                if (produitRepository.existsBySku(sku)) {
+                Long entId = securityUtils.getCurrentEntrepriseId();
+                boolean exists = entId != null
+                        ? produitRepository.existsByEntrepriseIdAndSku(entId, sku)
+                        : produitRepository.existsBySku(sku);
+                if (exists) {
                     continue;
                 }
                 
@@ -268,6 +284,7 @@ public class ProduitService {
                 String uniteNom = tokens.length > 9 ? tokens[9].trim() : "";
                 
                 Produit produit = Produit.builder()
+                        .entreprise(securityUtils.getCurrentEntreprise().orElse(null))
                         .sku(sku)
                         .codeBarres(codeBarres)
                         .nom(nom)

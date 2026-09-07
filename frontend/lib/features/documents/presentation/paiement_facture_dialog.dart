@@ -22,7 +22,7 @@ class _PaiementFactureDialogState extends State<PaiementFactureDialog> {
   final _refCtrl = TextEditingController();
 
   String _moyenPaiement = 'ESPECES';
-  DateTime _datePaiement = DateTime.now();
+  final DateTime _datePaiement = DateTime.now();
   bool _saving = false;
 
   final _moyens = [
@@ -93,123 +93,156 @@ class _PaiementFactureDialogState extends State<PaiementFactureDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+    final screenWidth = MediaQuery.of(context).size.width;
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        width: 460,
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Row(
-              children: [
-                const Icon(Icons.payment, color: QuantisColors.royalBlue, size: 28),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Régler ${widget.document.numero}',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      Text(
-                        'Client : ${widget.document.clientNom ?? "Client"}',
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
-              ],
-            ),
-            const Divider(height: 24),
-
-            // Reliquat Banner
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: QuantisColors.warning.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: QuantisColors.warning.withValues(alpha: 0.3)),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 12 : 40,
+        vertical: isMobile ? 16 : 24,
+      ),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: isMobile ? screenWidth * 0.95 : 460),
+        child: SingleChildScrollView(
+          padding: EdgeInsets.all(isMobile ? 16 : 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Row(
                 children: [
-                  const Text('Solde Restant à payer :', style: TextStyle(fontWeight: FontWeight.bold)),
-                  Text(
-                    '${widget.document.soldeRestant.toStringAsFixed(0)} FCFA',
-                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: QuantisColors.warning),
+                  const Icon(Icons.payment, color: QuantisColors.royalBlue, size: 28),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Régler ${widget.document.numero}',
+                          style: TextStyle(fontSize: isMobile ? 16 : 18, fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          'Client : ${widget.document.clientNom ?? "Client"}',
+                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                        ),
+                      ],
+                    ),
                   ),
+                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
                 ],
               ),
-            ),
-            const SizedBox(height: 16),
+              const Divider(height: 24),
 
-            // Montant à régler
-            TextField(
-              controller: _montantCtrl,
-              keyboardType: TextInputType.number,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              decoration: const InputDecoration(
-                labelText: 'Montant du Paiement (FCFA) *',
-                prefixIcon: Icon(Icons.money),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Mode de règlement
-            DropdownButtonFormField<String>(
-              value: _moyenPaiement,
-              decoration: const InputDecoration(
-                labelText: 'Moyen de Règlement',
-                prefixIcon: Icon(Icons.account_balance_wallet),
-              ),
-              items: _moyens.map((m) {
-                return DropdownMenuItem<String>(
-                  value: m['code']!,
-                  child: Text(m['label']!),
-                );
-              }).toList(),
-              onChanged: (val) {
-                if (val != null) setState(() => _moyenPaiement = val);
-              },
-            ),
-            const SizedBox(height: 16),
-
-            // Référence
-            TextField(
-              controller: _refCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Référence / Reçu (optionnel)',
-                prefixIcon: Icon(Icons.receipt_outlined),
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // Actions
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
-                const SizedBox(width: 12),
-                ElevatedButton.icon(
-                  onPressed: _saving ? null : _valider,
-                  icon: _saving
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Icon(Icons.check, size: 18),
-                  label: const Text('Enregistrer le règlement'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: QuantisColors.royalBlue,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  ),
+              // Reliquat Banner
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: QuantisColors.warning.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: QuantisColors.warning.withValues(alpha: 0.3)),
                 ),
-              ],
-            ),
-          ],
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Solde Restant :', style: TextStyle(fontWeight: FontWeight.bold)),
+                    Text(
+                      '${widget.document.soldeRestant.toStringAsFixed(0)} FCFA',
+                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: QuantisColors.warning),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Montant à régler
+              TextField(
+                controller: _montantCtrl,
+                keyboardType: TextInputType.number,
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                decoration: const InputDecoration(
+                  labelText: 'Montant du Paiement (FCFA) *',
+                  prefixIcon: Icon(Icons.money),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Mode de règlement
+              DropdownButtonFormField<String>(
+                value: _moyenPaiement,
+                decoration: const InputDecoration(
+                  labelText: 'Moyen de Règlement',
+                  prefixIcon: Icon(Icons.account_balance_wallet),
+                ),
+                items: _moyens.map((m) {
+                  return DropdownMenuItem<String>(
+                    value: m['code']!,
+                    child: Text(m['label']!),
+                  );
+                }).toList(),
+                onChanged: (val) {
+                  if (val != null) setState(() => _moyenPaiement = val);
+                },
+              ),
+              const SizedBox(height: 16),
+
+              // Référence
+              TextField(
+                controller: _refCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Référence / Reçu (optionnel)',
+                  prefixIcon: Icon(Icons.receipt_outlined),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Actions
+              if (isMobile)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: _saving ? null : _valider,
+                      icon: _saving
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.check, size: 18),
+                      label: const Text('Enregistrer le règlement'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: QuantisColors.royalBlue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Annuler'),
+                    ),
+                  ],
+                )
+              else
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
+                    const SizedBox(width: 12),
+                    ElevatedButton.icon(
+                      onPressed: _saving ? null : _valider,
+                      icon: _saving
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.check, size: 18),
+                      label: const Text('Enregistrer le règlement'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: QuantisColors.royalBlue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      ),
+                    ),
+                  ],
+                ),
+            ],
+          ),
         ),
       ),
     );

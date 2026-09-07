@@ -2,8 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../theme/quantis_theme.dart';
 import '../network/api_client.dart';
+import '../utils/permission_helper.dart';
 import '../../features/stock/presentation/reapprovisionnement_dialog.dart';
+import '../../features/stock/presentation/stock_screen.dart';
 import '../../features/documents/presentation/document_detail_screen.dart';
+import '../../features/documents/presentation/documents_screen.dart';
+import '../../features/sales/presentation/pos_screen.dart';
+import '../../features/sales/presentation/debiteurs_screen.dart';
+import '../../features/produits/presentation/produits_screen.dart';
+import '../../features/reports/presentation/exports_screen.dart';
 
 /// Raccourci global & Palette de commande universelle (Ctrl+K / Cmd+K)
 class CommandPaletteDialog extends StatefulWidget {
@@ -44,61 +51,77 @@ class _CommandPaletteDialogState extends State<CommandPaletteDialog> {
   List<Map<String, dynamic>> _clientResults = [];
   List<Map<String, dynamic>> _docResults = [];
 
-  final List<Map<String, dynamic>> _quickActions = [
-    {
-      'title': 'Nouvelle Vente Caisse POS',
-      'subtitle': 'Ouvrir l\'interface de caisse tactile et enregistrer un encaissement',
-      'icon': Icons.point_of_sale_rounded,
-      'color': QuantisColors.royalBlue,
-      'type': 'action',
-      'tabIndex': 2, // Index POS
-    },
-    {
-      'title': 'Créer une Facture ou un Devis',
-      'subtitle': 'Émettre un nouveau document commercial client',
-      'icon': Icons.receipt_long_rounded,
-      'color': QuantisColors.royalBlue,
-      'type': 'action',
-      'tabIndex': 3, // Index Documents
-    },
-    {
-      'title': 'Catalogue Articles & Produits',
-      'subtitle': 'Créer un article, consulter les prix, marges, codes-barres et catégories',
-      'icon': Icons.category_rounded,
-      'color': Colors.indigo,
-      'type': 'action',
-      'tabIndex': 4, // Index Articles
-    },
-    {
-      'title': 'Suggestions de Réapprovisionnement',
-      'subtitle': 'Calculer la vitesse de rotation et anticiper les ruptures de stock',
-      'icon': Icons.auto_awesome,
-      'color': QuantisColors.luxuryGold,
-      'type': 'reappro',
-    },
-    {
-      'title': 'Exports Comptables & Fiscaux',
-      'subtitle': 'Télécharger les journaux de ventes, caisses, clients et stock en Excel/CSV',
-      'icon': Icons.table_view_rounded,
-      'color': const Color(0xFF7C3AED),
-      'type': 'action',
-      'tabIndex': 9, // Exports
-    },
-    {
-      'title': 'Grand Livre des Débiteurs',
-      'subtitle': 'Consulter les créances clients et créances à recouvrer',
-      'icon': Icons.people_alt_rounded,
-      'color': QuantisColors.warning,
-      'type': 'action',
-      'tabIndex': 4, // Clients
-    },
-    {
-      'title': 'Assistant Intelligent Quantis IA',
-      'subtitle': 'Interroger votre stock et piloter votre commerce en langage naturel',
-      'icon': Icons.chat_bubble_outline,
-      'color': QuantisColors.royalBlue,
-      'type': 'ai',
-    },
+  List<Map<String, dynamic>> get _quickActions => [
+    if (PermissionHelper.canAccessPos)
+      {
+        'title': 'Nouvelle Vente Caisse POS',
+        'subtitle': 'Ouvrir l\'interface de caisse tactile et enregistrer un encaissement',
+        'icon': Icons.point_of_sale_rounded,
+        'color': QuantisColors.royalBlue,
+        'type': 'action',
+        'builder': () => const PosScreen(),
+      },
+    if (PermissionHelper.canAccessDocuments)
+      {
+        'title': 'Créer une Facture ou un Devis',
+        'subtitle': 'Émettre un nouveau document commercial client',
+        'icon': Icons.receipt_long_rounded,
+        'color': QuantisColors.royalBlue,
+        'type': 'action',
+        'builder': () => const DocumentsScreen(),
+      },
+    if (PermissionHelper.canAccessProduits)
+      {
+        'title': 'Catalogue Articles & Produits',
+        'subtitle': 'Créer un article, consulter les prix, marges, codes-barres et catégories',
+        'icon': Icons.category_rounded,
+        'color': Colors.indigo,
+        'type': 'action',
+        'builder': () => const ProduitsScreen(),
+      },
+    if (PermissionHelper.canAccessStock)
+      {
+        'title': 'Gestion du Stock & Mouvements',
+        'subtitle': 'Consulter les niveaux et effectuer des mouvements de stock',
+        'icon': Icons.inventory_2_rounded,
+        'color': Colors.teal,
+        'type': 'action',
+        'builder': () => const StockScreen(),
+      },
+    if (PermissionHelper.canAccessStock)
+      {
+        'title': 'Suggestions de Réapprovisionnement',
+        'subtitle': 'Calculer la vitesse de rotation et anticiper les ruptures de stock',
+        'icon': Icons.auto_awesome,
+        'color': QuantisColors.luxuryGold,
+        'type': 'reappro',
+      },
+    if (PermissionHelper.canAccessExports)
+      {
+        'title': 'Exports Comptables & Fiscaux',
+        'subtitle': 'Télécharger les journaux de ventes, caisses, clients et stock en Excel/CSV',
+        'icon': Icons.table_view_rounded,
+        'color': const Color(0xFF7C3AED),
+        'type': 'action',
+        'builder': () => const ExportsScreen(),
+      },
+    if (PermissionHelper.canAccessDebiteurs)
+      {
+        'title': 'Grand Livre des Débiteurs',
+        'subtitle': 'Consulter les créances clients et créances à recouvrer',
+        'icon': Icons.people_alt_rounded,
+        'color': QuantisColors.warning,
+        'type': 'action',
+        'builder': () => const DebiteursScreen(),
+      },
+    if (PermissionHelper.canAccessAi)
+      {
+        'title': 'Assistant Intelligent Quantis IA',
+        'subtitle': 'Interroger votre stock et piloter votre commerce en langage naturel',
+        'icon': Icons.chat_bubble_outline,
+        'color': QuantisColors.royalBlue,
+        'type': 'ai',
+      },
   ];
 
   @override
@@ -349,8 +372,9 @@ class _CommandPaletteDialogState extends State<CommandPaletteDialog> {
       onTap: () {
         Navigator.pop(context);
         final type = action['type'];
-        if (type == 'action' && widget.onNavigate != null) {
-          widget.onNavigate!(action['tabIndex'] as int);
+        final builder = action['builder'] as Widget Function()?;
+        if (builder != null) {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => builder()));
         } else if (type == 'reappro') {
           showDialog(context: context, builder: (_) => const ReapprovisionnementDialog());
         } else if (type == 'ai' && widget.onOpenAi != null) {

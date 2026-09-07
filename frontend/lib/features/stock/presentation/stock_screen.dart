@@ -343,108 +343,216 @@ class _StockScreenState extends State<StockScreen> with SingleTickerProviderStat
       return pName.contains(q) || vName.contains(q);
     }).toList();
 
+    final isMobile = MediaQuery.of(context).size.width < 700;
+
     return Column(
       children: [
         // Header de sélection / contrôle
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(isMobile ? 12 : 16),
           color: Colors.white,
-          child: Row(
-            children: [
-              // Choix dépôt
-              Expanded(
-                flex: 2,
-                child: DropdownButtonFormField<int>(
-                  value: _selectedDepotId,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Dépôt actif',
-                    prefixIcon: Icon(Icons.warehouse),
-                  ),
-                  items: _depots.map((d) {
-                    return DropdownMenuItem(value: d.id, child: Text(d.nom));
-                  }).toList(),
-                  onChanged: _isInventoryMode
-                      ? null // Interdire de changer de dépôt au milieu d'un inventaire
-                      : (val) {
-                          setState(() {
-                            _selectedDepotId = val;
-                          });
-                          _loadStock();
-                        },
-                ),
-              ),
-              const SizedBox(width: 16),
-              
-              // Recherche produit (seulement si pas en inventaire)
-              if (!_isInventoryMode)
-                Expanded(
-                  flex: 3,
-                  child: TextField(
-                    decoration: const InputDecoration(
-                      labelText: 'Rechercher un produit...',
-                      prefixIcon: Icon(Icons.search),
-                    ),
-                    onChanged: (val) => setState(() => _stockSearchQuery = val),
-                  ),
-                ),
-              
-              const SizedBox(width: 16),
-
-              // Actions
-              if (!_isInventoryMode) ...[
-                if (PermissionHelper.hasAnyPermission(['ENTREE_STOCK', 'SORTIE_STOCK', 'TRANSFERT_STOCK']))
-                ElevatedButton.icon(
-                  onPressed: () async {
-                    final res = await showDialog<bool>(
-                      context: context,
-                      builder: (_) => MouvementRapideDialog(
-                        depots: _depots,
-                        initialDepotId: _selectedDepotId,
+          child: isMobile
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    DropdownButtonFormField<int>(
+                      value: _selectedDepotId,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Dépôt actif',
+                        prefixIcon: Icon(Icons.warehouse),
                       ),
-                    );
-                    if (res == true) {
-                      _loadStock();
-                    }
-                  },
-                  icon: const Icon(Icons.swap_horiz, size: 18),
-                  label: const Text('Mouvement Rapide'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: QuantisColors.royalBlue,
-                    foregroundColor: Colors.white,
-                  ),
+                      items: _depots.map((d) {
+                        return DropdownMenuItem(value: d.id, child: Text(d.nom));
+                      }).toList(),
+                      onChanged: _isInventoryMode
+                          ? null
+                          : (val) {
+                              setState(() {
+                                _selectedDepotId = val;
+                              });
+                              _loadStock();
+                            },
+                    ),
+                    if (!_isInventoryMode) ...[
+                      const SizedBox(height: 10),
+                      TextField(
+                        decoration: const InputDecoration(
+                          labelText: 'Rechercher un produit...',
+                          prefixIcon: Icon(Icons.search),
+                        ),
+                        onChanged: (val) => setState(() => _stockSearchQuery = val),
+                      ),
+                    ],
+                    const SizedBox(height: 10),
+                    if (!_isInventoryMode)
+                      Row(
+                        children: [
+                          if (PermissionHelper.hasAnyPermission(['ENTREE_STOCK', 'SORTIE_STOCK', 'TRANSFERT_STOCK']))
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () async {
+                                  final res = await showDialog<bool>(
+                                    context: context,
+                                    builder: (_) => MouvementRapideDialog(
+                                      depots: _depots,
+                                      initialDepotId: _selectedDepotId,
+                                    ),
+                                  );
+                                  if (res == true) {
+                                    _loadStock();
+                                  }
+                                },
+                                icon: const Icon(Icons.swap_horiz, size: 16),
+                                label: const Text('Mouvement', overflow: TextOverflow.ellipsis),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: QuantisColors.royalBlue,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                                ),
+                              ),
+                            ),
+                          if (PermissionHelper.hasAnyPermission(['ENTREE_STOCK', 'SORTIE_STOCK', 'TRANSFERT_STOCK']) &&
+                              PermissionHelper.hasPermission('INVENTAIRE_PHYSIQUE'))
+                            const SizedBox(width: 8),
+                          if (PermissionHelper.hasPermission('INVENTAIRE_PHYSIQUE'))
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: _startInventory,
+                                icon: const Icon(Icons.checklist, size: 16),
+                                label: const Text('Inventaire', overflow: TextOverflow.ellipsis),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: QuantisColors.luxuryGold,
+                                  side: const BorderSide(color: QuantisColors.luxuryGold),
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                                ),
+                              ),
+                            ),
+                        ],
+                      )
+                    else
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: _submitReconciliation,
+                              icon: const Icon(Icons.save_outlined, size: 16),
+                              label: const Text('Valider'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: QuantisColors.success,
+                                foregroundColor: Colors.white,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextButton.icon(
+                              onPressed: _cancelInventory,
+                              icon: const Icon(Icons.cancel_outlined, size: 16),
+                              label: const Text('Annuler'),
+                              style: TextButton.styleFrom(foregroundColor: QuantisColors.error),
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    // Choix dépôt
+                    Expanded(
+                      flex: 2,
+                      child: DropdownButtonFormField<int>(
+                        value: _selectedDepotId,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Dépôt actif',
+                          prefixIcon: Icon(Icons.warehouse),
+                        ),
+                        items: _depots.map((d) {
+                          return DropdownMenuItem(value: d.id, child: Text(d.nom));
+                        }).toList(),
+                        onChanged: _isInventoryMode
+                            ? null
+                            : (val) {
+                                setState(() {
+                                  _selectedDepotId = val;
+                                });
+                                _loadStock();
+                              },
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    
+                    // Recherche produit (seulement si pas en inventaire)
+                    if (!_isInventoryMode)
+                      Expanded(
+                        flex: 3,
+                        child: TextField(
+                          decoration: const InputDecoration(
+                            labelText: 'Rechercher un produit...',
+                            prefixIcon: Icon(Icons.search),
+                          ),
+                          onChanged: (val) => setState(() => _stockSearchQuery = val),
+                        ),
+                      ),
+                    
+                    const SizedBox(width: 16),
+
+                    // Actions
+                    if (!_isInventoryMode) ...[
+                      if (PermissionHelper.hasAnyPermission(['ENTREE_STOCK', 'SORTIE_STOCK', 'TRANSFERT_STOCK']))
+                      ElevatedButton.icon(
+                        onPressed: () async {
+                          final res = await showDialog<bool>(
+                            context: context,
+                            builder: (_) => MouvementRapideDialog(
+                              depots: _depots,
+                              initialDepotId: _selectedDepotId,
+                            ),
+                          );
+                          if (res == true) {
+                            _loadStock();
+                          }
+                        },
+                        icon: const Icon(Icons.swap_horiz, size: 18),
+                        label: const Text('Mouvement Rapide'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: QuantisColors.royalBlue,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      if (PermissionHelper.hasPermission('INVENTAIRE_PHYSIQUE'))
+                      OutlinedButton.icon(
+                        onPressed: _startInventory,
+                        icon: const Icon(Icons.checklist, size: 18),
+                        label: const Text('Faire Inventaire'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: QuantisColors.luxuryGold,
+                          side: const BorderSide(color: QuantisColors.luxuryGold),
+                        ),
+                      ),
+                    ] else ...[
+                      ElevatedButton.icon(
+                        onPressed: _submitReconciliation,
+                        icon: const Icon(Icons.save_outlined, size: 18),
+                        label: Text(isMobile ? 'Valider' : 'Valider l\'Inventaire'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: QuantisColors.success,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      TextButton.icon(
+                        onPressed: _cancelInventory,
+                        icon: const Icon(Icons.cancel_outlined, size: 18),
+                        label: const Text('Annuler'),
+                        style: TextButton.styleFrom(foregroundColor: QuantisColors.error),
+                      ),
+                    ]
+                  ],
                 ),
-                const SizedBox(width: 8),
-                if (PermissionHelper.hasPermission('INVENTAIRE_PHYSIQUE'))
-                OutlinedButton.icon(
-                  onPressed: _startInventory,
-                  icon: const Icon(Icons.checklist, size: 18),
-                  label: const Text('Faire Inventaire'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: QuantisColors.luxuryGold,
-                    side: const BorderSide(color: QuantisColors.luxuryGold),
-                  ),
-                ),
-              ] else ...[
-                ElevatedButton.icon(
-                  onPressed: _submitReconciliation,
-                  icon: const Icon(Icons.save_outlined, size: 18),
-                  label: const Text('Valider l\'Inventaire'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: QuantisColors.success,
-                    foregroundColor: Colors.white,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                TextButton.icon(
-                  onPressed: _cancelInventory,
-                  icon: const Icon(Icons.cancel_outlined, size: 18),
-                  label: const Text('Annuler'),
-                  style: TextButton.styleFrom(foregroundColor: QuantisColors.error),
-                ),
-              ]
-            ],
-          ),
         ),
 
         // Bannière mode inventaire
@@ -457,9 +565,11 @@ class _StockScreenState extends State<StockScreen> with SingleTickerProviderStat
               children: [
                 Icon(Icons.warning, color: QuantisColors.warning, size: 18),
                 SizedBox(width: 8),
-                Text(
-                  'Mode Inventaire Physique Actif. Veuillez saisir la quantité réelle comptée pour chaque produit.',
-                  style: TextStyle(fontWeight: FontWeight.w600, color: QuantisColors.textPrimary),
+                Expanded(
+                  child: Text(
+                    'Mode Inventaire Physique Actif. Veuillez saisir la quantité réelle comptée pour chaque produit.',
+                    style: TextStyle(fontWeight: FontWeight.w600, color: QuantisColors.textPrimary, fontSize: 13),
+                  ),
                 ),
               ],
             ),
@@ -479,6 +589,204 @@ class _StockScreenState extends State<StockScreen> with SingleTickerProviderStat
                         final key = '${item.produitId}-${item.varianteId}';
                         final double currentPhysVal = _physicalCounts[key] ?? item.quantite;
                         final double discrepancy = currentPhysVal - item.quantite;
+
+                        if (isMobile) {
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 10),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: const BorderSide(color: QuantisColors.border),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(14),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Ligne supérieure : Produit + Stock théorique
+                                  Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              item.produitNom ?? '',
+                                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                                            ),
+                                            if (item.varianteNom != null)
+                                              Container(
+                                                margin: const EdgeInsets.only(top: 4),
+                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: QuantisColors.royalBlue.withValues(alpha: 0.08),
+                                                  borderRadius: BorderRadius.circular(4),
+                                                ),
+                                                child: Text(
+                                                  item.varianteNom!,
+                                                  style: const TextStyle(
+                                                    fontSize: 11,
+                                                    color: QuantisColors.royalBlue,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                        decoration: BoxDecoration(
+                                          color: (item.isRupture
+                                                  ? QuantisColors.error
+                                                  : item.isAlerte
+                                                      ? QuantisColors.warning
+                                                      : QuantisColors.royalBlue)
+                                              .withValues(alpha: 0.08),
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(
+                                            color: (item.isRupture
+                                                    ? QuantisColors.error
+                                                    : item.isAlerte
+                                                        ? QuantisColors.warning
+                                                        : QuantisColors.royalBlue)
+                                                .withValues(alpha: 0.2),
+                                          ),
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.end,
+                                          children: [
+                                            const Text(
+                                              'Stock théorique',
+                                              style: TextStyle(fontSize: 10, color: QuantisColors.textMuted, fontWeight: FontWeight.w500),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              '${item.quantite.toStringAsFixed(0)} unités',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 13,
+                                                color: item.isRupture
+                                                    ? QuantisColors.error
+                                                    : item.isAlerte
+                                                        ? QuantisColors.warning
+                                                        : QuantisColors.textPrimary,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+
+                                  // Badge alerte hors inventaire
+                                  if (!_isInventoryMode && (item.isAlerte || item.isRupture)) ...[
+                                    const SizedBox(height: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: (item.isRupture ? QuantisColors.error : QuantisColors.warning).withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        item.isRupture ? 'Rupture' : 'Seuil bas',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: item.isRupture ? QuantisColors.error : QuantisColors.warning,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+
+                                  // Ligne inférieure : Mode Inventaire (Saisie réelle + Écart)
+                                  if (_isInventoryMode) ...[
+                                    const Padding(
+                                      padding: EdgeInsets.symmetric(vertical: 10),
+                                      child: Divider(height: 1, color: QuantisColors.border),
+                                    ),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          flex: 3,
+                                          child: TextFormField(
+                                            initialValue: item.quantite.toStringAsFixed(0),
+                                            keyboardType: TextInputType.number,
+                                            decoration: const InputDecoration(
+                                              labelText: 'Quantité réelle',
+                                              isDense: true,
+                                              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                              border: OutlineInputBorder(),
+                                            ),
+                                            onChanged: (val) {
+                                              final double? parsedVal = double.tryParse(val);
+                                              if (parsedVal != null && parsedVal >= 0) {
+                                                setState(() {
+                                                  _physicalCounts[key] = parsedVal;
+                                                });
+                                              }
+                                            },
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          flex: 2,
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                            decoration: BoxDecoration(
+                                              color: (discrepancy == 0
+                                                      ? QuantisColors.border
+                                                      : discrepancy > 0
+                                                          ? QuantisColors.success
+                                                          : QuantisColors.error)
+                                                  .withValues(alpha: 0.12),
+                                              borderRadius: BorderRadius.circular(8),
+                                              border: Border.all(
+                                                color: (discrepancy == 0
+                                                        ? QuantisColors.border
+                                                        : discrepancy > 0
+                                                            ? QuantisColors.success
+                                                            : QuantisColors.error)
+                                                    .withValues(alpha: 0.3),
+                                              ),
+                                            ),
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.center,
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                const Text(
+                                                  'Écart',
+                                                  style: TextStyle(fontSize: 10, color: QuantisColors.textMuted),
+                                                ),
+                                                const SizedBox(height: 2),
+                                                Text(
+                                                  discrepancy == 0
+                                                      ? 'Aucun'
+                                                      : '${discrepancy > 0 ? "+" : ""}${discrepancy.toStringAsFixed(0)}',
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 13,
+                                                    color: discrepancy == 0
+                                                        ? QuantisColors.textMuted
+                                                        : discrepancy > 0
+                                                            ? QuantisColors.success
+                                                            : QuantisColors.error,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          );
+                        }
 
                         return Card(
                           margin: const EdgeInsets.only(bottom: 8),
@@ -640,99 +948,173 @@ class _StockScreenState extends State<StockScreen> with SingleTickerProviderStat
             ),
             childrenPadding: const EdgeInsets.all(16),
             children: [
-              Row(
-                children: [
-                  // Dépôt
-                  Expanded(
-                    child: DropdownButtonFormField<int>(
-                      value: _filterDepotId,
-                      decoration: const InputDecoration(labelText: 'Filtrer par Dépôt'),
-                      items: [
-                        const DropdownMenuItem(value: null, child: Text('Tous les dépôts')),
-                        ..._depots.map((d) => DropdownMenuItem(value: d.id, child: Text(d.nom))),
-                      ],
-                      onChanged: (val) => setState(() => _filterDepotId = val),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-
-                  // Type
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      value: _filterType,
-                      decoration: const InputDecoration(labelText: 'Filtrer par Type'),
-                      items: const [
-                        DropdownMenuItem(value: null, child: Text('Tous les types')),
-                        DropdownMenuItem(value: 'ENTREE', child: Text('Entrées')),
-                        DropdownMenuItem(value: 'SORTIE', child: Text('Sorties')),
-                        DropdownMenuItem(value: 'TRANSFERT', child: Text('Transferts')),
-                        DropdownMenuItem(value: 'AJUSTEMENT', child: Text('Ajustements')),
-                      ],
-                      onChanged: (val) => setState(() => _filterType = val),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  // Produit
-                  Expanded(
-                    child: DropdownButtonFormField<int>(
-                      value: _filterProduitId,
-                      decoration: const InputDecoration(labelText: 'Filtrer par Produit'),
-                      items: [
-                        const DropdownMenuItem(value: null, child: Text('Tous les produits')),
-                        ..._filterProduits.map((p) => DropdownMenuItem(value: p.id, child: Text(p.nom))),
-                      ],
-                      onChanged: (val) => setState(() => _filterProduitId = val),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-
-                  // Dates
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () async {
-                        final picker = await showDateRangePicker(
-                          context: context,
-                          firstDate: DateTime(2025),
-                          lastDate: DateTime(2030),
-                          initialDateRange: _filterDateRange,
-                          builder: (context, child) {
-                            return Theme(
-                              data: Theme.of(context).copyWith(
-                                colorScheme: const ColorScheme.light(
-                                  primary: QuantisColors.royalBlue,
-                                  onPrimary: Colors.white,
-                                  surface: Colors.white,
-                                ),
-                              ),
-                              child: child!,
-                            );
-                          },
+              if (MediaQuery.of(context).size.width < 600) ...[
+                DropdownButtonFormField<int>(
+                  value: _filterDepotId,
+                  decoration: const InputDecoration(labelText: 'Filtrer par Dépôt'),
+                  items: [
+                    const DropdownMenuItem(value: null, child: Text('Tous les dépôts')),
+                    ..._depots.map((d) => DropdownMenuItem(value: d.id, child: Text(d.nom))),
+                  ],
+                  onChanged: (val) => setState(() => _filterDepotId = val),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: _filterType,
+                  decoration: const InputDecoration(labelText: 'Filtrer par Type'),
+                  items: const [
+                    DropdownMenuItem(value: null, child: Text('Tous les types')),
+                    DropdownMenuItem(value: 'ENTREE', child: Text('Entrées')),
+                    DropdownMenuItem(value: 'SORTIE', child: Text('Sorties')),
+                    DropdownMenuItem(value: 'TRANSFERT', child: Text('Transferts')),
+                    DropdownMenuItem(value: 'AJUSTEMENT', child: Text('Ajustements')),
+                  ],
+                  onChanged: (val) => setState(() => _filterType = val),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<int>(
+                  value: _filterProduitId,
+                  decoration: const InputDecoration(labelText: 'Filtrer par Produit'),
+                  items: [
+                    const DropdownMenuItem(value: null, child: Text('Tous les produits')),
+                    ..._filterProduits.map((p) => DropdownMenuItem(value: p.id, child: Text(p.nom))),
+                  ],
+                  onChanged: (val) => setState(() => _filterProduitId = val),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    final picker = await showDateRangePicker(
+                      context: context,
+                      firstDate: DateTime(2025),
+                      lastDate: DateTime(2030),
+                      initialDateRange: _filterDateRange,
+                      builder: (context, child) {
+                        return Theme(
+                          data: Theme.of(context).copyWith(
+                            colorScheme: const ColorScheme.light(
+                              primary: QuantisColors.royalBlue,
+                              onPrimary: Colors.white,
+                              surface: Colors.white,
+                            ),
+                          ),
+                          child: child!,
                         );
-                        if (picker != null) {
-                          setState(() {
-                            _filterDateRange = picker;
-                          });
-                        }
                       },
-                      icon: const Icon(Icons.date_range),
-                      label: Text(
-                        _filterDateRange == null
-                            ? 'Toutes les dates'
-                            : '${_filterDateRange!.start.day}/${_filterDateRange!.start.month} au ${_filterDateRange!.end.day}/${_filterDateRange!.end.month}',
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 18),
-                        foregroundColor: QuantisColors.textPrimary,
-                        side: BorderSide(color: Colors.grey.shade400),
+                    );
+                    if (picker != null) {
+                      setState(() {
+                        _filterDateRange = picker;
+                      });
+                    }
+                  },
+                  icon: const Icon(Icons.date_range),
+                  label: Text(
+                    _filterDateRange == null
+                        ? 'Toutes les dates'
+                        : '${_filterDateRange!.start.day}/${_filterDateRange!.start.month} au ${_filterDateRange!.end.day}/${_filterDateRange!.end.month}',
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    foregroundColor: QuantisColors.textPrimary,
+                    side: BorderSide(color: Colors.grey.shade400),
+                  ),
+                ),
+              ] else ...[
+                Row(
+                  children: [
+                    // Dépôt
+                    Expanded(
+                      child: DropdownButtonFormField<int>(
+                        value: _filterDepotId,
+                        decoration: const InputDecoration(labelText: 'Filtrer par Dépôt'),
+                        items: [
+                          const DropdownMenuItem(value: null, child: Text('Tous les dépôts')),
+                          ..._depots.map((d) => DropdownMenuItem(value: d.id, child: Text(d.nom))),
+                        ],
+                        onChanged: (val) => setState(() => _filterDepotId = val),
                       ),
                     ),
-                  ),
-                ],
-              ),
+                    const SizedBox(width: 16),
+
+                    // Type
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        value: _filterType,
+                        decoration: const InputDecoration(labelText: 'Filtrer par Type'),
+                        items: const [
+                          DropdownMenuItem(value: null, child: Text('Tous les types')),
+                          DropdownMenuItem(value: 'ENTREE', child: Text('Entrées')),
+                          DropdownMenuItem(value: 'SORTIE', child: Text('Sorties')),
+                          DropdownMenuItem(value: 'TRANSFERT', child: Text('Transferts')),
+                          DropdownMenuItem(value: 'AJUSTEMENT', child: Text('Ajustements')),
+                        ],
+                        onChanged: (val) => setState(() => _filterType = val),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    // Produit
+                    Expanded(
+                      child: DropdownButtonFormField<int>(
+                        value: _filterProduitId,
+                        decoration: const InputDecoration(labelText: 'Filtrer par Produit'),
+                        items: [
+                          const DropdownMenuItem(value: null, child: Text('Tous les produits')),
+                          ..._filterProduits.map((p) => DropdownMenuItem(value: p.id, child: Text(p.nom))),
+                        ],
+                        onChanged: (val) => setState(() => _filterProduitId = val),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+
+                    // Dates
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          final picker = await showDateRangePicker(
+                            context: context,
+                            firstDate: DateTime(2025),
+                            lastDate: DateTime(2030),
+                            initialDateRange: _filterDateRange,
+                            builder: (context, child) {
+                              return Theme(
+                                data: Theme.of(context).copyWith(
+                                  colorScheme: const ColorScheme.light(
+                                    primary: QuantisColors.royalBlue,
+                                    onPrimary: Colors.white,
+                                    surface: Colors.white,
+                                  ),
+                                ),
+                                child: child!,
+                              );
+                            },
+                          );
+                          if (picker != null) {
+                            setState(() {
+                              _filterDateRange = picker;
+                            });
+                          }
+                        },
+                        icon: const Icon(Icons.date_range),
+                        label: Text(
+                          _filterDateRange == null
+                              ? 'Toutes les dates'
+                              : '${_filterDateRange!.start.day}/${_filterDateRange!.start.month} au ${_filterDateRange!.end.day}/${_filterDateRange!.end.month}',
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 18),
+                          foregroundColor: QuantisColors.textPrimary,
+                          side: BorderSide(color: Colors.grey.shade400),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,

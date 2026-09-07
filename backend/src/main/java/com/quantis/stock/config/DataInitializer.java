@@ -1,8 +1,12 @@
 package com.quantis.stock.config;
 
 import com.quantis.stock.model.*;
+import com.quantis.stock.model.enums.MotifMouvement;
+import com.quantis.stock.model.enums.Permission;
 import com.quantis.stock.model.enums.Role;
+import com.quantis.stock.model.enums.TypeMouvement;
 import com.quantis.stock.repository.*;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
@@ -36,6 +40,9 @@ public class DataInitializer implements CommandLineRunner {
     private final DocumentRepository documentRepository;
     private final CommandeFournisseurRepository commandeFournisseurRepository;
     private final FournisseurRepository fournisseurRepository;
+    private final StockCourantRepository stockCourantRepository;
+    private final MouvementCaisseRepository mouvementCaisseRepository;
+    private final MouvementStockRepository mouvementStockRepository;
     private final JdbcTemplate jdbcTemplate;
 
     @Override
@@ -110,6 +117,71 @@ public class DataInitializer implements CommandLineRunner {
                 utilisateurRepository.save(admin);
                 log.info("✅ Admin par défaut créé: admin@quantis.tech / Admin@2026");
             }
+        }
+
+        final Long defEntId = defaultEntreprise.getId();
+        final Entreprise finalDefEnt = defaultEntreprise;
+        // Rattacher les dépôts sans entreprise à l'entreprise par défaut
+        for (Depot d : depotRepository.findAll()) {
+            if (d.getEntreprise() == null) {
+                d.setEntreprise(finalDefEnt);
+                depotRepository.save(d);
+                log.info("🏢 Dépôt {} rattaché à l'entreprise par défaut", d.getNom());
+            }
+        }
+
+        Depot depotDefaut = depotRepository.findAll().stream()
+                .filter(d -> d.getEntreprise() != null && d.getEntreprise().getId().equals(defEntId))
+                .findFirst().orElse(null);
+
+        // Utilisateur Magasinier standard (Accès Stock, Inventaire, Mouvements, Produits, Achats)
+        if (!utilisateurRepository.existsByEmail("magasinier@quantis.tech")) {
+            Utilisateur mag = Utilisateur.builder()
+                    .nom("Traoré")
+                    .prenom("Ibrahim")
+                    .email("magasinier@quantis.tech")
+                    .motDePasseHash(passwordEncoder.encode("Stock@2026"))
+                    .role(Role.MAGASINIER)
+                    .depot(depotDefaut)
+                    .entreprise(defaultEntreprise)
+                    .actif(true)
+                    .build();
+            utilisateurRepository.save(mag);
+            log.info("📦 Utilisateur Magasinier créé: magasinier@quantis.tech / Stock@2026");
+        }
+
+        // Utilisateur avec droits UNIQUEMENT sur le Stock (Test strict de restriction RBAC)
+        if (!utilisateurRepository.existsByEmail("stockonly@quantis.tech")) {
+            Utilisateur stockOnly = Utilisateur.builder()
+                    .nom("Ouédraogo")
+                    .prenom("Aline")
+                    .email("stockonly@quantis.tech")
+                    .motDePasseHash(passwordEncoder.encode("Stock@2026"))
+                    .role(Role.MAGASINIER)
+                    .permissionsCustom(true)
+                    .permissionsPersonnalisees(Set.of(Permission.VOIR_STOCK, Permission.ENTREE_STOCK, Permission.SORTIE_STOCK))
+                    .depot(depotDefaut)
+                    .entreprise(defaultEntreprise)
+                    .actif(true)
+                    .build();
+            utilisateurRepository.save(stockOnly);
+            log.info("🎯 Utilisateur Stock Unique créé: stockonly@quantis.tech / Stock@2026");
+        }
+
+        // Utilisateur Caissier standard (Accès POS Caisse, Ventes, Clients)
+        if (!utilisateurRepository.existsByEmail("caissier@quantis.tech")) {
+            Utilisateur caisse = Utilisateur.builder()
+                    .nom("Sorgho")
+                    .prenom("Fatou")
+                    .email("caissier@quantis.tech")
+                    .motDePasseHash(passwordEncoder.encode("Caisse@2026"))
+                    .role(Role.CAISSIER)
+                    .depot(depotDefaut)
+                    .entreprise(defaultEntreprise)
+                    .actif(true)
+                    .build();
+            utilisateurRepository.save(caisse);
+            log.info("💳 Utilisateur Caissier créé: caissier@quantis.tech / Caisse@2026");
         }
 
         // 3. Créer les unités de mesure par défaut si absent
@@ -199,6 +271,34 @@ public class DataInitializer implements CommandLineRunner {
             utilisateurRepository.save(adminFaso);
             log.info("🏢 Admin Faso Distribution créé: admin@faso-distribution.bf / Admin@2026");
         }
+        if (!utilisateurRepository.existsByEmail("magasinier@faso-distribution.bf")) {
+            Utilisateur magFaso = Utilisateur.builder()
+                    .nom("Ouédraogo")
+                    .prenom("Salif")
+                    .email("magasinier@faso-distribution.bf")
+                    .motDePasseHash(passwordEncoder.encode("Admin@2026"))
+                    .role(Role.MAGASINIER)
+                    .depot(depotFaso)
+                    .entreprise(fasoDist)
+                    .actif(true)
+                    .build();
+            utilisateurRepository.save(magFaso);
+            log.info("🏢 Magasinier Faso Distribution créé: magasinier@faso-distribution.bf / Admin@2026");
+        }
+        if (!utilisateurRepository.existsByEmail("caisse@faso-distribution.bf")) {
+            Utilisateur caisseFaso = Utilisateur.builder()
+                    .nom("Sawadogo")
+                    .prenom("Aminata")
+                    .email("caisse@faso-distribution.bf")
+                    .motDePasseHash(passwordEncoder.encode("Admin@2026"))
+                    .role(Role.CAISSIER)
+                    .depot(depotFaso)
+                    .entreprise(fasoDist)
+                    .actif(true)
+                    .build();
+            utilisateurRepository.save(caisseFaso);
+            log.info("🏢 Caissière Faso Distribution créée: caisse@faso-distribution.bf / Admin@2026");
+        }
 
         // Produits spécifiques à Faso Distribution
         if (produitRepository.countByEntrepriseId(fasoDist.getId()) == 0) {
@@ -253,6 +353,81 @@ public class DataInitializer implements CommandLineRunner {
             log.info("🧱 Produits de Faso Distribution créés");
         }
 
+        // Stock courant spécifique à Faso Distribution
+        for (Produit p : produitRepository.findByEntrepriseIdAndActifTrue(fasoDist.getId())) {
+            StockCourant sc = stockCourantRepository.findByProduitIdAndVarianteIsNullAndDepotId(p.getId(), depotFaso.getId())
+                    .orElseGet(() -> StockCourant.builder()
+                            .produit(p)
+                            .depot(depotFaso)
+                            .quantite(java.math.BigDecimal.ZERO)
+                            .build());
+            if (sc.getQuantite() == null || sc.getQuantite().compareTo(java.math.BigDecimal.ZERO) == 0) {
+                if ("CIM-DAN-50".equals(p.getSku())) {
+                    sc.setQuantite(new java.math.BigDecimal("250.00"));
+                } else if ("FER-BET-12".equals(p.getSku())) {
+                    sc.setQuantite(new java.math.BigDecimal("180.00"));
+                } else if ("BROU-PRO-01".equals(p.getSku())) {
+                    sc.setQuantite(new java.math.BigDecimal("25.00"));
+                }
+                stockCourantRepository.save(sc);
+            }
+        }
+        log.info("🧱 Stock courant initialisé pour Faso Distribution");
+
+        // Catégories spécifiques à Faso Distribution
+        Categorie catMateriaux = categorieRepository.findByEntrepriseIdAndNom(fasoDist.getId(), "Matériaux de Construction")
+                .orElseGet(() -> categorieRepository.save(Categorie.builder()
+                        .nom("Matériaux de Construction")
+                        .description("Ciment, fer, agrégats et gros œuvre")
+                        .entreprise(fasoDist)
+                        .build()));
+
+        Categorie catOutillage = categorieRepository.findByEntrepriseIdAndNom(fasoDist.getId(), "Outillage & Quincaillerie")
+                .orElseGet(() -> categorieRepository.save(Categorie.builder()
+                        .nom("Outillage & Quincaillerie")
+                        .description("Matériel de chantier, brouettes, pelles")
+                        .entreprise(fasoDist)
+                        .build()));
+
+        for (Produit p : produitRepository.findByEntrepriseIdAndActifTrue(fasoDist.getId())) {
+            if (p.getCategorie() == null) {
+                if ("CIM-DAN-50".equals(p.getSku()) || "FER-BET-12".equals(p.getSku())) {
+                    p.setCategorie(catMateriaux);
+                } else {
+                    p.setCategorie(catOutillage);
+                }
+                produitRepository.save(p);
+            }
+        }
+
+        // Mouvements de stock initiaux pour Faso Distribution
+        Utilisateur adminFasoUser = utilisateurRepository.findByEmail("admin@faso-distribution.bf").orElse(null);
+        if (adminFasoUser != null) {
+            for (Produit p : produitRepository.findByEntrepriseIdAndActifTrue(fasoDist.getId())) {
+                boolean mouvementExists = mouvementStockRepository.findAll().stream()
+                        .anyMatch(m -> m.getProduit() != null && m.getProduit().getId().equals(p.getId()) &&
+                                ((m.getDepotDest() != null && m.getDepotDest().getId().equals(depotFaso.getId())) ||
+                                 (m.getDepotSource() != null && m.getDepotSource().getId().equals(depotFaso.getId()))));
+                if (!mouvementExists) {
+                    java.math.BigDecimal qte = "CIM-DAN-50".equals(p.getSku()) ? new java.math.BigDecimal("250.00")
+                            : "FER-BET-12".equals(p.getSku()) ? new java.math.BigDecimal("180.00")
+                            : new java.math.BigDecimal("25.00");
+                    MouvementStock m = MouvementStock.builder()
+                            .produit(p)
+                            .depotDest(depotFaso)
+                            .type(TypeMouvement.ENTREE)
+                            .motif(MotifMouvement.INVENTAIRE)
+                            .quantite(qte)
+                            .reference("INIT-STOCK-FD")
+                            .commentaire("Stock d'ouverture - Entrepôt Quincaillerie & Ciment")
+                            .utilisateur(adminFasoUser)
+                            .build();
+                    mouvementStockRepository.save(m);
+                }
+            }
+            log.info("📦 Mouvements de stock initiaux créés pour Faso Distribution");
+        }
+
         // Client spécifique à Faso Distribution
         Client cFaso = clientRepository.findAll().stream()
                 .filter(c -> c.getEntreprise() != null && c.getEntreprise().getId().equals(fasoDist.getId()))
@@ -264,11 +439,15 @@ public class DataInitializer implements CommandLineRunner {
                             .telephone("+226 70 88 99 00")
                             .email("achats@somabtp.bf")
                             .adresse("Zone Sonatur Ouaga 2000")
-                            .soldeCredit(java.math.BigDecimal.ZERO)
+                            .soldeCredit(new java.math.BigDecimal("150000.00"))
                             .actif(true)
                             .build();
                     return clientRepository.save(c);
                 });
+        if (cFaso.getSoldeCredit() == null || cFaso.getSoldeCredit().compareTo(java.math.BigDecimal.ZERO) == 0) {
+            cFaso.setSoldeCredit(new java.math.BigDecimal("150000.00"));
+            clientRepository.save(cFaso);
+        }
 
         // Factures de vente pour Faso Distribution
         if (documentRepository.countByEntrepriseId(fasoDist.getId()) == 0) {
@@ -309,17 +488,27 @@ public class DataInitializer implements CommandLineRunner {
         }
 
         // Achats Fournisseur pour Faso Distribution
-        if (commandeFournisseurRepository.countAchatsByEntrepriseId(fasoDist.getId()) == 0) {
-            Fournisseur fourFaso = Fournisseur.builder()
-                    .entreprise(fasoDist)
-                    .nom("CIMAF Burkina Industrie")
-                    .telephone("+226 25 38 40 50")
-                    .email("commandes@cimaf.bf")
-                    .adresse("Zone Industrielle de Kossodo")
-                    .actif(true)
-                    .build();
-            fourFaso = fournisseurRepository.save(fourFaso);
+        Fournisseur fourFaso = fournisseurRepository.findAll().stream()
+                .filter(f -> f.getEntreprise() != null && f.getEntreprise().getId().equals(fasoDist.getId()))
+                .findFirst()
+                .orElseGet(() -> {
+                    Fournisseur f = Fournisseur.builder()
+                            .entreprise(fasoDist)
+                            .nom("CIMAF Burkina Industrie")
+                            .telephone("+226 25 38 40 50")
+                            .email("commandes@cimaf.bf")
+                            .adresse("Zone Industrielle de Kossodo")
+                            .soldeDette(new java.math.BigDecimal("350000.00"))
+                            .actif(true)
+                            .build();
+                    return fournisseurRepository.save(f);
+                });
+        if (fourFaso.getSoldeDette() == null || fourFaso.getSoldeDette().compareTo(java.math.BigDecimal.ZERO) == 0) {
+            fourFaso.setSoldeDette(new java.math.BigDecimal("350000.00"));
+            fournisseurRepository.save(fourFaso);
+        }
 
+        if (commandeFournisseurRepository.countAchatsByEntrepriseId(fasoDist.getId()) == 0) {
             Utilisateur adminFaso = utilisateurRepository.findByEmail("admin@faso-distribution.bf").orElse(null);
             if (adminFaso != null) {
                 CommandeFournisseur cmdFaso = CommandeFournisseur.builder()
@@ -334,6 +523,31 @@ public class DataInitializer implements CommandLineRunner {
                 commandeFournisseurRepository.save(cmdFaso);
                 log.info("📦 Commande fournisseur créée pour Faso Distribution (2 950 000 FCFA)");
             }
+        }
+
+        // Caisses pour Faso Distribution
+        if (mouvementCaisseRepository.sumEntreesByEntrepriseId(fasoDist.getId()).compareTo(java.math.BigDecimal.ZERO) == 0) {
+            Utilisateur adminFaso = utilisateurRepository.findByEmail("admin@faso-distribution.bf").orElse(null);
+            MouvementCaisse mc1 = MouvementCaisse.builder()
+                    .entreprise(fasoDist)
+                    .type(com.quantis.stock.model.enums.TypeCaisse.ENTREE)
+                    .montant(new java.math.BigDecimal("500000.00"))
+                    .libelle("Encaissement acompte chantier Soma BTP")
+                    .dateMouvement(java.time.LocalDate.now().minusDays(2))
+                    .utilisateur(adminFaso)
+                    .build();
+            mouvementCaisseRepository.save(mc1);
+
+            MouvementCaisse mc2 = MouvementCaisse.builder()
+                    .entreprise(fasoDist)
+                    .type(com.quantis.stock.model.enums.TypeCaisse.SORTIE)
+                    .montant(new java.math.BigDecimal("85000.00"))
+                    .libelle("Frais de transport & manutention matériaux")
+                    .dateMouvement(java.time.LocalDate.now().minusDays(1))
+                    .utilisateur(adminFaso)
+                    .build();
+            mouvementCaisseRepository.save(mc2);
+            log.info("💰 Caisses initialisées pour Faso Distribution");
         }
 
         // Seeder TechCorp Logistics si présent

@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../../core/theme/quantis_theme.dart';
 import '../../../core/utils/permission_helper.dart';
@@ -168,21 +169,25 @@ class _MouvementRapideDialogState extends State<MouvementRapideDialog> {
     final motifs = _getMotifs(_selectedType);
 
     return AlertDialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
       title: Row(
         children: [
           const Icon(Icons.swap_horiz, color: QuantisColors.royalBlue),
           const SizedBox(width: 8),
-          Text(
-            'Mouvement de Stock Rapide',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: QuantisColors.royalBlue,
+          Expanded(
+            child: Text(
+              'Mouvement de Stock Rapide',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: QuantisColors.royalBlue,
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
       ),
       content: SizedBox(
-        width: 500,
+        width: min(MediaQuery.of(context).size.width * 0.95, 500),
         child: _loadingProduits
             ? const SizedBox(
                 height: 200,

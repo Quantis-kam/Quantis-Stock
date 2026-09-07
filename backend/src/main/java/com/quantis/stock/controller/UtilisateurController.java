@@ -10,6 +10,8 @@ import com.quantis.stock.repository.DepotRepository;
 import com.quantis.stock.repository.UtilisateurRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import com.quantis.stock.model.enums.Role;
+import com.quantis.stock.security.SecurityUtils;
 import org.springframework.data.domain.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -30,25 +32,28 @@ public class UtilisateurController {
     private final DepotRepository depotRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuditService auditService;
+    private final SecurityUtils securityUtils;
 
     @GetMapping
     @PreAuthorize("hasAuthority('VOIR_UTILISATEURS')")
     public ResponseEntity<ApiResponse<PagedResponse<Utilisateur>>> findAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
-            org.springframework.security.core.Authentication auth) {
+            Authentication auth) {
         Pageable pageable = PageRequest.of(page, Math.min(size, 100), Sort.by("id").ascending());
-        boolean isAdmin = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
         Page<Utilisateur> result;
-        if (!isAdmin) {
-            Utilisateur currentUser = utilisateurRepository.findByEmail(auth.getName()).orElse(null);
-            if (currentUser != null && currentUser.getDepot() != null) {
-                result = utilisateurRepository.findByDepotId(currentUser.getDepot().getId(), pageable);
+        if (securityUtils.isSuperAdmin()) {
+            result = utilisateurRepository.findAll(pageable);
+        } else {
+            Long currentEntrepriseId = securityUtils.getCurrentEntrepriseId();
+            Utilisateur currentUser = securityUtils.getCurrentUser().orElse(null);
+            if (currentUser != null && currentUser.getRole() != Role.ADMIN && currentUser.getDepot() != null) {
+                result = utilisateurRepository.findByDepotIdAndRoleNot(currentUser.getDepot().getId(), Role.SUPER_ADMIN, pageable);
+            } else if (currentEntrepriseId != null) {
+                result = utilisateurRepository.findByEntrepriseIdAndRoleNot(currentEntrepriseId, Role.SUPER_ADMIN, pageable);
             } else {
                 result = Page.empty();
             }
-        } else {
-            result = utilisateurRepository.findAll(pageable);
         }
         return ResponseEntity.ok(ApiResponse.success(toPagedResponse(result)));
     }
@@ -57,15 +62,21 @@ public class UtilisateurController {
     @PreAuthorize("hasAuthority('VOIR_UTILISATEURS')")
     public ResponseEntity<ApiResponse<Utilisateur>> findById(
             @PathVariable Long id,
-            org.springframework.security.core.Authentication auth) {
+            Authentication auth) {
         Utilisateur user = utilisateurRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "id", id));
-        boolean isAdmin = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
-        if (!isAdmin) {
-            Utilisateur currentUser = utilisateurRepository.findByEmail(auth.getName()).orElse(null);
-            if (currentUser == null || currentUser.getDepot() == null || 
-                user.getDepot() == null || !currentUser.getDepot().getId().equals(user.getDepot().getId())) {
+        if (!securityUtils.isSuperAdmin()) {
+            Long currentEntrepriseId = securityUtils.getCurrentEntrepriseId();
+            if (user.getRole() == Role.SUPER_ADMIN ||
+                user.getEntreprise() == null ||
+                !user.getEntreprise().getId().equals(currentEntrepriseId)) {
                 throw new BusinessException("Vous n'êtes pas autorisé à voir cet utilisateur");
+            }
+            Utilisateur currentUser = securityUtils.getCurrentUser().orElse(null);
+            if (currentUser != null && currentUser.getRole() != Role.ADMIN && currentUser.getDepot() != null) {
+                if (user.getDepot() == null || !currentUser.getDepot().getId().equals(user.getDepot().getId())) {
+                    throw new BusinessException("Vous n'êtes pas autorisé à voir cet utilisateur");
+                }
             }
         }
         return ResponseEntity.ok(ApiResponse.success(user));
@@ -79,10 +90,27 @@ public class UtilisateurController {
         Utilisateur user = utilisateurRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "id", id));
 
+        if (!securityUtils.isSuperAdmin()) {
+            Long currentEntrepriseId = securityUtils.getCurrentEntrepriseId();
+            if (user.getRole() == Role.SUPER_ADMIN ||
+                user.getEntreprise() == null ||
+                !user.getEntreprise().getId().equals(currentEntrepriseId)) {
+                throw new BusinessException("Vous n'êtes pas autorisé à modifier cet utilisateur");
+            }
+            if (request.getRole() == Role.SUPER_ADMIN) {
+                throw new BusinessException("Vous ne pouvez pas attribuer le rôle SuperAdmin");
+            }
+        }
+
         Depot depot = null;
         if (request.getDepotId() != null) {
             depot = depotRepository.findById(request.getDepotId())
                     .orElseThrow(() -> new ResourceNotFoundException("Dépôt", "id", request.getDepotId()));
+            if (!securityUtils.isSuperAdmin() && user.getEntreprise() != null) {
+                if (depot.getEntreprise() == null || !depot.getEntreprise().getId().equals(user.getEntreprise().getId())) {
+                    throw new BusinessException("Ce dépôt n'appartient pas à votre entreprise");
+                }
+            }
         }
 
         user.setNom(request.getNom());
@@ -101,6 +129,14 @@ public class UtilisateurController {
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
         Utilisateur user = utilisateurRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "id", id));
+        if (!securityUtils.isSuperAdmin()) {
+            Long currentEntrepriseId = securityUtils.getCurrentEntrepriseId();
+            if (user.getRole() == Role.SUPER_ADMIN ||
+                user.getEntreprise() == null ||
+                !user.getEntreprise().getId().equals(currentEntrepriseId)) {
+                throw new BusinessException("Vous n'êtes pas autorisé à désactiver cet utilisateur");
+            }
+        }
         user.setActif(false);
         utilisateurRepository.save(user);
         auditService.logAction("DELETE", "Utilisateur", user.getId(), "Désactivation utilisateur " + user.getEmail());
@@ -138,6 +174,15 @@ public class UtilisateurController {
         Utilisateur user = utilisateurRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "id", id));
 
+        if (!securityUtils.isSuperAdmin()) {
+            Long currentEntrepriseId = securityUtils.getCurrentEntrepriseId();
+            if (user.getRole() == Role.SUPER_ADMIN ||
+                user.getEntreprise() == null ||
+                !user.getEntreprise().getId().equals(currentEntrepriseId)) {
+                throw new BusinessException("Vous n'êtes pas autorisé à gérer les permissions de cet utilisateur");
+            }
+        }
+
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("userId", user.getId());
         result.put("role", user.getRole().name());
@@ -165,6 +210,15 @@ public class UtilisateurController {
             @RequestBody UserPermissionsRequest request) {
         Utilisateur user = utilisateurRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "id", id));
+
+        if (!securityUtils.isSuperAdmin()) {
+            Long currentEntrepriseId = securityUtils.getCurrentEntrepriseId();
+            if (user.getRole() == Role.SUPER_ADMIN ||
+                user.getEntreprise() == null ||
+                !user.getEntreprise().getId().equals(currentEntrepriseId)) {
+                throw new BusinessException("Vous n'êtes pas autorisé à modifier les permissions de cet utilisateur");
+            }
+        }
 
         // Mettre à jour le flag custom
         user.setPermissionsCustom(request.getPermissionsCustom() != null && request.getPermissionsCustom());

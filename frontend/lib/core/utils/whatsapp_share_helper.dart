@@ -1,8 +1,10 @@
 import 'package:intl/intl.dart';
 import 'whatsapp_share_stub.dart'
+    if (dart.library.io) 'whatsapp_share_io.dart'
     if (dart.library.html) 'whatsapp_share_web.dart' as platform;
 import '../network/api_client.dart';
 import '../../features/documents/data/document_models.dart';
+import '../../features/documents/presentation/invoice_pdf_generator.dart';
 
 /// Helper pour formater et partager des factures, devis et reçus via WhatsApp / SMS
 class WhatsappShareHelper {
@@ -51,9 +53,9 @@ class WhatsappShareHelper {
     return sb.toString();
   }
 
-  static void shareViaWhatsApp(DocumentModel doc, {String? customPhone}) {
+  /// Ouvre directement WhatsApp avec le message commercial pré-rempli
+  static Future<bool> shareViaWhatsApp(DocumentModel doc, {String? customPhone}) async {
     final message = generateMessage(doc);
-    final encodedMessage = Uri.encodeComponent(message);
 
     String phone = customPhone ?? doc.clientTelephone ?? '';
     // Nettoyer les espaces, tirets et caractères non numériques (sauf +)
@@ -62,16 +64,11 @@ class WhatsappShareHelper {
       phone = '+${phone.substring(2)}';
     }
 
-    String urlStr;
-    if (phone.isNotEmpty) {
-      // Envoi direct au numéro
-      final cleanPhone = phone.replaceAll('+', '');
-      urlStr = 'https://wa.me/$cleanPhone?text=$encodedMessage';
-    } else {
-      // Partage générique
-      urlStr = 'https://api.whatsapp.com/send?text=$encodedMessage';
-    }
+    return await platform.openWhatsAppDirect(phone: phone, message: message);
+  }
 
-    platform.openExternalUrl(urlStr);
+  /// Partage direct du fichier PDF généré vers WhatsApp / feuille de partage système
+  static Future<void> sharePdfDocument(DocumentModel doc, {Map<String, dynamic>? entreprise}) async {
+    await InvoicePdfGenerator.sharePdf(doc, entreprise: entreprise);
   }
 }

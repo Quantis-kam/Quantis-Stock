@@ -9,5 +9,6 @@ import java.util.List;
 @Repository
 public interface ArretStockRepository extends JpaRepository<ArretStock, Long> {
     List<ArretStock> findByEntrepriseIdOrderByIdDesc(Long entrepriseId);
+    org.springframework.data.domain.Page<ArretStock> findByEntrepriseIdOrderByIdDesc(Long entrepriseId, org.springframework.data.domain.Pageable pageable);
     List<ArretStock> findByDepotIdOrderByIdDesc(Long depotId);
 }

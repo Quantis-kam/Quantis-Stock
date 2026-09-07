@@ -22,6 +22,14 @@ public interface CommandeFournisseurRepository extends JpaRepository<CommandeFou
 
     Page<CommandeFournisseur> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
+    Page<CommandeFournisseur> findByDepotEntrepriseIdOrderByCreatedAtDesc(Long entrepriseId, Pageable pageable);
+
+    Page<CommandeFournisseur> findByDepotEntrepriseIdAndStatut(Long entrepriseId, StatutCommande statut, Pageable pageable);
+
+    Page<CommandeFournisseur> findByDepotEntrepriseIdAndFournisseurId(Long entrepriseId, Long fournisseurId, Pageable pageable);
+
+    java.util.List<CommandeFournisseur> findByDepotEntrepriseIdAndDateCommandeBetween(Long entrepriseId, java.time.LocalDate debut, java.time.LocalDate fin);
+
     @Query("SELECT COALESCE(MAX(CAST(SUBSTRING(c.numero, LENGTH(:prefix) + 1) AS integer)), 0) " +
            "FROM CommandeFournisseur c WHERE c.numero LIKE CONCAT(:prefix, '%')")
     int findMaxNumero(@Param("prefix") String prefix);

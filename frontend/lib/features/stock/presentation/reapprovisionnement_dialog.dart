@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/quantis_theme.dart';
@@ -66,12 +67,15 @@ class _ReapprovisionnementDialogState extends State<ReapprovisionnementDialog> {
   Widget build(BuildContext context) {
     final currency = NumberFormat.currency(locale: 'fr_FR', symbol: ApiClient.entrepriseMonnaie, decimalDigits: 0);
 
+    final isMobile = MediaQuery.of(context).size.width < 700;
+
     return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
-        width: 900,
-        height: 700,
-        padding: const EdgeInsets.all(24),
+        width: min(MediaQuery.of(context).size.width * 0.96, 900),
+        height: min(MediaQuery.of(context).size.height * 0.9, 700),
+        padding: EdgeInsets.all(isMobile ? 14 : 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -79,26 +83,27 @@ class _ReapprovisionnementDialogState extends State<ReapprovisionnementDialog> {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: QuantisColors.luxuryGold.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.auto_awesome, color: QuantisColors.luxuryGold, size: 24),
+                  child: const Icon(Icons.auto_awesome, color: QuantisColors.luxuryGold, size: 22),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
+                    children: [
                       Text(
-                        'Suggestions Intelligentes de Réapprovisionnement',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                        'Suggestions de Réapprovisionnement',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: isMobile ? 15 : 18),
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      SizedBox(height: 2),
+                      const SizedBox(height: 2),
                       Text(
-                        'Calculé selon l\'historique des ventes sur 30 jours et les seuils d\'alerte',
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                        'Basé sur les ventes 30j et seuils d\'alerte',
+                        style: TextStyle(fontSize: isMobile ? 11 : 12, color: Colors.grey),
                       ),
                     ],
                   ),
@@ -110,35 +115,73 @@ class _ReapprovisionnementDialogState extends State<ReapprovisionnementDialog> {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            const Divider(),
             const SizedBox(height: 12),
+            const Divider(),
+            const SizedBox(height: 8),
 
             // Barre d'outils (Filtres de jours de buffer + Résumé)
-            Row(
-              children: [
-                const Text('Objectif de stock :', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                const SizedBox(width: 10),
-                SegmentedButton<int>(
-                  segments: const [
-                    ButtonSegment(value: 15, label: Text('15 Jours')),
-                    ButtonSegment(value: 30, label: Text('30 Jours (Recommandé)')),
-                    ButtonSegment(value: 45, label: Text('45 Jours')),
-                  ],
-                  selected: {_targetDays},
-                  onSelectionChanged: (set) {
-                    setState(() => _targetDays = set.first);
-                  },
-                ),
-                const Spacer(),
-                IconButton(
-                  onPressed: _fetchSuggestions,
-                  icon: const Icon(Icons.refresh),
-                  tooltip: 'Actualiser les calculs',
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
+            if (isMobile)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Text('Objectif de stock :', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                      const Spacer(),
+                      IconButton(
+                        onPressed: _fetchSuggestions,
+                        icon: const Icon(Icons.refresh, size: 20),
+                        tooltip: 'Actualiser',
+                      ),
+                    ],
+                  ),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      ChoiceChip(
+                        label: const Text('15 Jours'),
+                        selected: _targetDays == 15,
+                        onSelected: (_) => setState(() => _targetDays = 15),
+                      ),
+                      ChoiceChip(
+                        label: const Text('30 Jours'),
+                        selected: _targetDays == 30,
+                        onSelected: (_) => setState(() => _targetDays = 30),
+                      ),
+                      ChoiceChip(
+                        label: const Text('45 Jours'),
+                        selected: _targetDays == 45,
+                        onSelected: (_) => setState(() => _targetDays = 45),
+                      ),
+                    ],
+                  ),
+                ],
+              )
+            else
+              Row(
+                children: [
+                  const Text('Objectif de stock :', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  const SizedBox(width: 10),
+                  SegmentedButton<int>(
+                    segments: const [
+                      ButtonSegment(value: 15, label: Text('15 Jours')),
+                      ButtonSegment(value: 30, label: Text('30 Jours (Recommandé)')),
+                      ButtonSegment(value: 45, label: Text('45 Jours')),
+                    ],
+                    selected: {_targetDays},
+                    onSelectionChanged: (set) {
+                      setState(() => _targetDays = set.first);
+                    },
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: _fetchSuggestions,
+                    icon: const Icon(Icons.refresh),
+                    tooltip: 'Actualiser les calculs',
+                  ),
+                ],
+              ),
+            const SizedBox(height: 12),
 
             // Contenu principal
             Expanded(
@@ -189,6 +232,85 @@ class _ReapprovisionnementDialogState extends State<ReapprovisionnementDialog> {
                                 final joursAutonomie = s['joursAutonomie'] as int?;
                                 final qteSuggeree = (s['quantiteSuggeree'] as num?)?.toDouble() ?? 0;
                                 final prixAchat = (s['prixAchat'] as num?)?.toDouble() ?? 0;
+
+                                if (isMobile) {
+                                  return Container(
+                                    color: isSelected ? QuantisColors.royalBlue.withValues(alpha: 0.04) : Colors.transparent,
+                                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                                    child: Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Checkbox(
+                                          value: isSelected,
+                                          onChanged: (val) {
+                                            setState(() {
+                                              if (val == true) {
+                                                _selectedIndices.add(index);
+                                              } else {
+                                                _selectedIndices.remove(index);
+                                              }
+                                            });
+                                          },
+                                        ),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                    decoration: BoxDecoration(
+                                                      color: isCritique
+                                                          ? QuantisColors.error.withValues(alpha: 0.15)
+                                                          : QuantisColors.warning.withValues(alpha: 0.15),
+                                                      borderRadius: BorderRadius.circular(4),
+                                                    ),
+                                                    child: Text(
+                                                      isCritique ? 'CRITIQUE' : 'ATTENTION',
+                                                      style: TextStyle(
+                                                        fontSize: 9,
+                                                        fontWeight: FontWeight.bold,
+                                                        color: isCritique ? QuantisColors.error : const Color(0xFFB45309),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Expanded(
+                                                    child: Text(
+                                                      s['nom'] ?? 'Produit',
+                                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                'Stock: ${stockActuel.toStringAsFixed(0)} • Autonomie: ${joursAutonomie != null ? "~${joursAutonomie}j" : "Ventes: ${ventesMois.toStringAsFixed(0)}"}',
+                                                style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Row(
+                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                children: [
+                                                  Text(
+                                                    'Besoin: +${qteSuggeree.toStringAsFixed(0)} ${s['unite'] ?? ''}',
+                                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: QuantisColors.royalBlue),
+                                                  ),
+                                                  Text(
+                                                    currency.format(qteSuggeree * prixAchat),
+                                                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }
 
                                 return Container(
                                   color: isSelected ? QuantisColors.royalBlue.withValues(alpha: 0.03) : Colors.transparent,
@@ -312,54 +434,108 @@ class _ReapprovisionnementDialogState extends State<ReapprovisionnementDialog> {
             const SizedBox(height: 12),
 
             // Pied de page avec total et bouton de commande
-            Row(
-              children: [
-                Text(
-                  '${_selectedIndices.length} article(s) sélectionné(s)',
-                  style: const TextStyle(fontSize: 13, color: Colors.grey),
-                ),
-                const Spacer(),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    const Text('Coût estimé total :', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                    Text(
-                      currency.format(_montantTotalEstime),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                        color: QuantisColors.royalBlue,
+            if (isMobile)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '${_selectedIndices.length} sélectionné(s)',
+                        style: const TextStyle(fontSize: 12, color: Colors.grey),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(width: 20),
-                ElevatedButton.icon(
-                  onPressed: _selectedIndices.isEmpty
-                      ? null
-                      : () {
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                '${_selectedIndices.length} articles ajoutés à votre prévision de commande fournisseur !',
-                              ),
-                              backgroundColor: QuantisColors.success,
-                              behavior: SnackBarBehavior.floating,
+                      Row(
+                        children: [
+                          const Text('Total: ', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                          Text(
+                            currency.format(_montantTotalEstime),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: QuantisColors.royalBlue,
                             ),
-                          );
-                        },
-                  icon: const Icon(Icons.shopping_cart_checkout),
-                  label: const Text('Valider pour Commande Fournisseur'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: QuantisColors.royalBlue,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                ),
-              ],
-            ),
+                  const SizedBox(height: 10),
+                  ElevatedButton.icon(
+                    onPressed: _selectedIndices.isEmpty
+                        ? null
+                        : () {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  '${_selectedIndices.length} articles ajoutés à votre prévision de commande fournisseur !',
+                                ),
+                                backgroundColor: QuantisColors.success,
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          },
+                    icon: const Icon(Icons.shopping_cart_checkout, size: 18),
+                    label: const Text('Valider pour Commande'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: QuantisColors.royalBlue,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ],
+              )
+            else
+              Row(
+                children: [
+                  Text(
+                    '${_selectedIndices.length} article(s) sélectionné(s)',
+                    style: const TextStyle(fontSize: 13, color: Colors.grey),
+                  ),
+                  const Spacer(),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Text('Coût estimé total :', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                      Text(
+                        currency.format(_montantTotalEstime),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                          color: QuantisColors.royalBlue,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: 20),
+                  ElevatedButton.icon(
+                    onPressed: _selectedIndices.isEmpty
+                        ? null
+                        : () {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  '${_selectedIndices.length} articles ajoutés à votre prévision de commande fournisseur !',
+                                ),
+                                backgroundColor: QuantisColors.success,
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          },
+                    icon: const Icon(Icons.shopping_cart_checkout),
+                    label: const Text('Valider pour Commande Fournisseur'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: QuantisColors.royalBlue,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ],
+              ),
           ],
         ),
       ),

@@ -210,11 +210,17 @@ class _ProduitFormDialogState extends State<ProduitFormDialog> {
   Widget build(BuildContext context) {
     final title = widget.produit == null ? 'Ajouter un Produit' : 'Modifier le Produit';
 
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
     return Dialog(
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 12 : 40,
+        vertical: 24,
+      ),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
-        width: min(MediaQuery.of(context).size.width * 0.9, 700),
-        padding: const EdgeInsets.all(24),
+        width: min(MediaQuery.of(context).size.width * 0.95, 700),
+        padding: EdgeInsets.all(isMobile ? 16 : 24),
         child: _loading
             ? const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()))
             : Form(
@@ -226,7 +232,17 @@ class _ProduitFormDialogState extends State<ProduitFormDialog> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: QuantisColors.royalBlue)),
+                          Expanded(
+                            child: Text(
+                              title,
+                              style: TextStyle(
+                                fontSize: isMobile ? 18 : 20,
+                                fontWeight: FontWeight.bold,
+                                color: QuantisColors.royalBlue,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                           IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
                         ],
                       ),
@@ -236,121 +252,210 @@ class _ProduitFormDialogState extends State<ProduitFormDialog> {
                       const Text('Informations Générales', style: TextStyle(fontWeight: FontWeight.bold, color: QuantisColors.textSecondary)),
                       const SizedBox(height: 12),
                       
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: _nomCtrl,
-                              decoration: const InputDecoration(labelText: 'Nom du produit *'),
-                              validator: (v) => v == null || v.isEmpty ? 'Requis' : null,
+                      if (isMobile) ...[
+                        TextFormField(
+                          controller: _nomCtrl,
+                          decoration: const InputDecoration(labelText: 'Nom du produit *'),
+                          validator: (v) => v == null || v.isEmpty ? 'Requis' : null,
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _skuCtrl,
+                          decoration: const InputDecoration(labelText: 'SKU / Référence *'),
+                          validator: (v) => v == null || v.isEmpty ? 'Requis' : null,
+                        ),
+                      ] else
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: _nomCtrl,
+                                decoration: const InputDecoration(labelText: 'Nom du produit *'),
+                                validator: (v) => v == null || v.isEmpty ? 'Requis' : null,
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: TextFormField(
-                              controller: _skuCtrl,
-                              decoration: const InputDecoration(labelText: 'SKU / Référence *'),
-                              validator: (v) => v == null || v.isEmpty ? 'Requis' : null,
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: TextFormField(
+                                controller: _skuCtrl,
+                                decoration: const InputDecoration(labelText: 'SKU / Référence *'),
+                                validator: (v) => v == null || v.isEmpty ? 'Requis' : null,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
                       const SizedBox(height: 16),
                       
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: _barcodeCtrl,
-                              decoration: InputDecoration(
-                                labelText: 'Code-barres',
-                                suffixIcon: IconButton(
-                                  icon: const Icon(Icons.qr_code_scanner, color: QuantisColors.luxuryGold),
-                                  tooltip: 'Simuler Scan Barcode',
-                                  onPressed: _generateMockBarcode,
+                      if (isMobile) ...[
+                        TextFormField(
+                          controller: _barcodeCtrl,
+                          decoration: InputDecoration(
+                            labelText: 'Code-barres',
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.qr_code_scanner, color: QuantisColors.luxuryGold),
+                              tooltip: 'Simuler Scan Barcode',
+                              onPressed: _generateMockBarcode,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _descCtrl,
+                          decoration: const InputDecoration(labelText: 'Description'),
+                        ),
+                      ] else
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: _barcodeCtrl,
+                                decoration: InputDecoration(
+                                  labelText: 'Code-barres',
+                                  suffixIcon: IconButton(
+                                    icon: const Icon(Icons.qr_code_scanner, color: QuantisColors.luxuryGold),
+                                    tooltip: 'Simuler Scan Barcode',
+                                    onPressed: _generateMockBarcode,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: TextFormField(
-                              controller: _descCtrl,
-                              decoration: const InputDecoration(labelText: 'Description'),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: TextFormField(
+                                controller: _descCtrl,
+                                decoration: const InputDecoration(labelText: 'Description'),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
                       const SizedBox(height: 16),
 
-                      Row(
-                        children: [
-                          // Dropdown Catégories
-                          Expanded(
-                            child: DropdownButtonFormField<int>(
-                              value: _selectedCategorieId,
-                              decoration: const InputDecoration(labelText: 'Catégorie'),
-                              items: _categories
-                                  .map((c) => DropdownMenuItem(value: c.id, child: Text(c.nom)))
-                                  .toList(),
-                              onChanged: (val) => setState(() => _selectedCategorieId = val),
+                      if (isMobile) ...[
+                        DropdownButtonFormField<int>(
+                          value: _selectedCategorieId,
+                          decoration: const InputDecoration(labelText: 'Catégorie'),
+                          items: _categories
+                              .map((c) => DropdownMenuItem(value: c.id, child: Text(c.nom)))
+                              .toList(),
+                          onChanged: (val) => setState(() => _selectedCategorieId = val),
+                        ),
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<int>(
+                          value: _selectedUniteId,
+                          decoration: const InputDecoration(labelText: 'Unité de Mesure'),
+                          items: _units
+                              .map((u) => DropdownMenuItem(value: u.id, child: Text('${u.nom} (${u.abreviation})')))
+                              .toList(),
+                          onChanged: (val) => setState(() => _selectedUniteId = val),
+                        ),
+                      ] else
+                        Row(
+                          children: [
+                            Expanded(
+                              child: DropdownButtonFormField<int>(
+                                value: _selectedCategorieId,
+                                decoration: const InputDecoration(labelText: 'Catégorie'),
+                                items: _categories
+                                    .map((c) => DropdownMenuItem(value: c.id, child: Text(c.nom)))
+                                    .toList(),
+                                onChanged: (val) => setState(() => _selectedCategorieId = val),
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 16),
-                          // Dropdown Unités
-                          Expanded(
-                            child: DropdownButtonFormField<int>(
-                              value: _selectedUniteId,
-                              decoration: const InputDecoration(labelText: 'Unité de Mesure'),
-                              items: _units
-                                  .map((u) => DropdownMenuItem(value: u.id, child: Text('${u.nom} (${u.abreviation})')))
-                                  .toList(),
-                              onChanged: (val) => setState(() => _selectedUniteId = val),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: DropdownButtonFormField<int>(
+                                value: _selectedUniteId,
+                                decoration: const InputDecoration(labelText: 'Unité de Mesure'),
+                                items: _units
+                                    .map((u) => DropdownMenuItem(value: u.id, child: Text('${u.nom} (${u.abreviation})')))
+                                    .toList(),
+                                onChanged: (val) => setState(() => _selectedUniteId = val),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
                       const SizedBox(height: 24),
 
                       // Section Prix & Marges
                       const Text('Prix & Taxes (FCFA)', style: TextStyle(fontWeight: FontWeight.bold, color: QuantisColors.textSecondary)),
                       const SizedBox(height: 12),
 
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: _prixAchatCtrl,
-                              keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(labelText: 'Prix d\'achat'),
+                      if (isMobile) ...[
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: _prixAchatCtrl,
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(labelText: 'Prix d\'achat'),
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: TextFormField(
-                              controller: _prixVenteCtrl,
-                              keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(labelText: 'Prix de vente'),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextFormField(
+                                controller: _prixVenteCtrl,
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(labelText: 'Prix de vente'),
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: TextFormField(
-                              controller: _tvaCtrl,
-                              keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(labelText: 'Taux TVA (%)'),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: _tvaCtrl,
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(labelText: 'TVA (%)'),
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: TextFormField(
-                              controller: _seuilCtrl,
-                              keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(labelText: 'Seuil alerte stock'),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextFormField(
+                                controller: _seuilCtrl,
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(labelText: 'Seuil alerte'),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
+                      ] else
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: _prixAchatCtrl,
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(labelText: 'Prix d\'achat'),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: TextFormField(
+                                controller: _prixVenteCtrl,
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(labelText: 'Prix de vente'),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: TextFormField(
+                                controller: _tvaCtrl,
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(labelText: 'Taux TVA (%)'),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: TextFormField(
+                                controller: _seuilCtrl,
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(labelText: 'Seuil alerte stock'),
+                              ),
+                            ),
+                          ],
+                        ),
                       const SizedBox(height: 12),
 
                       // Calculateur de marge dynamique en temps réel
@@ -420,26 +525,51 @@ class _ProduitFormDialogState extends State<ProduitFormDialog> {
                       const SizedBox(height: 32),
 
                       // Boutons d'action
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          OutlinedButton(
-                            onPressed: _saving ? null : () => Navigator.pop(context),
-                            child: const Text('Annuler'),
-                          ),
-                          const SizedBox(width: 12),
-                          ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: QuantisColors.royalBlue,
-                              foregroundColor: Colors.white,
+                      if (isMobile)
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: _saving ? null : () => Navigator.pop(context),
+                                child: const Text('Annuler'),
+                              ),
                             ),
-                            onPressed: _saving ? null : _save,
-                            child: _saving
-                                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                                : const Text('Enregistrer'),
-                          ),
-                        ],
-                      ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: QuantisColors.royalBlue,
+                                  foregroundColor: Colors.white,
+                                ),
+                                onPressed: _saving ? null : _save,
+                                child: _saving
+                                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                    : const Text('Enregistrer'),
+                              ),
+                            ),
+                          ],
+                        )
+                      else
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            OutlinedButton(
+                              onPressed: _saving ? null : () => Navigator.pop(context),
+                              child: const Text('Annuler'),
+                            ),
+                            const SizedBox(width: 12),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: QuantisColors.royalBlue,
+                                foregroundColor: Colors.white,
+                              ),
+                              onPressed: _saving ? null : _save,
+                              child: _saving
+                                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                  : const Text('Enregistrer'),
+                            ),
+                          ],
+                        ),
                     ],
                   ),
                 ),

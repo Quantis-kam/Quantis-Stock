@@ -22,4 +22,8 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
 
     @EntityGraph(attributePaths = {"utilisateur", "utilisateur.depot"})
     Page<AuditLog> findByUtilisateurDepotIdOrderByCreatedAtDesc(Long depotId, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"utilisateur", "utilisateur.depot", "utilisateur.entreprise"})
+    @org.springframework.data.jpa.repository.Query("SELECT a FROM AuditLog a WHERE a.utilisateur IS NOT NULL AND a.utilisateur.entreprise.id = :entrepriseId ORDER BY a.createdAt DESC")
+    Page<AuditLog> findByUtilisateurEntrepriseIdOrderByCreatedAtDesc(@org.springframework.data.repository.query.Param("entrepriseId") Long entrepriseId, Pageable pageable);
 }

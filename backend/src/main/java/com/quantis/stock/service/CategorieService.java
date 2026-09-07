@@ -11,6 +11,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.quantis.stock.security.SecurityUtils;
+import java.util.Collections;
 import java.util.List;
 
 @Slf4j
@@ -20,29 +22,50 @@ public class CategorieService {
 
     private final CategorieRepository categorieRepository;
     private final ProduitRepository produitRepository;
+    private final SecurityUtils securityUtils;
 
     public List<Categorie> findAll() {
-        return categorieRepository.findAll();
+        if (securityUtils.isSuperAdmin()) {
+            return categorieRepository.findAll();
+        }
+        Long entId = securityUtils.getCurrentEntrepriseId();
+        return entId != null ? categorieRepository.findByEntrepriseId(entId) : Collections.emptyList();
     }
 
     public List<Categorie> findRoots() {
-        return categorieRepository.findByParentIsNull();
+        if (securityUtils.isSuperAdmin()) {
+            return categorieRepository.findByParentIsNull();
+        }
+        Long entId = securityUtils.getCurrentEntrepriseId();
+        return entId != null ? categorieRepository.findByEntrepriseIdAndParentIsNull(entId) : Collections.emptyList();
     }
 
     public Categorie findById(Long id) {
-        return categorieRepository.findById(id)
+        Categorie categorie = categorieRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Catégorie", "id", id));
+        if (!securityUtils.isSuperAdmin()) {
+            Long entId = securityUtils.getCurrentEntrepriseId();
+            if (categorie.getEntreprise() != null && !categorie.getEntreprise().getId().equals(entId)) {
+                throw new BusinessException("Accès refusé : cette catégorie n'appartient pas à votre entreprise");
+            }
+        }
+        return categorie;
     }
 
     @Transactional
     public Categorie create(CategorieRequest request) {
-        if (categorieRepository.existsByNom(request.getNom())) {
+        Long entId = securityUtils.getCurrentEntrepriseId();
+        boolean exists = entId != null
+                ? categorieRepository.existsByEntrepriseIdAndNom(entId, request.getNom())
+                : categorieRepository.existsByNom(request.getNom());
+        if (exists) {
             throw new BusinessException("Une catégorie avec ce nom existe déjà");
         }
 
         Categorie categorie = Categorie.builder()
                 .nom(request.getNom())
                 .description(request.getDescription())
+                .entreprise(securityUtils.getCurrentEntreprise().orElse(null))
                 .build();
 
         if (request.getParentId() != null) {
@@ -51,7 +74,7 @@ public class CategorieService {
         }
 
         categorie = categorieRepository.save(categorie);
-        log.info("Catégorie créée: {}", categorie.getNom());
+        log.info("Catégorie créée: {} pour entreprise {}", categorie.getNom(), entId);
         return categorie;
     }
 

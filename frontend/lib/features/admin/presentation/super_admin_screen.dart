@@ -225,8 +225,10 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
   }
 
   Widget _buildHeader() {
+    final bool isMobile = MediaQuery.of(context).size.width < 700;
+
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [QuantisColors.royalBlue, Color(0xFF0F172A)],
@@ -242,89 +244,184 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
           ),
         ],
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: QuantisColors.luxuryGold.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: QuantisColors.luxuryGold, width: 1.5),
-            ),
-            child: const Icon(
-              Icons.shield_outlined,
-              size: 32,
-              color: QuantisColors.luxuryGold,
-            ),
-          ),
-          const SizedBox(width: 18),
-          Expanded(
-            child: Column(
+      child: isMobile
+          ? Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const Text(
-                      'Console Super-Administrateur Plateforme',
-                      style: TextStyle(
-                        fontFamily: 'SpaceGrotesk',
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: QuantisColors.luxuryGold.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: QuantisColors.luxuryGold, width: 1.5),
+                      ),
+                      child: const Icon(
+                        Icons.shield_outlined,
+                        size: 26,
+                        color: QuantisColors.luxuryGold,
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: QuantisColors.luxuryGold,
-                        borderRadius: BorderRadius.circular(20),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Expanded(
+                                child: Text(
+                                  'Console Super-Admin',
+                                  style: TextStyle(
+                                    fontFamily: 'SpaceGrotesk',
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: QuantisColors.luxuryGold,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: const Text(
+                                  'SaaS',
+                                  style: TextStyle(
+                                    color: Colors.black87,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          const Text(
+                            'Supervision globale du parc multi-entreprises',
+                            style: TextStyle(color: Colors.white70, fontSize: 11),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ),
-                      child: const Text(
-                        'SUPER ADMIN',
-                        style: TextStyle(
-                          color: Colors.black87,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.refresh, color: Colors.white70),
+                      onPressed: _loadData,
+                      tooltip: 'Actualiser les données',
                     ),
                   ],
                 ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Supervision globale du parc multi-entreprises Quantis SaaS : isolations des données, souscriptions et gouvernance.',
-                  style: TextStyle(color: Colors.white70, fontSize: 13),
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: QuantisColors.luxuryGold,
+                      foregroundColor: Colors.black87,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      elevation: 2,
+                    ),
+                    icon: const Icon(Icons.add_business_rounded, size: 18),
+                    label: const Text(
+                      'Nouvelle Entreprise',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    onPressed: _showCreateEntrepriseDialog,
+                  ),
+                ),
+              ],
+            )
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: QuantisColors.luxuryGold.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: QuantisColors.luxuryGold, width: 1.5),
+                  ),
+                  child: const Icon(
+                    Icons.shield_outlined,
+                    size: 32,
+                    color: QuantisColors.luxuryGold,
+                  ),
+                ),
+                const SizedBox(width: 18),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Text(
+                            'Console Super-Administrateur Plateforme',
+                            style: TextStyle(
+                              fontFamily: 'SpaceGrotesk',
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: QuantisColors.luxuryGold,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Text(
+                              'SUPER ADMIN',
+                              style: TextStyle(
+                                color: Colors.black87,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Supervision globale du parc multi-entreprises Quantis SaaS : isolations des données, souscriptions et gouvernance.',
+                        style: TextStyle(color: Colors.white70, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: QuantisColors.luxuryGold,
+                    foregroundColor: Colors.black87,
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    elevation: 3,
+                  ),
+                  icon: const Icon(Icons.add_business_rounded, size: 20),
+                  label: const Text(
+                    'Nouvelle Entreprise',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                  onPressed: _showCreateEntrepriseDialog,
+                ),
+                const SizedBox(width: 10),
+                IconButton(
+                  icon: const Icon(Icons.refresh, color: Colors.white70),
+                  onPressed: _loadData,
+                  tooltip: 'Actualiser les données',
                 ),
               ],
             ),
-          ),
-          const SizedBox(width: 16),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: QuantisColors.luxuryGold,
-              foregroundColor: Colors.black87,
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              elevation: 3,
-            ),
-            icon: const Icon(Icons.add_business_rounded, size: 20),
-            label: const Text(
-              'Nouvelle Entreprise',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-            ),
-            onPressed: _showCreateEntrepriseDialog,
-          ),
-          const SizedBox(width: 10),
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white70),
-            onPressed: _loadData,
-            tooltip: 'Actualiser les données',
-          ),
-        ],
-      ),
     );
   }
 
@@ -424,7 +521,9 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
               physics: const NeverScrollableScrollPhysics(),
               mainAxisSpacing: 14,
               crossAxisSpacing: 14,
-              childAspectRatio: constraints.maxWidth > 1100 ? 1.85 : 2.0,
+              childAspectRatio: constraints.maxWidth > 1100
+                  ? 1.85
+                  : (constraints.maxWidth > 600 ? 2.0 : 2.5),
               children: [
                 _buildStatCard(
                   'Chiffre d\'Affaires Global',
@@ -448,54 +547,39 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
                   'Bénéfice commercial net plateforme',
                 ),
                 _buildStatCard(
-                  'Volume des Flux & Données',
-                  '$docs documents',
-                  Icons.inventory_2_rounded,
-                  const Color(0xFF6366F1),
-                  '$prods articles catalogues référencés',
+                  'Trésorerie Globale Réseau',
+                  _formatMontant(_stats?['soldeCaisseGlobal'] ?? 0, 'FCFA'),
+                  Icons.savings_rounded,
+                  const Color(0xFF4F46E5),
+                  'Liquidités disponibles en caisses',
                 ),
-              ],
-            );
-          },
-        ),
-        const SizedBox(height: 16),
-        // Section gouvernance des tenants
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final crossAxisCount = constraints.maxWidth > 1100
-                ? 4
-                : constraints.maxWidth > 700
-                    ? 2
-                    : 1;
-
-            return GridView.count(
-              crossAxisCount: crossAxisCount,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: constraints.maxWidth > 1100 ? 2.3 : 2.4,
-              children: [
                 _buildStatCard(
-                  'Total Entreprises',
-                  '$totalEnt ($actives actives)',
-                  Icons.domain_rounded,
+                  'Comptes Entreprises SaaS',
+                  '$totalEnt ($actives Actives)',
+                  Icons.business_rounded,
                   QuantisColors.royalBlue,
-                  'Environnements isolés créés',
+                  '$suspendues suspendue(s)',
                 ),
                 _buildStatCard(
-                  'Entreprises Suspendues',
-                  '$suspendues',
-                  Icons.pause_circle_filled_rounded,
-                  Colors.red.shade600,
-                  'Accès bloqué aux utilisateurs',
-                ),
-                _buildStatCard(
-                  'Utilisateurs Plateforme',
-                  '$users comptes',
+                  'Utilisateurs Déclarés',
+                  '$users',
                   Icons.people_alt_rounded,
-                  Colors.purple.shade600,
-                  'Admins et opérateurs connectés',
+                  Colors.purple.shade700,
+                  'Comptes actifs sur le parc',
+                ),
+                _buildStatCard(
+                  'Documents & Factures',
+                  '$docs',
+                  Icons.receipt_long_rounded,
+                  Colors.amber.shade800,
+                  'Total transactions émises',
+                ),
+                _buildStatCard(
+                  'Catalogue Produits Réseau',
+                  '$prods',
+                  Icons.inventory_2_rounded,
+                  Colors.indigo.shade700,
+                  'Références articles gérées',
                 ),
                 _buildStatCard(
                   'Santé Multi-Tenant',
@@ -534,14 +618,18 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.grey.shade700,
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade700,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
@@ -564,6 +652,7 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
           Text(
             subtitle,
             style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
@@ -571,9 +660,91 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
   }
 
   Widget _buildSearchAndFilters() {
+    final bool isMobile = MediaQuery.of(context).size.width < 800;
     final activeCount = _entreprises.where((e) => e['estActif'] == true && e['isLicenceValide'] != false).length;
     final suspendedCount = _entreprises.where((e) => e['estActif'] == false).length;
     final expiredCount = _entreprises.where((e) => e['isLicenceValide'] == false).length;
+
+    final chips = [
+      ChoiceChip(
+        label: Text('Toutes (${_entreprises.length})'),
+        selected: _statusFilter == 'ALL',
+        onSelected: (_) => setState(() => _statusFilter = 'ALL'),
+        selectedColor: QuantisColors.royalBlue,
+        labelStyle: TextStyle(
+          color: _statusFilter == 'ALL' ? Colors.white : Colors.black87,
+          fontWeight: FontWeight.w600,
+          fontSize: 12,
+        ),
+      ),
+      const SizedBox(width: 8),
+      ChoiceChip(
+        label: Text('Actives ($activeCount)'),
+        selected: _statusFilter == 'ACTIVE',
+        onSelected: (_) => setState(() => _statusFilter = 'ACTIVE'),
+        selectedColor: Colors.green.shade700,
+        labelStyle: TextStyle(
+          color: _statusFilter == 'ACTIVE' ? Colors.white : Colors.black87,
+          fontWeight: FontWeight.w600,
+          fontSize: 12,
+        ),
+      ),
+      const SizedBox(width: 8),
+      ChoiceChip(
+        label: Text('Licences Expirées ($expiredCount)'),
+        selected: _statusFilter == 'EXPIRED',
+        onSelected: (_) => setState(() => _statusFilter = 'EXPIRED'),
+        selectedColor: Colors.red.shade700,
+        labelStyle: TextStyle(
+          color: _statusFilter == 'EXPIRED' ? Colors.white : Colors.black87,
+          fontWeight: FontWeight.w600,
+          fontSize: 12,
+        ),
+      ),
+      const SizedBox(width: 8),
+      ChoiceChip(
+        label: Text('Suspendues ($suspendedCount)'),
+        selected: _statusFilter == 'SUSPENDED',
+        onSelected: (_) => setState(() => _statusFilter = 'SUSPENDED'),
+        selectedColor: Colors.grey.shade800,
+        labelStyle: TextStyle(
+          color: _statusFilter == 'SUSPENDED' ? Colors.white : Colors.black87,
+          fontWeight: FontWeight.w600,
+          fontSize: 12,
+        ),
+      ),
+    ];
+
+    if (isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            onChanged: (v) => setState(() => _searchQuery = v),
+            decoration: InputDecoration(
+              hintText: 'Rechercher une entreprise...',
+              prefixIcon: const Icon(Icons.search, size: 20),
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(children: chips),
+          ),
+        ],
+      );
+    }
 
     return Row(
       children: [
@@ -599,54 +770,9 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
           ),
         ),
         const SizedBox(width: 16),
-        Wrap(
-          spacing: 8,
-          children: [
-            ChoiceChip(
-              label: Text('Toutes (${_entreprises.length})'),
-              selected: _statusFilter == 'ALL',
-              onSelected: (_) => setState(() => _statusFilter = 'ALL'),
-              selectedColor: QuantisColors.royalBlue,
-              labelStyle: TextStyle(
-                color: _statusFilter == 'ALL' ? Colors.white : Colors.black87,
-                fontWeight: FontWeight.w600,
-                fontSize: 12,
-              ),
-            ),
-            ChoiceChip(
-              label: Text('Actives ($activeCount)'),
-              selected: _statusFilter == 'ACTIVE',
-              onSelected: (_) => setState(() => _statusFilter = 'ACTIVE'),
-              selectedColor: Colors.green.shade700,
-              labelStyle: TextStyle(
-                color: _statusFilter == 'ACTIVE' ? Colors.white : Colors.black87,
-                fontWeight: FontWeight.w600,
-                fontSize: 12,
-              ),
-            ),
-            ChoiceChip(
-              label: Text('Licences Expirées ($expiredCount)'),
-              selected: _statusFilter == 'EXPIRED',
-              onSelected: (_) => setState(() => _statusFilter = 'EXPIRED'),
-              selectedColor: Colors.red.shade700,
-              labelStyle: TextStyle(
-                color: _statusFilter == 'EXPIRED' ? Colors.white : Colors.black87,
-                fontWeight: FontWeight.w600,
-                fontSize: 12,
-              ),
-            ),
-            ChoiceChip(
-              label: Text('Suspendues ($suspendedCount)'),
-              selected: _statusFilter == 'SUSPENDED',
-              onSelected: (_) => setState(() => _statusFilter = 'SUSPENDED'),
-              selectedColor: Colors.grey.shade800,
-              labelStyle: TextStyle(
-                color: _statusFilter == 'SUSPENDED' ? Colors.white : Colors.black87,
-                fontWeight: FontWeight.w600,
-                fontSize: 12,
-              ),
-            ),
-          ],
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: chips,
         ),
       ],
     );
@@ -694,6 +820,8 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
   }
 
   Widget _buildEntrepriseCards() {
+    final bool isMobile = MediaQuery.of(context).size.width < 850;
+
     return ListView.separated(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -703,8 +831,115 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
         final ent = _filteredEntreprises[index];
         final bool isActif = ent['estActif'] == true;
 
+        final badgeActif = Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: isActif ? Colors.green.shade50 : Colors.red.shade50,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isActif ? Colors.green.shade400 : Colors.red.shade400,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isActif ? Icons.check_circle : Icons.cancel,
+                size: 12,
+                color: isActif ? Colors.green.shade700 : Colors.red.shade700,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                isActif ? 'ACTIF' : 'SUSPENDU',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: isActif ? Colors.green.shade800 : Colors.red.shade800,
+                ),
+              ),
+            ],
+          ),
+        );
+
+        final badgeLicence = Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: ent['isLicenceValide'] == false
+                ? Colors.red.shade50
+                : (ent['joursRestantsLicence'] != null && (ent['joursRestantsLicence'] as num) <= 5)
+                    ? Colors.amber.shade50
+                    : Colors.blue.shade50,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: ent['isLicenceValide'] == false
+                  ? Colors.red.shade400
+                  : (ent['joursRestantsLicence'] != null && (ent['joursRestantsLicence'] as num) <= 5)
+                      ? Colors.amber.shade400
+                      : Colors.blue.shade300,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                ent['isLicenceValide'] == false
+                    ? Icons.lock_clock_rounded
+                    : Icons.vpn_key_rounded,
+                size: 12,
+                color: ent['isLicenceValide'] == false
+                    ? Colors.red.shade700
+                    : (ent['joursRestantsLicence'] != null && (ent['joursRestantsLicence'] as num) <= 5)
+                        ? Colors.amber.shade900
+                        : Colors.blue.shade800,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                ent['isLicenceValide'] == false
+                    ? 'LICENCE EXPIRÉE (${ent['dateExpirationLicence'] ?? 'Fin de mois'})'
+                    : (ent['joursRestantsLicence'] != null && (ent['joursRestantsLicence'] as num) <= 5)
+                        ? 'EXPIRE DANS ${ent['joursRestantsLicence']}J'
+                        : 'LICENCE ACTIVE (${ent['dateExpirationLicence'] ?? 'Fin de mois'})',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: ent['isLicenceValide'] == false
+                    ? Colors.red.shade900
+                    : (ent['joursRestantsLicence'] != null && (ent['joursRestantsLicence'] as num) <= 5)
+                        ? Colors.amber.shade900
+                        : Colors.blue.shade900,
+                ),
+              ),
+            ],
+          ),
+        );
+
+        final switchStatusButton = Container(
+          decoration: BoxDecoration(
+            color: isActif ? Colors.red.shade50 : Colors.green.shade50,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isActif ? Colors.red.shade200 : Colors.green.shade200,
+            ),
+          ),
+          child: TextButton.icon(
+            style: TextButton.styleFrom(
+              foregroundColor: isActif ? Colors.red.shade700 : Colors.green.shade800,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            ),
+            icon: Icon(
+              isActif ? Icons.block_rounded : Icons.check_circle_outline,
+              size: 15,
+            ),
+            label: Text(
+              isActif ? 'Suspendre' : 'Réactiver',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+            ),
+            onPressed: () => _toggleStatus(ent),
+          ),
+        );
+
         return Container(
-          padding: const EdgeInsets.all(20),
+          padding: EdgeInsets.all(isMobile ? 14 : 20),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(14),
@@ -723,243 +958,253 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  // Logo / Avatar
-                  Container(
-                    width: 50,
-                    height: 50,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: isActif
-                            ? [QuantisColors.royalBlue, const Color(0xFF1E3A8A)]
-                            : [Colors.grey.shade600, Colors.grey.shade800],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+              if (isMobile) ...[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: isActif
+                              ? [QuantisColors.royalBlue, const Color(0xFF1E3A8A)]
+                              : [Colors.grey.shade600, Colors.grey.shade800],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Center(
-                      child: Text(
-                        (ent['nom'] ?? 'Q').toString().substring(0, 1).toUpperCase(),
-                        style: const TextStyle(
-                          color: QuantisColors.luxuryGold,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 22,
-                          fontFamily: 'SpaceGrotesk',
+                      child: Center(
+                        child: Text(
+                          (ent['nom'] ?? 'Q').toString().substring(0, 1).toUpperCase(),
+                          style: const TextStyle(
+                            color: QuantisColors.luxuryGold,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 20,
+                            fontFamily: 'SpaceGrotesk',
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  // Nom & NIF/RCCM
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Text(
-                              ent['nom'] ?? 'Sans Nom',
-                              style: const TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.bold,
-                                fontFamily: 'SpaceGrotesk',
-                              ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            ent['nom'] ?? 'Sans Nom',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              fontFamily: 'SpaceGrotesk',
                             ),
-                            const SizedBox(width: 10),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: isActif ? Colors.green.shade50 : Colors.red.shade50,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: isActif ? Colors.green.shade400 : Colors.red.shade400,
+                          ),
+                          const SizedBox(height: 6),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: [badgeActif, badgeLicence],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'ID: #${ent['id']} • IFU: ${ent['nif'] ?? '-'} • RCCM: ${ent['rccm'] ?? '-'}',
+                            style: TextStyle(color: Colors.grey.shade600, fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: switchStatusButton,
+                ),
+              ] else ...[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 50,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: isActif
+                              ? [QuantisColors.royalBlue, const Color(0xFF1E3A8A)]
+                              : [Colors.grey.shade600, Colors.grey.shade800],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Center(
+                        child: Text(
+                          (ent['nom'] ?? 'Q').toString().substring(0, 1).toUpperCase(),
+                          style: const TextStyle(
+                            color: QuantisColors.luxuryGold,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 22,
+                            fontFamily: 'SpaceGrotesk',
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Wrap(
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: [
+                              Text(
+                                ent['nom'] ?? 'Sans Nom',
+                                style: const TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold,
+                                  fontFamily: 'SpaceGrotesk',
                                 ),
                               ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    isActif ? Icons.check_circle : Icons.cancel,
-                                    size: 12,
-                                    color: isActif ? Colors.green.shade700 : Colors.red.shade700,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    isActif ? 'ACTIF' : 'SUSPENDU',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      color: isActif ? Colors.green.shade800 : Colors.red.shade800,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            // Badge Statut Licence & Échéance
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: ent['isLicenceValide'] == false
-                                    ? Colors.red.shade50
-                                    : (ent['joursRestantsLicence'] != null && (ent['joursRestantsLicence'] as num) <= 5)
-                                        ? Colors.amber.shade50
-                                        : Colors.blue.shade50,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: ent['isLicenceValide'] == false
-                                      ? Colors.red.shade400
-                                      : (ent['joursRestantsLicence'] != null && (ent['joursRestantsLicence'] as num) <= 5)
-                                          ? Colors.amber.shade400
-                                          : Colors.blue.shade300,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    ent['isLicenceValide'] == false
-                                        ? Icons.lock_clock_rounded
-                                        : Icons.vpn_key_rounded,
-                                    size: 12,
-                                    color: ent['isLicenceValide'] == false
-                                        ? Colors.red.shade700
-                                        : (ent['joursRestantsLicence'] != null && (ent['joursRestantsLicence'] as num) <= 5)
-                                            ? Colors.amber.shade900
-                                            : Colors.blue.shade800,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    ent['isLicenceValide'] == false
-                                        ? 'LICENCE EXPIRÉE (${ent['dateExpirationLicence'] ?? 'Fin de mois'})'
-                                        : (ent['joursRestantsLicence'] != null && (ent['joursRestantsLicence'] as num) <= 5)
-                                            ? 'EXPIRE DANS ${ent['joursRestantsLicence']}J'
-                                            : 'LICENCE ACTIVE (${ent['dateExpirationLicence'] ?? 'Fin de mois'})',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      color: ent['isLicenceValide'] == false
-                                        ? Colors.red.shade900
-                                        : (ent['joursRestantsLicence'] != null && (ent['joursRestantsLicence'] as num) <= 5)
-                                            ? Colors.amber.shade900
-                                            : Colors.blue.shade900,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'ID: #${ent['id']} • IFU/NIF: ${ent['nif'] ?? 'N/A'} • RCCM: ${ent['rccm'] ?? 'N/A'} • Monnaie: ${ent['monnaie'] ?? 'FCFA'}',
-                          style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Bouton switch d'état
-                  Container(
-                    decoration: BoxDecoration(
-                      color: isActif ? Colors.red.shade50 : Colors.green.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: isActif ? Colors.red.shade200 : Colors.green.shade200,
+                              badgeActif,
+                              badgeLicence,
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'ID: #${ent['id']} • IFU/NIF: ${ent['nif'] ?? 'N/A'} • RCCM: ${ent['rccm'] ?? 'N/A'} • Monnaie: ${ent['monnaie'] ?? 'FCFA'}',
+                            style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                          ),
+                        ],
                       ),
                     ),
-                    child: TextButton.icon(
-                      style: TextButton.styleFrom(
-                        foregroundColor: isActif ? Colors.red.shade700 : Colors.green.shade800,
-                      ),
-                      icon: Icon(
-                        isActif ? Icons.block_rounded : Icons.check_circle_outline,
-                        size: 16,
-                      ),
-                      label: Text(
-                        isActif ? 'Suspendre l\'accès' : 'Réactiver l\'accès',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                      ),
-                      onPressed: () => _toggleStatus(ent),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
+                    switchStatusButton,
+                  ],
+                ),
+              ],
+              const SizedBox(height: 14),
               // Bandeau de Supervision Financière de l'Entreprise
               Container(
-                margin: const EdgeInsets.symmetric(vertical: 12),
-                padding: const EdgeInsets.all(14),
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF8FAFC),
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: const Color(0xFFE2E8F0)),
                 ),
-                child: Row(
-                  children: [
-                    // Chiffre d'Affaires (CA)
-                    Expanded(
-                      child: _buildFinancialMetric(
-                        'Chiffre d\'Affaires (CA)',
-                        _formatMontant(ent['chiffreAffaires'], ent['monnaie'] ?? 'FCFA'),
-                        '${ent['ventesCount'] ?? 0} vente(s) formalisée(s)',
-                        const Color(0xFF059669),
-                        Icons.trending_up_rounded,
+                child: isMobile
+                    ? Column(
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildFinancialMetric(
+                                  'Chiffre d\'Affaires (CA)',
+                                  _formatMontant(ent['chiffreAffaires'], ent['monnaie'] ?? 'FCFA'),
+                                  '${ent['ventesCount'] ?? 0} vente(s)',
+                                  const Color(0xFF059669),
+                                  Icons.trending_up_rounded,
+                                ),
+                              ),
+                              Container(width: 1, height: 36, color: Colors.grey.shade300, margin: const EdgeInsets.symmetric(horizontal: 8)),
+                              Expanded(
+                                child: _buildFinancialMetric(
+                                  'Achats Fournisseurs',
+                                  _formatMontant(ent['totalAchats'], ent['monnaie'] ?? 'FCFA'),
+                                  '${ent['achatsCount'] ?? 0} commande(s)',
+                                  const Color(0xFFD97706),
+                                  Icons.shopping_bag_outlined,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const Divider(height: 16),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildFinancialMetric(
+                                  'Marge Commerciale',
+                                  _formatMontant(ent['margeBrute'], ent['monnaie'] ?? 'FCFA'),
+                                  (ent['chiffreAffaires'] != null && (ent['chiffreAffaires'] as num) > 0)
+                                      ? 'Taux: ${(((ent['margeBrute'] ?? 0) as num) / (ent['chiffreAffaires'] as num) * 100).toStringAsFixed(1)}%'
+                                      : 'Marge directe',
+                                  ((ent['margeBrute'] ?? 0) as num) >= 0 ? QuantisColors.royalBlue : Colors.red.shade700,
+                                  Icons.account_balance_wallet_outlined,
+                                ),
+                              ),
+                              Container(width: 1, height: 36, color: Colors.grey.shade300, margin: const EdgeInsets.symmetric(horizontal: 8)),
+                              Expanded(
+                                child: _buildFinancialMetric(
+                                  'Trésorerie Caisse',
+                                  _formatMontant(ent['soldeCaisse'], ent['monnaie'] ?? 'FCFA'),
+                                  'Solde caisse',
+                                  const Color(0xFF4F46E5),
+                                  Icons.savings_outlined,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      )
+                    : Row(
+                        children: [
+                          Expanded(
+                            child: _buildFinancialMetric(
+                              'Chiffre d\'Affaires (CA)',
+                              _formatMontant(ent['chiffreAffaires'], ent['monnaie'] ?? 'FCFA'),
+                              '${ent['ventesCount'] ?? 0} vente(s) formalisée(s)',
+                              const Color(0xFF059669),
+                              Icons.trending_up_rounded,
+                            ),
+                          ),
+                          Container(width: 1, height: 40, color: Colors.grey.shade300, margin: const EdgeInsets.symmetric(horizontal: 10)),
+                          Expanded(
+                            child: _buildFinancialMetric(
+                              'Achats Fournisseurs',
+                              _formatMontant(ent['totalAchats'], ent['monnaie'] ?? 'FCFA'),
+                              '${ent['achatsCount'] ?? 0} commande(s) reçue(s)',
+                              const Color(0xFFD97706),
+                              Icons.shopping_bag_outlined,
+                            ),
+                          ),
+                          Container(width: 1, height: 40, color: Colors.grey.shade300, margin: const EdgeInsets.symmetric(horizontal: 10)),
+                          Expanded(
+                            child: _buildFinancialMetric(
+                              'Marge Commerciale',
+                              _formatMontant(ent['margeBrute'], ent['monnaie'] ?? 'FCFA'),
+                              (ent['chiffreAffaires'] != null && (ent['chiffreAffaires'] as num) > 0)
+                                  ? 'Taux: ${(((ent['margeBrute'] ?? 0) as num) / (ent['chiffreAffaires'] as num) * 100).toStringAsFixed(1)}%'
+                                  : 'Marge directe',
+                              ((ent['margeBrute'] ?? 0) as num) >= 0 ? QuantisColors.royalBlue : Colors.red.shade700,
+                              Icons.account_balance_wallet_outlined,
+                            ),
+                          ),
+                          Container(width: 1, height: 40, color: Colors.grey.shade300, margin: const EdgeInsets.symmetric(horizontal: 10)),
+                          Expanded(
+                            child: _buildFinancialMetric(
+                              'Trésorerie Caisse',
+                              _formatMontant(ent['soldeCaisse'], ent['monnaie'] ?? 'FCFA'),
+                              'Solde net en caisse',
+                              const Color(0xFF4F46E5),
+                              Icons.savings_outlined,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    Container(width: 1, height: 40, color: Colors.grey.shade300, margin: const EdgeInsets.symmetric(horizontal: 10)),
-                    // Achats Fournisseurs
-                    Expanded(
-                      child: _buildFinancialMetric(
-                        'Achats Fournisseurs',
-                        _formatMontant(ent['totalAchats'], ent['monnaie'] ?? 'FCFA'),
-                        '${ent['achatsCount'] ?? 0} commande(s) reçue(s)',
-                        const Color(0xFFD97706),
-                        Icons.shopping_bag_outlined,
-                      ),
-                    ),
-                    Container(width: 1, height: 40, color: Colors.grey.shade300, margin: const EdgeInsets.symmetric(horizontal: 10)),
-                    // Marge Commerciale
-                    Expanded(
-                      child: _buildFinancialMetric(
-                        'Marge Commerciale',
-                        _formatMontant(ent['margeBrute'], ent['monnaie'] ?? 'FCFA'),
-                        (ent['chiffreAffaires'] != null && (ent['chiffreAffaires'] as num) > 0)
-                            ? 'Taux: ${(((ent['margeBrute'] ?? 0) as num) / (ent['chiffreAffaires'] as num) * 100).toStringAsFixed(1)}%'
-                            : 'Marge directe',
-                        ((ent['margeBrute'] ?? 0) as num) >= 0 ? QuantisColors.royalBlue : Colors.red.shade700,
-                        Icons.account_balance_wallet_outlined,
-                      ),
-                    ),
-                    Container(width: 1, height: 40, color: Colors.grey.shade300, margin: const EdgeInsets.symmetric(horizontal: 10)),
-                    // Solde Trésorerie
-                    Expanded(
-                      child: _buildFinancialMetric(
-                        'Trésorerie Caisse',
-                        _formatMontant(ent['soldeCaisse'], ent['monnaie'] ?? 'FCFA'),
-                        'Solde net en caisse',
-                        const Color(0xFF4F46E5),
-                        Icons.savings_outlined,
-                      ),
-                    ),
-                  ],
-                ),
               ),
 
               const Divider(height: 1),
               const SizedBox(height: 12),
-              // Détails & Métriques
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  // Admin Email
-                  Expanded(
-                    flex: 2,
-                    child: Row(
+              // Détails, Badges & Actions
+              if (isMobile) ...[
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                        const Icon(Icons.admin_panel_settings_outlined, size: 16, color: QuantisColors.royalBlue),
+                        const Icon(Icons.admin_panel_settings_outlined, size: 15, color: QuantisColors.royalBlue),
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
@@ -970,80 +1215,173 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
                         ),
                       ],
                     ),
-                  ),
-                  // Contact Email & Tel
-                  Expanded(
-                    flex: 2,
-                    child: Row(
+                    const SizedBox(height: 4),
+                    Row(
                       children: [
-                        const Icon(Icons.contact_phone_outlined, size: 16, color: Colors.blueGrey),
+                        const Icon(Icons.contact_phone_outlined, size: 15, color: Colors.blueGrey),
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
                             '${ent['telephone'] ?? 'Tel: -'} • ${ent['email'] ?? 'Mail: -'}',
-                            style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                            style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
                     ),
-                  ),
-                  // Stats badges
-                  _buildMiniBadge(Icons.people, '${ent['userCount'] ?? 0} utilisateurs', Colors.purple),
-                  const SizedBox(width: 8),
-                  _buildMiniBadge(Icons.inventory_2, '${ent['productCount'] ?? 0} produits', Colors.teal),
-                  const SizedBox(width: 8),
-                  _buildMiniBadge(Icons.receipt_long, '${ent['documentCount'] ?? 0} docs', Colors.amber.shade900),
-                  const SizedBox(width: 12),
-                  // Actions boutons
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: ent['isLicenceValide'] == false ? Colors.red.shade700 : const Color(0xFF059669),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      elevation: 1,
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        _buildMiniBadge(Icons.people, '${ent['userCount'] ?? 0} users', Colors.purple),
+                        _buildMiniBadge(Icons.inventory_2, '${ent['productCount'] ?? 0} produits', Colors.teal),
+                        _buildMiniBadge(Icons.receipt_long, '${ent['documentCount'] ?? 0} docs', Colors.amber.shade900),
+                      ],
                     ),
-                    icon: const Icon(Icons.vpn_key_rounded, size: 15),
-                    label: Text(
-                      ent['isLicenceValide'] == false ? 'Réactiver Licence' : 'Prolonger (+1M)',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: ent['isLicenceValide'] == false ? Colors.red.shade700 : const Color(0xFF059669),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            elevation: 1,
+                          ),
+                          icon: const Icon(Icons.vpn_key_rounded, size: 14),
+                          label: Text(
+                            ent['isLicenceValide'] == false ? 'Réactiver Licence' : 'Prolonger (+1M)',
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                          ),
+                          onPressed: () => _showRenewLicenceDialog(ent),
+                        ),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0F172A),
+                            foregroundColor: QuantisColors.luxuryGold,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            elevation: 1,
+                          ),
+                          icon: const Icon(Icons.insights_rounded, size: 15, color: QuantisColors.luxuryGold),
+                          label: const Text('Détails', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          onPressed: () => _showSupervisionDialog(ent),
+                        ),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+                          ),
+                          icon: const Icon(Icons.people_outline, size: 14),
+                          label: const Text('Users', style: TextStyle(fontSize: 11)),
+                          onPressed: () => _showUsersDialog(ent),
+                        ),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+                          ),
+                          icon: const Icon(Icons.password, size: 14),
+                          label: const Text('Reset Mdp', style: TextStyle(fontSize: 11)),
+                          onPressed: () => _showResetPasswordDialog(ent),
+                        ),
+                      ],
                     ),
-                    onPressed: () => _showRenewLicenceDialog(ent),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0F172A),
-                      foregroundColor: QuantisColors.luxuryGold,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      elevation: 1,
+                  ],
+                ),
+              ] else ...[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: Row(
+                        children: [
+                          const Icon(Icons.admin_panel_settings_outlined, size: 16, color: QuantisColors.royalBlue),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'Admin: ${ent['adminEmail'] ?? 'Non configuré'}',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    icon: const Icon(Icons.insights_rounded, size: 16, color: QuantisColors.luxuryGold),
-                    label: const Text('Supervision Détaillée', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                    onPressed: () => _showSupervisionDialog(ent),
-                  ),
-                  const SizedBox(width: 8),
-                  OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    Expanded(
+                      flex: 2,
+                      child: Row(
+                        children: [
+                          const Icon(Icons.contact_phone_outlined, size: 16, color: Colors.blueGrey),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              '${ent['telephone'] ?? 'Tel: -'} • ${ent['email'] ?? 'Mail: -'}',
+                              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    icon: const Icon(Icons.people_outline, size: 16),
-                    label: const Text('Utilisateurs', style: TextStyle(fontSize: 12)),
-                    onPressed: () => _showUsersDialog(ent),
-                  ),
-                  const SizedBox(width: 8),
-                  OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    _buildMiniBadge(Icons.people, '${ent['userCount'] ?? 0} utilisateurs', Colors.purple),
+                    const SizedBox(width: 8),
+                    _buildMiniBadge(Icons.inventory_2, '${ent['productCount'] ?? 0} produits', Colors.teal),
+                    const SizedBox(width: 8),
+                    _buildMiniBadge(Icons.receipt_long, '${ent['documentCount'] ?? 0} docs', Colors.amber.shade900),
+                    const SizedBox(width: 12),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: ent['isLicenceValide'] == false ? Colors.red.shade700 : const Color(0xFF059669),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        elevation: 1,
+                      ),
+                      icon: const Icon(Icons.vpn_key_rounded, size: 15),
+                      label: Text(
+                        ent['isLicenceValide'] == false ? 'Réactiver Licence' : 'Prolonger (+1M)',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                      ),
+                      onPressed: () => _showRenewLicenceDialog(ent),
                     ),
-                    icon: const Icon(Icons.password, size: 16),
-                    label: const Text('Reset Mdp', style: TextStyle(fontSize: 12)),
-                    onPressed: () => _showResetPasswordDialog(ent),
-                  ),
-                ],
-              ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0F172A),
+                        foregroundColor: QuantisColors.luxuryGold,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        elevation: 1,
+                      ),
+                      icon: const Icon(Icons.insights_rounded, size: 16, color: QuantisColors.luxuryGold),
+                      label: const Text('Supervision Détaillée', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      onPressed: () => _showSupervisionDialog(ent),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      ),
+                      icon: const Icon(Icons.people_outline, size: 16),
+                      label: const Text('Utilisateurs', style: TextStyle(fontSize: 12)),
+                      onPressed: () => _showUsersDialog(ent),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      ),
+                      icon: const Icon(Icons.password, size: 16),
+                      label: const Text('Reset Mdp', style: TextStyle(fontSize: 12)),
+                      onPressed: () => _showResetPasswordDialog(ent),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         );
@@ -1217,12 +1555,19 @@ class _CreateEntrepriseDialogState extends State<_CreateEntrepriseDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 650;
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 12 : 40,
+        vertical: 16,
+      ),
       child: Container(
-        width: 680,
+        width: isMobile ? screenWidth * 0.95 : 680,
         constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.9),
-        padding: const EdgeInsets.all(28),
+        padding: EdgeInsets.all(isMobile ? 16 : 28),
         child: Form(
           key: _formKey,
           child: Column(
@@ -1232,26 +1577,31 @@ class _CreateEntrepriseDialogState extends State<_CreateEntrepriseDialog> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: QuantisColors.royalBlue.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(isMobile ? 6 : 8),
+                          decoration: BoxDecoration(
+                            color: QuantisColors.royalBlue.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(Icons.add_business, color: QuantisColors.royalBlue, size: isMobile ? 20 : 24),
                         ),
-                        child: const Icon(Icons.add_business, color: QuantisColors.royalBlue),
-                      ),
-                      const SizedBox(width: 12),
-                      const Text(
-                        'Créer une Nouvelle Entreprise SaaS',
-                        style: TextStyle(
-                          fontFamily: 'SpaceGrotesk',
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Créer une Entreprise SaaS',
+                            style: TextStyle(
+                              fontFamily: 'SpaceGrotesk',
+                              fontSize: isMobile ? 17 : 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.close),
@@ -1262,7 +1612,7 @@ class _CreateEntrepriseDialogState extends State<_CreateEntrepriseDialog> {
               const SizedBox(height: 8),
               Text(
                 'Crée un espace multi-tenant isolé avec son dépôt principal et son compte administrateur dédié.',
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                style: TextStyle(color: Colors.grey.shade600, fontSize: isMobile ? 12 : 13),
               ),
               const Divider(height: 24),
               if (_error != null) ...[
@@ -1300,122 +1650,209 @@ class _CreateEntrepriseDialogState extends State<_CreateEntrepriseDialog> {
                         validator: (v) => v == null || v.trim().isEmpty ? 'Nom obligatoire' : null,
                       ),
                       const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: _nifController,
-                              decoration: const InputDecoration(
-                                labelText: 'IFU / NIF (Optionnel)',
-                                prefixIcon: Icon(Icons.receipt),
-                                border: OutlineInputBorder(),
+                      if (isMobile) ...[
+                        TextFormField(
+                          controller: _nifController,
+                          decoration: const InputDecoration(
+                            labelText: 'IFU / NIF (Optionnel)',
+                            prefixIcon: Icon(Icons.receipt),
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _rccmController,
+                          decoration: const InputDecoration(
+                            labelText: 'RCCM (Optionnel)',
+                            prefixIcon: Icon(Icons.badge),
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ] else ...[
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: _nifController,
+                                decoration: const InputDecoration(
+                                  labelText: 'IFU / NIF (Optionnel)',
+                                  prefixIcon: Icon(Icons.receipt),
+                                  border: OutlineInputBorder(),
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: TextFormField(
-                              controller: _rccmController,
-                              decoration: const InputDecoration(
-                                labelText: 'RCCM (Optionnel)',
-                                prefixIcon: Icon(Icons.badge),
-                                border: OutlineInputBorder(),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextFormField(
+                                controller: _rccmController,
+                                decoration: const InputDecoration(
+                                  labelText: 'RCCM (Optionnel)',
+                                  prefixIcon: Icon(Icons.badge),
+                                  border: OutlineInputBorder(),
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: _emailController,
-                              decoration: const InputDecoration(
-                                labelText: 'Email de l\'entreprise',
-                                prefixIcon: Icon(Icons.email_outlined),
-                                border: OutlineInputBorder(),
+                      if (isMobile) ...[
+                        TextFormField(
+                          controller: _emailController,
+                          decoration: const InputDecoration(
+                            labelText: 'Email de l\'entreprise',
+                            prefixIcon: Icon(Icons.email_outlined),
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _telephoneController,
+                          decoration: const InputDecoration(
+                            labelText: 'Téléphone',
+                            prefixIcon: Icon(Icons.phone_outlined),
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ] else ...[
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: _emailController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Email de l\'entreprise',
+                                  prefixIcon: Icon(Icons.email_outlined),
+                                  border: OutlineInputBorder(),
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: TextFormField(
-                              controller: _telephoneController,
-                              decoration: const InputDecoration(
-                                labelText: 'Téléphone',
-                                prefixIcon: Icon(Icons.phone_outlined),
-                                border: OutlineInputBorder(),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextFormField(
+                                controller: _telephoneController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Téléphone',
+                                  prefixIcon: Icon(Icons.phone_outlined),
+                                  border: OutlineInputBorder(),
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            flex: 2,
-                            child: TextFormField(
-                              controller: _adresseController,
-                              decoration: const InputDecoration(
-                                labelText: 'Adresse / Ville',
-                                prefixIcon: Icon(Icons.location_on_outlined),
-                                border: OutlineInputBorder(),
+                      if (isMobile) ...[
+                        TextFormField(
+                          controller: _adresseController,
+                          decoration: const InputDecoration(
+                            labelText: 'Adresse / Ville',
+                            prefixIcon: Icon(Icons.location_on_outlined),
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          value: _monnaie,
+                          decoration: const InputDecoration(
+                            labelText: 'Devise',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: const [
+                            DropdownMenuItem(value: 'FCFA', child: Text('FCFA (XOF/XAF)')),
+                            DropdownMenuItem(value: 'EUR', child: Text('EUR (€)')),
+                            DropdownMenuItem(value: 'USD', child: Text('USD (\$)')),
+                          ],
+                          onChanged: (v) => setState(() => _monnaie = v ?? 'FCFA'),
+                        ),
+                      ] else ...[
+                        Row(
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: TextFormField(
+                                controller: _adresseController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Adresse / Ville',
+                                  prefixIcon: Icon(Icons.location_on_outlined),
+                                  border: OutlineInputBorder(),
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: DropdownButtonFormField<String>(
-                              value: _monnaie,
-                              decoration: const InputDecoration(
-                                labelText: 'Devise',
-                                border: OutlineInputBorder(),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: DropdownButtonFormField<String>(
+                                value: _monnaie,
+                                decoration: const InputDecoration(
+                                  labelText: 'Devise',
+                                  border: OutlineInputBorder(),
+                                ),
+                                items: const [
+                                  DropdownMenuItem(value: 'FCFA', child: Text('FCFA (XOF/XAF)')),
+                                  DropdownMenuItem(value: 'EUR', child: Text('EUR (€)')),
+                                  DropdownMenuItem(value: 'USD', child: Text('USD (\$)')),
+                                ],
+                                onChanged: (v) => setState(() => _monnaie = v ?? 'FCFA'),
                               ),
-                              items: const [
-                                DropdownMenuItem(value: 'FCFA', child: Text('FCFA (XOF/XAF)')),
-                                DropdownMenuItem(value: 'EUR', child: Text('EUR (€)')),
-                                DropdownMenuItem(value: 'USD', child: Text('USD (\$)')),
-                              ],
-                              onChanged: (v) => setState(() => _monnaie = v ?? 'FCFA'),
                             ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 24),
                       const Text(
                         '2. Compte Administrateur Initial',
                         style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: QuantisColors.royalBlue),
                       ),
                       const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: _adminNomController,
-                              decoration: const InputDecoration(
-                                labelText: 'Nom Admin *',
-                                prefixIcon: Icon(Icons.person_outline),
-                                border: OutlineInputBorder(),
-                              ),
-                              validator: (v) => v == null || v.trim().isEmpty ? 'Nom admin obligatoire' : null,
-                            ),
+                      if (isMobile) ...[
+                        TextFormField(
+                          controller: _adminNomController,
+                          decoration: const InputDecoration(
+                            labelText: 'Nom Admin *',
+                            prefixIcon: Icon(Icons.person_outline),
+                            border: OutlineInputBorder(),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: TextFormField(
-                              controller: _adminPrenomController,
-                              decoration: const InputDecoration(
-                                labelText: 'Prénom Admin *',
-                                prefixIcon: Icon(Icons.person_outline),
-                                border: OutlineInputBorder(),
-                              ),
-                              validator: (v) => v == null || v.trim().isEmpty ? 'Prénom admin obligatoire' : null,
-                            ),
+                          validator: (v) => v == null || v.trim().isEmpty ? 'Nom admin obligatoire' : null,
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _adminPrenomController,
+                          decoration: const InputDecoration(
+                            labelText: 'Prénom Admin *',
+                            prefixIcon: Icon(Icons.person_outline),
+                            border: OutlineInputBorder(),
                           ),
-                        ],
-                      ),
+                          validator: (v) => v == null || v.trim().isEmpty ? 'Prénom admin obligatoire' : null,
+                        ),
+                      ] else ...[
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: _adminNomController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Nom Admin *',
+                                  prefixIcon: Icon(Icons.person_outline),
+                                  border: OutlineInputBorder(),
+                                ),
+                                validator: (v) => v == null || v.trim().isEmpty ? 'Nom admin obligatoire' : null,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextFormField(
+                                controller: _adminPrenomController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Prénom Admin *',
+                                  prefixIcon: Icon(Icons.person_outline),
+                                  border: OutlineInputBorder(),
+                                ),
+                                validator: (v) => v == null || v.trim().isEmpty ? 'Prénom admin obligatoire' : null,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _adminEmailController,
@@ -1445,19 +1882,14 @@ class _CreateEntrepriseDialogState extends State<_CreateEntrepriseDialog> {
                 ),
               ),
               const Divider(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: _isSaving ? null : () => Navigator.pop(context),
-                    child: const Text('Annuler'),
-                  ),
-                  const SizedBox(width: 12),
-                  ElevatedButton(
+              if (isMobile) ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: QuantisColors.royalBlue,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                     onPressed: _isSaving ? null : _submit,
                     child: _isSaving
@@ -1468,8 +1900,41 @@ class _CreateEntrepriseDialogState extends State<_CreateEntrepriseDialog> {
                           )
                         : const Text('Créer l\'entreprise'),
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 8),
+                Center(
+                  child: TextButton(
+                    onPressed: _isSaving ? null : () => Navigator.pop(context),
+                    child: const Text('Annuler'),
+                  ),
+                ),
+              ] else ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: _isSaving ? null : () => Navigator.pop(context),
+                      child: const Text('Annuler'),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: QuantisColors.royalBlue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      ),
+                      onPressed: _isSaving ? null : _submit,
+                      child: _isSaving
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Text('Créer l\'entreprise'),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
@@ -1797,12 +2262,19 @@ class _EntrepriseSupervisionDialogState extends State<_EntrepriseSupervisionDial
     final String monnaie = _supervision?['monnaie'] ?? ent['monnaie'] ?? 'FCFA';
     final bool isActif = ent['estActif'] == true;
 
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 700;
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 12 : 40,
+        vertical: 16,
+      ),
       child: Container(
-        width: 960,
-        height: 720,
-        padding: const EdgeInsets.all(24),
+        width: isMobile ? screenWidth * 0.95 : 960,
+        height: isMobile ? MediaQuery.of(context).size.height * 0.9 : 720,
+        padding: EdgeInsets.all(isMobile ? 14 : 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1811,8 +2283,8 @@ class _EntrepriseSupervisionDialogState extends State<_EntrepriseSupervisionDial
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Container(
-                  width: 52,
-                  height: 52,
+                  width: isMobile ? 42 : 52,
+                  height: isMobile ? 42 : 52,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [QuantisColors.royalBlue, Color(0xFF0F172A)],
@@ -1824,16 +2296,16 @@ class _EntrepriseSupervisionDialogState extends State<_EntrepriseSupervisionDial
                   child: Center(
                     child: Text(
                       nom.substring(0, 1).toUpperCase(),
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: QuantisColors.luxuryGold,
                         fontWeight: FontWeight.bold,
-                        fontSize: 24,
+                        fontSize: isMobile ? 20 : 24,
                         fontFamily: 'SpaceGrotesk',
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1843,15 +2315,15 @@ class _EntrepriseSupervisionDialogState extends State<_EntrepriseSupervisionDial
                           Flexible(
                             child: Text(
                               nom,
-                              style: const TextStyle(
-                                fontSize: 20,
+                              style: TextStyle(
+                                fontSize: isMobile ? 17 : 20,
                                 fontWeight: FontWeight.bold,
                                 fontFamily: 'SpaceGrotesk',
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          const SizedBox(width: 10),
+                          const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
@@ -1872,8 +2344,10 @@ class _EntrepriseSupervisionDialogState extends State<_EntrepriseSupervisionDial
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'ID: #${ent['id']} • IFU: ${ent['nif'] ?? 'N/A'} • RCCM: ${ent['rccm'] ?? 'N/A'} • Devise commerciale: $monnaie',
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                        'ID: #${ent['id']} • IFU: ${ent['nif'] ?? 'N/A'} • RCCM: ${ent['rccm'] ?? 'N/A'} • Devise: $monnaie',
+                        style: TextStyle(fontSize: isMobile ? 11 : 12, color: Colors.grey.shade600),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
@@ -1883,7 +2357,6 @@ class _EntrepriseSupervisionDialogState extends State<_EntrepriseSupervisionDial
                   tooltip: 'Actualiser',
                   onPressed: _loadSupervision,
                 ),
-                const SizedBox(width: 4),
                 IconButton(
                   icon: const Icon(Icons.close),
                   tooltip: 'Fermer',
@@ -1891,9 +2364,9 @@ class _EntrepriseSupervisionDialogState extends State<_EntrepriseSupervisionDial
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             const Divider(height: 1),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
             // Contenu
             Expanded(
@@ -1921,7 +2394,7 @@ class _EntrepriseSupervisionDialogState extends State<_EntrepriseSupervisionDial
                             ],
                           ),
                         )
-                      : _buildSupervisionContent(monnaie),
+                      : _buildSupervisionContent(monnaie, isMobile),
             ),
           ],
         ),
@@ -1929,7 +2402,7 @@ class _EntrepriseSupervisionDialogState extends State<_EntrepriseSupervisionDial
     );
   }
 
-  Widget _buildSupervisionContent(String monnaie) {
+  Widget _buildSupervisionContent(String monnaie, bool isMobile) {
     final data = _supervision ?? {};
     final ca = data['chiffreAffaires'] ?? 0;
     final achats = data['totalAchats'] ?? 0;
@@ -1950,63 +2423,119 @@ class _EntrepriseSupervisionDialogState extends State<_EntrepriseSupervisionDial
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // 4 KPI financiers principaux
-        Row(
-          children: [
-            Expanded(
-              child: _buildKpiBox(
-                'Chiffre d\'Affaires (CA)',
-                _formatCurrency(ca, monnaie),
-                '$ventesCount vente(s) formalisée(s)',
-                const Color(0xFF059669),
-                Icons.trending_up_rounded,
+        if (isMobile) ...[
+          Row(
+            children: [
+              Expanded(
+                child: _buildKpiBox(
+                  'Chiffre d\'Affaires',
+                  _formatCurrency(ca, monnaie),
+                  '$ventesCount vente(s)',
+                  const Color(0xFF059669),
+                  Icons.trending_up_rounded,
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildKpiBox(
-                'Achats Fournisseurs',
-                _formatCurrency(achats, monnaie),
-                '$achatsCount commande(s) d\'approvisionnement',
-                const Color(0xFFD97706),
-                Icons.shopping_bag_outlined,
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildKpiBox(
+                  'Achats Fourn.',
+                  _formatCurrency(achats, monnaie),
+                  '$achatsCount cde(s)',
+                  const Color(0xFFD97706),
+                  Icons.shopping_bag_outlined,
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildKpiBox(
-                'Marge Commerciale Brute',
-                _formatCurrency(marge, monnaie),
-                (ca is num && ca > 0)
-                    ? 'Taux: ${((marge as num) / ca * 100).toStringAsFixed(1)}% du CA'
-                    : 'Marge directe',
-                (marge as num) >= 0 ? QuantisColors.royalBlue : Colors.red.shade700,
-                Icons.account_balance_wallet_rounded,
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _buildKpiBox(
+                  'Marge Commerciale',
+                  _formatCurrency(marge, monnaie),
+                  (ca is num && ca > 0)
+                      ? '${((marge as num) / ca * 100).toStringAsFixed(1)}% CA'
+                      : 'Marge directe',
+                  (marge as num) >= 0 ? QuantisColors.royalBlue : Colors.red.shade700,
+                  Icons.account_balance_wallet_rounded,
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildKpiBox(
-                'Trésorerie / Caisse',
-                _formatCurrency(soldeCaisse, monnaie),
-                'Solde net disponible',
-                const Color(0xFF4F46E5),
-                Icons.savings_outlined,
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildKpiBox(
+                  'Trésorerie Caisse',
+                  _formatCurrency(soldeCaisse, monnaie),
+                  'Disponible',
+                  const Color(0xFF4F46E5),
+                  Icons.savings_outlined,
+                ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 14),
+            ],
+          ),
+        ] else ...[
+          Row(
+            children: [
+              Expanded(
+                child: _buildKpiBox(
+                  'Chiffre d\'Affaires (CA)',
+                  _formatCurrency(ca, monnaie),
+                  '$ventesCount vente(s) formalisée(s)',
+                  const Color(0xFF059669),
+                  Icons.trending_up_rounded,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildKpiBox(
+                  'Achats Fournisseurs',
+                  _formatCurrency(achats, monnaie),
+                  '$achatsCount commande(s) d\'approvisionnement',
+                  const Color(0xFFD97706),
+                  Icons.shopping_bag_outlined,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildKpiBox(
+                  'Marge Commerciale Brute',
+                  _formatCurrency(marge, monnaie),
+                  (ca is num && ca > 0)
+                      ? 'Taux: ${((marge as num) / ca * 100).toStringAsFixed(1)}% du CA'
+                      : 'Marge directe',
+                  (marge as num) >= 0 ? QuantisColors.royalBlue : Colors.red.shade700,
+                  Icons.account_balance_wallet_rounded,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildKpiBox(
+                  'Trésorerie / Caisse',
+                  _formatCurrency(soldeCaisse, monnaie),
+                  'Solde net disponible',
+                  const Color(0xFF4F46E5),
+                  Icons.savings_outlined,
+                ),
+              ),
+            ],
+          ),
+        ],
+        const SizedBox(height: 12),
 
-        // Périmètre d'activité (badges)
+        // Périmètre d'activité (badges avec Wrap pour éviter tout overflow)
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          width: double.infinity,
+          padding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 16, vertical: 8),
           decoration: BoxDecoration(
             color: Colors.grey.shade50,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: Colors.grey.shade200),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 6,
+            alignment: WrapAlignment.spaceAround,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               _buildScopeItem(Icons.business, '$clientsCount Clients', Colors.blueGrey),
               _buildScopeItem(Icons.local_shipping_outlined, '$fournisseursCount Fournisseurs', Colors.amber.shade900),
@@ -2015,7 +2544,7 @@ class _EntrepriseSupervisionDialogState extends State<_EntrepriseSupervisionDial
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
 
         // Onglets Ventes & Achats
         TabBar(
@@ -2030,8 +2559,11 @@ class _EntrepriseSupervisionDialogState extends State<_EntrepriseSupervisionDial
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Icon(Icons.receipt_long, size: 18),
-                  const SizedBox(width: 8),
-                  Text('Dernières Ventes (${dernieresVentes.length})', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(width: 6),
+                  Text(
+                    isMobile ? 'Ventes (${dernieresVentes.length})' : 'Dernières Ventes (${dernieresVentes.length})',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ],
               ),
             ),
@@ -2040,14 +2572,17 @@ class _EntrepriseSupervisionDialogState extends State<_EntrepriseSupervisionDial
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Icon(Icons.shopping_cart_checkout, size: 18),
-                  const SizedBox(width: 8),
-                  Text('Derniers Achats Fournisseurs (${derniersAchats.length})', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(width: 6),
+                  Text(
+                    isMobile ? 'Achats (${derniersAchats.length})' : 'Derniers Achats Fournisseurs (${derniersAchats.length})',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ],
               ),
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
 
         // Tab Views
         Expanded(
@@ -2226,19 +2761,26 @@ class _EntrepriseSupervisionDialogState extends State<_EntrepriseSupervisionDial
             ],
           ),
           const SizedBox(height: 6),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.bold,
-              color: color,
-              fontFamily: 'SpaceGrotesk',
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: color,
+                fontFamily: 'SpaceGrotesk',
+              ),
+              maxLines: 1,
             ),
           ),
           const SizedBox(height: 2),
           Text(
             subtitle,
             style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
@@ -2247,6 +2789,7 @@ class _EntrepriseSupervisionDialogState extends State<_EntrepriseSupervisionDial
 
   Widget _buildScopeItem(IconData icon, String text, Color color) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Icon(icon, size: 16, color: color),
         const SizedBox(width: 6),

@@ -203,6 +203,7 @@ class _EntrepriseScreenState extends State<EntrepriseScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final hasLogo = _logoBytes != null || (_logoBase64 != null && _logoBase64!.isNotEmpty);
+    final isMobile = MediaQuery.of(context).size.width < 650;
 
     return Scaffold(
       appBar: AppBar(
@@ -214,7 +215,7 @@ class _EntrepriseScreenState extends State<EntrepriseScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
+              padding: EdgeInsets.all(isMobile ? 16 : 24),
               child: Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 850),
@@ -229,43 +230,78 @@ class _EntrepriseScreenState extends State<EntrepriseScreen> {
                           color: QuantisColors.royalBlue,
                           child: Padding(
                             padding: const EdgeInsets.all(20),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 80,
-                                  height: 80,
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: QuantisColors.luxuryGold, width: 2),
-                                  ),
-                                  child: Center(child: _buildLogoPreview(size: 72)),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                            child: isMobile
+                                ? Column(
+                                    crossAxisAlignment: CrossAxisAlignment.center,
                                     children: [
+                                      Container(
+                                        width: 80,
+                                        height: 80,
+                                        padding: const EdgeInsets.all(4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(color: QuantisColors.luxuryGold, width: 2),
+                                        ),
+                                        child: Center(child: _buildLogoPreview(size: 72)),
+                                      ),
+                                      const SizedBox(height: 14),
                                       Text(
                                         _nomCtrl.text.isNotEmpty ? _nomCtrl.text : 'Nom de l\'entreprise',
-                                        style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                                        style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                                        textAlign: TextAlign.center,
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
-                                        'Devise : ${_monnaieCtrl.text}  |  Format factures : ${_formatFactureCtrl.text}',
-                                        style: const TextStyle(color: Colors.white70, fontSize: 13),
+                                        'Devise : ${_monnaieCtrl.text}  |  Format : ${_formatFactureCtrl.text}',
+                                        style: const TextStyle(color: Colors.white70, fontSize: 12),
+                                        textAlign: TextAlign.center,
                                       ),
                                       const SizedBox(height: 6),
                                       const Text(
-                                        'Ce logo officiel sera imprimé automatiquement sur toutes vos factures et reçus de caisse.',
+                                        'Ce logo officiel sera imprimé automatiquement sur toutes vos factures et reçus.',
                                         style: TextStyle(color: QuantisColors.luxuryGold, fontSize: 11),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ],
+                                  )
+                                : Row(
+                                    children: [
+                                      Container(
+                                        width: 80,
+                                        height: 80,
+                                        padding: const EdgeInsets.all(4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(color: QuantisColors.luxuryGold, width: 2),
+                                        ),
+                                        child: Center(child: _buildLogoPreview(size: 72)),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              _nomCtrl.text.isNotEmpty ? _nomCtrl.text : 'Nom de l\'entreprise',
+                                              style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              'Devise : ${_monnaieCtrl.text}  |  Format factures : ${_formatFactureCtrl.text}',
+                                              style: const TextStyle(color: Colors.white70, fontSize: 13),
+                                            ),
+                                            const SizedBox(height: 6),
+                                            const Text(
+                                              'Ce logo officiel sera imprimé automatiquement sur toutes vos factures et reçus de caisse.',
+                                              style: TextStyle(color: QuantisColors.luxuryGold, fontSize: 11),
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ],
                                   ),
-                                ),
-                              ],
-                            ),
                           ),
                         ),
                         const SizedBox(height: 24),
@@ -300,24 +336,24 @@ class _EntrepriseScreenState extends State<EntrepriseScreen> {
                           ),
                           child: Padding(
                             padding: const EdgeInsets.all(16),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 90,
-                                  height: 90,
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey.shade100,
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(color: Colors.grey.shade300),
-                                  ),
-                                  child: Center(child: _buildLogoPreview(size: 78)),
-                                ),
-                                const SizedBox(width: 20),
-                                Expanded(
-                                  child: Column(
+                            child: isMobile
+                                ? Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
+                                      Center(
+                                        child: Container(
+                                          width: 90,
+                                          height: 90,
+                                          padding: const EdgeInsets.all(6),
+                                          decoration: BoxDecoration(
+                                            color: Colors.grey.shade100,
+                                            borderRadius: BorderRadius.circular(10),
+                                            border: Border.all(color: Colors.grey.shade300),
+                                          ),
+                                          child: Center(child: _buildLogoPreview(size: 78)),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 14),
                                       Text(
                                         hasLogo
                                             ? (_logoFileName ?? 'Logo personnalisé chargé')
@@ -326,7 +362,7 @@ class _EntrepriseScreenState extends State<EntrepriseScreen> {
                                       ),
                                       const SizedBox(height: 4),
                                       const Text(
-                                        'Formats recommandés : PNG, JPG ou JPEG (fond transparent conseillé).',
+                                        'Formats recommandés : PNG, JPG ou JPEG.',
                                         style: TextStyle(color: QuantisColors.textMuted, fontSize: 12),
                                       ),
                                       const SizedBox(height: 12),
@@ -355,10 +391,66 @@ class _EntrepriseScreenState extends State<EntrepriseScreen> {
                                         ],
                                       ),
                                     ],
+                                  )
+                                : Row(
+                                    children: [
+                                      Container(
+                                        width: 90,
+                                        height: 90,
+                                        padding: const EdgeInsets.all(6),
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey.shade100,
+                                          borderRadius: BorderRadius.circular(10),
+                                          border: Border.all(color: Colors.grey.shade300),
+                                        ),
+                                        child: Center(child: _buildLogoPreview(size: 78)),
+                                      ),
+                                      const SizedBox(width: 20),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              hasLogo
+                                                  ? (_logoFileName ?? 'Logo personnalisé chargé')
+                                                  : 'Aucun logo sélectionné',
+                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            const Text(
+                                              'Formats recommandés : PNG, JPG ou JPEG (fond transparent conseillé).',
+                                              style: TextStyle(color: QuantisColors.textMuted, fontSize: 12),
+                                            ),
+                                            const SizedBox(height: 12),
+                                            Wrap(
+                                              spacing: 12,
+                                              runSpacing: 8,
+                                              children: [
+                                                ElevatedButton.icon(
+                                                  onPressed: _pickLogo,
+                                                  icon: const Icon(Icons.upload_file, size: 18),
+                                                  label: Text(hasLogo ? 'Changer la photo' : 'Importer une photo / logo'),
+                                                  style: ElevatedButton.styleFrom(
+                                                    backgroundColor: QuantisColors.royalBlue,
+                                                    foregroundColor: Colors.white,
+                                                  ),
+                                                ),
+                                                if (hasLogo)
+                                                  OutlinedButton.icon(
+                                                    onPressed: _removeLogo,
+                                                    icon: const Icon(Icons.delete_outline, size: 18, color: QuantisColors.error),
+                                                    label: const Text('Supprimer', style: TextStyle(color: QuantisColors.error)),
+                                                    style: OutlinedButton.styleFrom(
+                                                      side: const BorderSide(color: QuantisColors.error),
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ),
-                              ],
-                            ),
                           ),
                         ),
                         const SizedBox(height: 24),
@@ -379,58 +471,96 @@ class _EntrepriseScreenState extends State<EntrepriseScreen> {
                         ),
                         const SizedBox(height: 16),
 
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextFormField(
-                                controller: _nifCtrl,
-                                decoration: const InputDecoration(
-                                  labelText: 'NIF (Numéro d\'Identifiant Fiscal)',
-                                  prefixIcon: Icon(Icons.badge_outlined),
-                                  border: OutlineInputBorder(),
+                        if (isMobile) ...[
+                          TextFormField(
+                            controller: _nifCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'NIF (Numéro d\'Identifiant Fiscal)',
+                              prefixIcon: Icon(Icons.badge_outlined),
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _rccmCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'RCCM (Registre du Commerce)',
+                              prefixIcon: Icon(Icons.assignment_outlined),
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ] else
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _nifCtrl,
+                                  decoration: const InputDecoration(
+                                    labelText: 'NIF (Numéro d\'Identifiant Fiscal)',
+                                    prefixIcon: Icon(Icons.badge_outlined),
+                                    border: OutlineInputBorder(),
+                                  ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: TextFormField(
-                                controller: _rccmCtrl,
-                                decoration: const InputDecoration(
-                                  labelText: 'RCCM (Registre du Commerce)',
-                                  prefixIcon: Icon(Icons.assignment_outlined),
-                                  border: OutlineInputBorder(),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _rccmCtrl,
+                                  decoration: const InputDecoration(
+                                    labelText: 'RCCM (Registre du Commerce)',
+                                    prefixIcon: Icon(Icons.assignment_outlined),
+                                    border: OutlineInputBorder(),
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
+                            ],
+                          ),
                         const SizedBox(height: 16),
 
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextFormField(
-                                controller: _telephoneCtrl,
-                                decoration: const InputDecoration(
-                                  labelText: 'Téléphone de contact',
-                                  prefixIcon: Icon(Icons.phone_outlined),
-                                  border: OutlineInputBorder(),
+                        if (isMobile) ...[
+                          TextFormField(
+                            controller: _telephoneCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Téléphone de contact',
+                              prefixIcon: Icon(Icons.phone_outlined),
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _emailCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Email de l\'entreprise',
+                              prefixIcon: Icon(Icons.email_outlined),
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ] else
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _telephoneCtrl,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Téléphone de contact',
+                                    prefixIcon: Icon(Icons.phone_outlined),
+                                    border: OutlineInputBorder(),
+                                  ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: TextFormField(
-                                controller: _emailCtrl,
-                                decoration: const InputDecoration(
-                                  labelText: 'Email de l\'entreprise',
-                                  prefixIcon: Icon(Icons.email_outlined),
-                                  border: OutlineInputBorder(),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _emailCtrl,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Email de l\'entreprise',
+                                    prefixIcon: Icon(Icons.email_outlined),
+                                    border: OutlineInputBorder(),
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
+                            ],
+                          ),
                         const SizedBox(height: 16),
 
                         TextFormField(
@@ -448,43 +578,68 @@ class _EntrepriseScreenState extends State<EntrepriseScreen> {
                         Text('Paramètres Financiers & Factures', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: QuantisColors.royalBlue)),
                         const SizedBox(height: 12),
 
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextFormField(
-                                controller: _monnaieCtrl,
-                                decoration: const InputDecoration(
-                                  labelText: 'Devise monétaire *',
-                                  hintText: 'Ex: FCFA, EUR, USD',
-                                  prefixIcon: Icon(Icons.attach_money),
-                                  border: OutlineInputBorder(),
-                                ),
-                                validator: (v) => v == null || v.trim().isEmpty ? 'La devise est obligatoire' : null,
-                                onChanged: (_) => setState(() {}),
-                              ),
+                        if (isMobile) ...[
+                          TextFormField(
+                            controller: _monnaieCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Devise monétaire *',
+                              hintText: 'Ex: FCFA, EUR, USD',
+                              prefixIcon: Icon(Icons.attach_money),
+                              border: OutlineInputBorder(),
                             ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: TextFormField(
-                                controller: _formatFactureCtrl,
-                                decoration: const InputDecoration(
-                                  labelText: 'Format numérotation factures *',
-                                  hintText: 'Ex: FAC-{YYYY}-{NNNNN}',
-                                  prefixIcon: Icon(Icons.tag),
-                                  border: OutlineInputBorder(),
-                                ),
-                                validator: (v) => v == null || v.trim().isEmpty ? 'Le format est obligatoire' : null,
-                                onChanged: (_) => setState(() {}),
-                              ),
+                            validator: (v) => v == null || v.trim().isEmpty ? 'La devise est obligatoire' : null,
+                            onChanged: (_) => setState(() {}),
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _formatFactureCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Format numérotation factures *',
+                              hintText: 'Ex: FAC-{YYYY}-{NNNNN}',
+                              prefixIcon: Icon(Icons.tag),
+                              border: OutlineInputBorder(),
                             ),
-                          ],
-                        ),
+                            validator: (v) => v == null || v.trim().isEmpty ? 'Le format est obligatoire' : null,
+                            onChanged: (_) => setState(() {}),
+                          ),
+                        ] else
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _monnaieCtrl,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Devise monétaire *',
+                                    hintText: 'Ex: FCFA, EUR, USD',
+                                    prefixIcon: Icon(Icons.attach_money),
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  validator: (v) => v == null || v.trim().isEmpty ? 'La devise est obligatoire' : null,
+                                  onChanged: (_) => setState(() {}),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _formatFactureCtrl,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Format numérotation factures *',
+                                    hintText: 'Ex: FAC-{YYYY}-{NNNNN}',
+                                    prefixIcon: Icon(Icons.tag),
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  validator: (v) => v == null || v.trim().isEmpty ? 'Le format est obligatoire' : null,
+                                  onChanged: (_) => setState(() {}),
+                                ),
+                              ),
+                            ],
+                          ),
                         const SizedBox(height: 32),
 
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            ElevatedButton.icon(
+                        if (isMobile)
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
                               onPressed: _saving ? null : _saveEntreprise,
                               icon: _saving
                                   ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
@@ -493,11 +648,28 @@ class _EntrepriseScreenState extends State<EntrepriseScreen> {
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: QuantisColors.royalBlue,
                                 foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+                                padding: const EdgeInsets.symmetric(vertical: 16),
                               ),
                             ),
-                          ],
-                        ),
+                          )
+                        else
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              ElevatedButton.icon(
+                                onPressed: _saving ? null : _saveEntreprise,
+                                icon: _saving
+                                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                    : const Icon(Icons.save, size: 18),
+                                label: const Text('Enregistrer les Modifications'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: QuantisColors.royalBlue,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+                                ),
+                              ),
+                            ],
+                          ),
                       ],
                     ),
                   ),

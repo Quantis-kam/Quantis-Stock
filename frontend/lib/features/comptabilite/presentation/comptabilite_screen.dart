@@ -100,97 +100,153 @@ class _ComptabiliteScreenState extends State<ComptabiliteScreen> with SingleTick
     final totalSorties = (_reportData?['totalSorties'] as num? ?? 0).toDouble();
     final soldeNet = (_reportData?['solde'] as num? ?? 0).toDouble();
 
+    final isMobile = MediaQuery.of(context).size.width < 700;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Gestion de Caisse & Comptabilité', style: TextStyle(fontFamily: 'SpaceGrotesk', fontWeight: FontWeight.bold)),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadAllData,
-            tooltip: 'Actualiser',
-          ),
-          IconButton(
-            icon: const Icon(Icons.add_circle_outline, color: QuantisColors.luxuryGold),
-            onPressed: _openMouvementDialog,
-            tooltip: 'Nouveau mouvement de caisse',
-          ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: QuantisColors.luxuryGold,
-          tabs: const [
-            Tab(icon: Icon(Icons.receipt_long_outlined), text: 'Journal de Caisse'),
-            Tab(icon: Icon(Icons.history_toggle_off), text: 'Sessions de Caisse'),
-            Tab(icon: Icon(Icons.menu_book), text: 'Grand Livre & Clôtures'),
-          ],
-        ),
-      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
               ? Center(child: Text(_error!, style: const TextStyle(color: QuantisColors.error)))
               : RefreshIndicator(
                   onRefresh: _loadAllData,
-                  child: SingleChildScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Active Caisse Status Banner
-                        _buildActiveSessionBanner(),
-                        const SizedBox(height: 16),
-
-                        // Financial KPI Cards
-                        Row(
-                          children: [
-                            Expanded(child: _kpiCard('Entrées Période', '${totalEntrees.toStringAsFixed(0)} $devise', Icons.arrow_downward, QuantisColors.success)),
-                            const SizedBox(width: 12),
-                            Expanded(child: _kpiCard('Sorties Période', '${totalSorties.toStringAsFixed(0)} $devise', Icons.arrow_upward, QuantisColors.error)),
-                            const SizedBox(width: 12),
-                            Expanded(child: _kpiCard('Solde Net Période', '${soldeNet.toStringAsFixed(0)} $devise', Icons.account_balance_wallet, QuantisColors.royalBlue)),
+                  child: NestedScrollView(
+                    headerSliverBuilder: (context, innerBoxIsScrolled) => [
+                      SliverAppBar(
+                        title: Text(
+                          isMobile ? 'Caisse & Compta' : 'Gestion de Caisse & Comptabilité',
+                          style: const TextStyle(fontFamily: 'SpaceGrotesk', fontWeight: FontWeight.bold),
+                        ),
+                        pinned: true,
+                        floating: true,
+                        forceElevated: innerBoxIsScrolled,
+                        actions: [
+                          IconButton(
+                            icon: const Icon(Icons.refresh),
+                            onPressed: _loadAllData,
+                            tooltip: 'Actualiser',
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.add_circle_outline, color: QuantisColors.luxuryGold),
+                            onPressed: _openMouvementDialog,
+                            tooltip: 'Nouveau mouvement de caisse',
+                          ),
+                        ],
+                        bottom: TabBar(
+                          controller: _tabController,
+                          isScrollable: isMobile,
+                          tabAlignment: isMobile ? TabAlignment.start : TabAlignment.center,
+                          indicatorColor: QuantisColors.luxuryGold,
+                          tabs: const [
+                            Tab(icon: Icon(Icons.receipt_long_outlined), text: 'Journal de Caisse'),
+                            Tab(icon: Icon(Icons.history_toggle_off), text: 'Sessions de Caisse'),
+                            Tab(icon: Icon(Icons.menu_book), text: 'Grand Livre & Clôtures'),
                           ],
                         ),
-                        const SizedBox(height: 20),
-
-                        // Action Buttons Bar
-                        Row(
-                          children: [
-                            ElevatedButton.icon(
-                              onPressed: _openMouvementDialog,
-                              icon: const Icon(Icons.add, size: 18),
-                              label: const Text('Nouveau Mouvement'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: QuantisColors.royalBlue,
-                                foregroundColor: Colors.white,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            OutlinedButton.icon(
-                              onPressed: _openSessionDialog,
-                              icon: Icon(_activeSession != null ? Icons.lock : Icons.lock_open, size: 18),
-                              label: Text(_activeSession != null ? 'Fermer Session Caisse' : 'Ouvrir Session Caisse'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: _activeSession != null ? QuantisColors.warning : QuantisColors.success,
-                                side: BorderSide(color: _activeSession != null ? QuantisColors.warning : QuantisColors.success),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-
-                        // TabBar Content (Scrollable Container with dynamic height)
-                        SizedBox(
-                          height: 900,
-                          child: TabBarView(
-                            controller: _tabController,
+                      ),
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.all(isMobile ? 12 : 16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _buildJournalTab(devise),
-                              _buildSessionsTab(devise),
-                              const GrandLivreTab(),
+                              // Active Caisse Status Banner
+                              _buildActiveSessionBanner(isMobile),
+                              const SizedBox(height: 14),
+
+                              // Financial KPI Cards
+                              if (isMobile)
+                                Column(
+                                  children: [
+                                    _kpiCard('Solde Net Période', '${soldeNet.toStringAsFixed(0)} $devise', Icons.account_balance_wallet, QuantisColors.royalBlue),
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      children: [
+                                        Expanded(child: _kpiCard('Entrées Période', '${totalEntrees.toStringAsFixed(0)} $devise', Icons.arrow_downward, QuantisColors.success)),
+                                        const SizedBox(width: 8),
+                                        Expanded(child: _kpiCard('Sorties Période', '${totalSorties.toStringAsFixed(0)} $devise', Icons.arrow_upward, QuantisColors.error)),
+                                      ],
+                                    ),
+                                  ],
+                                )
+                              else
+                                Row(
+                                  children: [
+                                    Expanded(child: _kpiCard('Entrées Période', '${totalEntrees.toStringAsFixed(0)} $devise', Icons.arrow_downward, QuantisColors.success)),
+                                    const SizedBox(width: 12),
+                                    Expanded(child: _kpiCard('Sorties Période', '${totalSorties.toStringAsFixed(0)} $devise', Icons.arrow_upward, QuantisColors.error)),
+                                    const SizedBox(width: 12),
+                                    Expanded(child: _kpiCard('Solde Net Période', '${soldeNet.toStringAsFixed(0)} $devise', Icons.account_balance_wallet, QuantisColors.royalBlue)),
+                                  ],
+                                ),
+                              const SizedBox(height: 14),
+
+                              // Action Buttons Bar
+                              if (isMobile)
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: ElevatedButton.icon(
+                                        onPressed: _openMouvementDialog,
+                                        icon: const Icon(Icons.add, size: 16),
+                                        label: const Text('Mouvement', overflow: TextOverflow.ellipsis),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: QuantisColors.royalBlue,
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: OutlinedButton.icon(
+                                        onPressed: _openSessionDialog,
+                                        icon: Icon(_activeSession != null ? Icons.lock : Icons.lock_open, size: 16),
+                                        label: Text(_activeSession != null ? 'Fermer Session' : 'Ouvrir Session', overflow: TextOverflow.ellipsis),
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: _activeSession != null ? QuantisColors.warning : QuantisColors.success,
+                                          side: BorderSide(color: _activeSession != null ? QuantisColors.warning : QuantisColors.success),
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              else
+                                Row(
+                                  children: [
+                                    ElevatedButton.icon(
+                                      onPressed: _openMouvementDialog,
+                                      icon: const Icon(Icons.add, size: 18),
+                                      label: const Text('Nouveau Mouvement'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: QuantisColors.royalBlue,
+                                        foregroundColor: Colors.white,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    OutlinedButton.icon(
+                                      onPressed: _openSessionDialog,
+                                      icon: Icon(_activeSession != null ? Icons.lock : Icons.lock_open, size: 18),
+                                      label: Text(_activeSession != null ? 'Fermer Session Caisse' : 'Ouvrir Session Caisse'),
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: _activeSession != null ? QuantisColors.warning : QuantisColors.success,
+                                        side: BorderSide(color: _activeSession != null ? QuantisColors.warning : QuantisColors.success),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              const SizedBox(height: 8),
                             ],
                           ),
                         ),
+                      ),
+                    ],
+                    body: TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _buildJournalTab(devise),
+                        _buildSessionsTab(devise, isMobile),
+                        const GrandLivreTab(),
                       ],
                     ),
                   ),
@@ -198,7 +254,7 @@ class _ComptabiliteScreenState extends State<ComptabiliteScreen> with SingleTick
     );
   }
 
-  Widget _buildActiveSessionBanner() {
+  Widget _buildActiveSessionBanner(bool isMobile) {
     final isOpen = _activeSession != null;
     final solde = isOpen ? (_activeSession!['soldeTheorique'] as num? ?? 0).toDouble() : 0.0;
     final fond = isOpen ? (_activeSession!['fondCaisseOuverture'] as num? ?? 0).toDouble() : 0.0;
@@ -211,61 +267,118 @@ class _ComptabiliteScreenState extends State<ComptabiliteScreen> with SingleTick
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       color: isOpen ? QuantisColors.royalBlue : Colors.amber.shade900,
       child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 28,
-              backgroundColor: Colors.white24,
-              child: Icon(isOpen ? Icons.point_of_sale : Icons.lock_clock, color: Colors.white, size: 32),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        padding: EdgeInsets.all(isMobile ? 14 : 20),
+        child: isMobile
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    crossAxisAlignment: WrapCrossAlignment.center,
+                  Row(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: isOpen ? QuantisColors.success : Colors.white24,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          isOpen ? 'SESSION DE CAISSE ACTIVE' : 'AUCUNE CAISSE OUVERTE',
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
+                      CircleAvatar(
+                        radius: 22,
+                        backgroundColor: Colors.white24,
+                        child: Icon(isOpen ? Icons.point_of_sale : Icons.lock_clock, color: Colors.white, size: 24),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: isOpen ? QuantisColors.success : Colors.white24,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                isOpen ? 'SESSION ACTIVE' : 'AUCUNE CAISSE OUVERTE',
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10),
+                              ),
+                            ),
+                            if (isOpen) ...[
+                              const SizedBox(height: 2),
+                              Text('Ouverte: $dateOuv', style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                            ],
+                          ],
                         ),
                       ),
-                      if (isOpen)
-                        Text('Ouverte le $dateOuv', style: const TextStyle(color: Colors.white70, fontSize: 11)),
                     ],
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 10),
                   Text(
                     isOpen
-                        ? 'Solde théorique : ${solde.toStringAsFixed(0)} ${ApiClient.entrepriseMonnaie} (Fond: ${fond.toStringAsFixed(0)})'
-                        : 'Ouvrez votre session pour enregistrer et suivre les encaissements.',
-                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                        ? 'Solde théorique : ${solde.toStringAsFixed(0)} ${ApiClient.entrepriseMonnaie}'
+                        : 'Ouvrez votre session pour enregistrer les ventes.',
+                    style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    onPressed: _openSessionDialog,
+                    icon: Icon(isOpen ? Icons.lock : Icons.lock_open, size: 16),
+                    label: Text(isOpen ? 'Clôturer la Session' : 'Ouvrir la Caisse'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: QuantisColors.luxuryGold,
+                      foregroundColor: Colors.black87,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                    ),
+                  ),
+                ],
+              )
+            : Row(
+                children: [
+                  CircleAvatar(
+                    radius: 28,
+                    backgroundColor: Colors.white24,
+                    child: Icon(isOpen ? Icons.point_of_sale : Icons.lock_clock, color: Colors.white, size: 32),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: isOpen ? QuantisColors.success : Colors.white24,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                isOpen ? 'SESSION DE CAISSE ACTIVE' : 'AUCUNE CAISSE OUVERTE',
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
+                              ),
+                            ),
+                            if (isOpen)
+                              Text('Ouverte le $dateOuv', style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          isOpen
+                              ? 'Solde théorique : ${solde.toStringAsFixed(0)} ${ApiClient.entrepriseMonnaie} (Fond: ${fond.toStringAsFixed(0)})'
+                              : 'Ouvrez votre session pour enregistrer et suivre les encaissements.',
+                          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: _openSessionDialog,
+                    icon: Icon(isOpen ? Icons.lock : Icons.lock_open, size: 16),
+                    label: Text(isOpen ? 'Clôturer' : 'Ouvrir Caisse'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: QuantisColors.luxuryGold,
+                      foregroundColor: Colors.black87,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    ),
                   ),
                 ],
               ),
-            ),
-            ElevatedButton.icon(
-              onPressed: _openSessionDialog,
-              icon: Icon(isOpen ? Icons.lock : Icons.lock_open, size: 16),
-              label: Text(isOpen ? 'Clôturer' : 'Ouvrir Caisse'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: QuantisColors.luxuryGold,
-                foregroundColor: Colors.black87,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -302,8 +415,10 @@ class _ComptabiliteScreenState extends State<ComptabiliteScreen> with SingleTick
     }
 
     return Card(
+      margin: const EdgeInsets.all(12),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ListView.separated(
+        padding: EdgeInsets.zero,
         itemCount: _journal.length,
         separatorBuilder: (_, __) => const Divider(height: 1),
         itemBuilder: (context, idx) {
@@ -326,7 +441,7 @@ class _ComptabiliteScreenState extends State<ComptabiliteScreen> with SingleTick
               '${isEntree ? "+" : "-"}${montant.toStringAsFixed(0)} $devise',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                fontSize: 15,
+                fontSize: 14,
                 color: isEntree ? QuantisColors.success : QuantisColors.error,
               ),
             ),
@@ -336,7 +451,7 @@ class _ComptabiliteScreenState extends State<ComptabiliteScreen> with SingleTick
     );
   }
 
-  Widget _buildSessionsTab(String devise) {
+  Widget _buildSessionsTab(String devise, bool isMobile) {
     if (_sessions.isEmpty) {
       return const Center(
         child: Text('Aucune session de caisse enregistrée.', style: TextStyle(color: QuantisColors.textMuted)),
@@ -344,8 +459,10 @@ class _ComptabiliteScreenState extends State<ComptabiliteScreen> with SingleTick
     }
 
     return Card(
+      margin: const EdgeInsets.all(12),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ListView.separated(
+        padding: EdgeInsets.zero,
         itemCount: _sessions.length,
         separatorBuilder: (_, __) => const Divider(height: 1),
         itemBuilder: (context, idx) {
@@ -358,6 +475,78 @@ class _ComptabiliteScreenState extends State<ComptabiliteScreen> with SingleTick
 
           final dateOuv = s['dateOuverture'] != null ? s['dateOuverture'].toString().substring(0, 16).replaceAll('T', ' ') : '-';
           final dateFerm = s['dateFermeture'] != null ? s['dateFermeture'].toString().substring(0, 16).replaceAll('T', ' ') : '-';
+
+          if (isMobile) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 15,
+                        backgroundColor: (isOpen ? QuantisColors.success : Colors.grey).withValues(alpha: 0.15),
+                        foregroundColor: isOpen ? QuantisColors.success : Colors.grey.shade700,
+                        child: Icon(isOpen ? Icons.lock_open : Icons.lock, size: 16),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Session #${s['id']} — ${s['caissier']?['prenom'] ?? ""} ${s['caissier']?['nom'] ?? "Caissier"}',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: (isOpen ? QuantisColors.success : Colors.grey.shade400).withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          s['statut'] ?? '',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: isOpen ? QuantisColors.success : Colors.grey.shade800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Ouvert: $dateOuv | Clôturé: $dateFerm\nFond départ: ${fond.toStringAsFixed(0)} $devise • Entrées: ${(s['totalEntrees'] as num? ?? 0).toStringAsFixed(0)} • Sorties: ${(s['totalSorties'] as num? ?? 0).toStringAsFixed(0)}',
+                    style: const TextStyle(fontSize: 11, color: QuantisColors.textMuted),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(
+                        'Théorique: ${theorique.toStringAsFixed(0)} $devise',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: QuantisColors.royalBlue),
+                      ),
+                      if (compte != null)
+                        Text('Compté: ${compte.toStringAsFixed(0)} $devise', style: const TextStyle(fontSize: 11)),
+                      if (ecart != null)
+                        Text(
+                          'Écart: ${ecart >= 0 ? "+" : ""}${ecart.toStringAsFixed(0)} $devise',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: ecart == 0 ? QuantisColors.success : (ecart > 0 ? Colors.blue : QuantisColors.error),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          }
 
           return ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

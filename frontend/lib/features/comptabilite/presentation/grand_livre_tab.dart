@@ -96,51 +96,66 @@ class _GrandLivreTabState extends State<GrandLivreTab> {
 
     final notesCtrl = TextEditingController();
 
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
+    final dialogWidth = (screenWidth * 0.92).clamp(280.0, 480.0);
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        insetPadding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 12 : 40,
+          vertical: 16,
+        ),
         title: Row(
           children: const [
             Icon(Icons.lock_outline, color: QuantisColors.royalBlue),
             SizedBox(width: 10),
-            Text('Clôturer & Verrouiller la période'),
+            Expanded(
+              child: Text(
+                'Clôturer la période',
+                style: TextStyle(fontSize: 18),
+              ),
+            ),
           ],
         ),
         content: SizedBox(
-          width: 480,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Êtes-vous sûr de vouloir arrêter et verrouiller les écritures pour la période ${_synthese!.periode} ?',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.amber.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.amber.shade300),
+          width: dialogWidth,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Êtes-vous sûr de vouloir arrêter et verrouiller les écritures pour la période ${_synthese!.periode} ?',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                 ),
-                child: Text(
-                  '⚠️ Attention : Une clôture verrouillée fige les totaux de chiffre d\'affaires, de stock et de caisse pour cette période dans le registre comptable.',
-                  style: TextStyle(fontSize: 12, color: Colors.amber.shade900),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.amber.shade300),
+                  ),
+                  child: Text(
+                    '⚠️ Attention : Une clôture verrouillée fige les totaux de chiffre d\'affaires, de stock et de caisse pour cette période dans le registre comptable.',
+                    style: TextStyle(fontSize: 12, color: Colors.amber.shade900),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: notesCtrl,
-                maxLines: 3,
-                decoration: InputDecoration(
-                  labelText: 'Notes & observations de clôture',
-                  hintText: 'Ex: Inventaire physique conforme, caisse équilibrée...',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: notesCtrl,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    labelText: 'Notes & observations de clôture',
+                    hintText: 'Ex: Inventaire physique conforme, caisse équilibrée...',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         actions: [
@@ -512,6 +527,62 @@ class _GrandLivreTabState extends State<GrandLivreTab> {
                           final dateClot = c.dateCloture.isNotEmpty && c.dateCloture.length >= 10
                               ? c.dateCloture.substring(0, 10)
                               : c.dateCloture;
+                          final isSmall = MediaQuery.of(context).size.width < 600;
+
+                          if (isSmall) {
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 14,
+                                        backgroundColor: Colors.green.shade50,
+                                        foregroundColor: Colors.green.shade700,
+                                        child: const Icon(Icons.lock, size: 14),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(c.libelle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.green.shade100,
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Text(
+                                          c.statut,
+                                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green.shade900),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    'Période: ${c.dateDebut} au ${c.dateFin} • Verrouillé le $dateClot par ${c.clotureParNom}${c.notes != null && c.notes!.isNotEmpty ? "\nNote: ${c.notes}" : ""}',
+                                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        'CA: ${currency.format(c.chiffreAffairesTtc)}',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: QuantisColors.royalBlue),
+                                      ),
+                                      Text(
+                                        'Marge: ${currency.format(c.margeBruteEstimee)}',
+                                        style: const TextStyle(fontSize: 12, color: QuantisColors.success, fontWeight: FontWeight.bold),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
 
                           return ListTile(
                             leading: CircleAvatar(

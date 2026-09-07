@@ -29,6 +29,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final AuditService auditService;
+    private final com.quantis.stock.security.SecurityUtils securityUtils;
 
     /**
      * Authentification par email + mot de passe.
@@ -69,7 +70,7 @@ public class AuthService {
     }
 
     /**
-     * Inscription d'un nouvel utilisateur (réservé Admin).
+     * Enregistrement d'un nouvel utilisateur (action réservée aux administrateurs).
      */
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -77,10 +78,26 @@ public class AuthService {
             throw new BusinessException("Un compte avec cet email existe déjà");
         }
 
+        if (request.getRole() == Role.SUPER_ADMIN && !securityUtils.isSuperAdmin()) {
+            throw new BusinessException("Seul le SuperAdmin peut créer un compte SuperAdmin");
+        }
+
+        com.quantis.stock.model.Entreprise entreprise = null;
+        if (securityUtils.isSuperAdmin() && request.getEntrepriseId() != null) {
+            entreprise = entrepriseRepository.findById(request.getEntrepriseId()).orElse(null);
+        } else {
+            entreprise = securityUtils.getCurrentEntreprise().orElse(null);
+        }
+
         Depot depot = null;
         if (request.getDepotId() != null) {
             depot = depotRepository.findById(request.getDepotId())
                     .orElseThrow(() -> new ResourceNotFoundException("Dépôt", "id", request.getDepotId()));
+            if (!securityUtils.isSuperAdmin() && entreprise != null) {
+                if (depot.getEntreprise() == null || !depot.getEntreprise().getId().equals(entreprise.getId())) {
+                    throw new BusinessException("Ce dépôt n'appartient pas à votre entreprise");
+                }
+            }
         }
 
         Utilisateur user = Utilisateur.builder()
@@ -90,11 +107,13 @@ public class AuthService {
                 .motDePasseHash(passwordEncoder.encode(request.getMotDePasse()))
                 .role(request.getRole())
                 .depot(depot)
+                .entreprise(entreprise)
                 .actif(true)
                 .build();
 
         user = utilisateurRepository.save(user);
-        log.info("Nouvel utilisateur créé: {} ({})", user.getEmail(), user.getRole());
+        log.info("Nouvel utilisateur créé: {} ({}) pour entreprise: {}", user.getEmail(), user.getRole(),
+                entreprise != null ? entreprise.getNom() : "N/A");
         auditService.logAction("CREATE", "Utilisateur", user.getId(), "Création utilisateur " + user.getEmail());
 
         return buildAuthResponse(user);
@@ -140,7 +159,7 @@ public class AuthService {
                 user.getId(), user.getEmail(), user.getRole().name());
         String refreshToken = jwtTokenProvider.generateRefreshToken(user.getEmail());
 
-        java.util.List<String> permissions = user.getRole().getPermissions().stream()
+        java.util.List<String> permissions = user.getPermissionsEffectives().stream()
                 .map(Enum::name)
                 .collect(java.util.stream.Collectors.toList());
 

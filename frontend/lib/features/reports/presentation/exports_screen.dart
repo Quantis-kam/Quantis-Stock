@@ -78,7 +78,7 @@ class _ExportsScreenState extends State<ExportsScreen> {
       final dateSuffix = DateFormat('yyyyMMdd').format(DateTime.now());
       final filename = '${defaultFilename}_$dateSuffix.csv';
 
-      FileDownloadHelper.download(bytes, filename);
+      final savedPath = await FileDownloadHelper.download(bytes, filename);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -87,7 +87,11 @@ class _ExportsScreenState extends State<ExportsScreen> {
               children: [
                 const Icon(Icons.check_circle, color: Colors.white),
                 const SizedBox(width: 10),
-                Text('Export $filename téléchargé avec succès !'),
+                Expanded(
+                  child: Text(savedPath != null
+                      ? 'Fichier enregistré : $filename'
+                      : 'Export $filename téléchargé avec succès !'),
+                ),
               ],
             ),
             backgroundColor: QuantisColors.success,
@@ -114,22 +118,24 @@ class _ExportsScreenState extends State<ExportsScreen> {
   @override
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('dd/MM/yyyy');
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 650;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text('Exports Comptables & Fiscaux', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(isMobile ? 'Exports Compta' : 'Exports Comptables & Fiscaux', style: const TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         elevation: 0,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(isMobile ? 12 : 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Bandeau de présentation
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: EdgeInsets.all(isMobile ? 14 : 20),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
                   colors: [QuantisColors.blueDark, QuantisColors.royalBlue],
@@ -148,14 +154,14 @@ class _ExportsScreenState extends State<ExportsScreen> {
               child: Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: EdgeInsets.all(isMobile ? 10 : 12),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(Icons.table_view_rounded, color: Colors.white, size: 36),
+                    child: Icon(Icons.table_view_rounded, color: Colors.white, size: isMobile ? 28 : 36),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -203,53 +209,94 @@ class _ExportsScreenState extends State<ExportsScreen> {
                   ),
                   if (_selectedPreset == 'custom') ...[
                     const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: InkWell(
-                            onTap: () async {
-                              final d = await showDatePicker(
-                                context: context,
-                                initialDate: _dateDebut ?? DateTime.now(),
-                                firstDate: DateTime(2020),
-                                lastDate: DateTime(2030),
-                              );
-                              if (d != null) setState(() => _dateDebut = d);
-                            },
-                            child: InputDecorator(
-                              decoration: const InputDecoration(
-                                labelText: 'Date de Début',
-                                border: OutlineInputBorder(),
-                                suffixIcon: Icon(Icons.calendar_today, size: 18),
+                    if (MediaQuery.of(context).size.width < 600) ...[
+                      InkWell(
+                        onTap: () async {
+                          final d = await showDatePicker(
+                            context: context,
+                            initialDate: _dateDebut ?? DateTime.now(),
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime(2030),
+                          );
+                          if (d != null) setState(() => _dateDebut = d);
+                        },
+                        child: InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: 'Date de Début',
+                            border: OutlineInputBorder(),
+                            suffixIcon: Icon(Icons.calendar_today, size: 18),
+                          ),
+                          child: Text(_dateDebut != null ? dateFormat.format(_dateDebut!) : 'Choisir'),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      InkWell(
+                        onTap: () async {
+                          final d = await showDatePicker(
+                            context: context,
+                            initialDate: _dateFin ?? DateTime.now(),
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime(2030),
+                          );
+                          if (d != null) setState(() => _dateFin = d);
+                        },
+                        child: InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: 'Date de Fin',
+                            border: OutlineInputBorder(),
+                            suffixIcon: Icon(Icons.calendar_today, size: 18),
+                          ),
+                          child: Text(_dateFin != null ? dateFormat.format(_dateFin!) : 'Choisir'),
+                        ),
+                      ),
+                    ] else
+                      Row(
+                        children: [
+                          Expanded(
+                            child: InkWell(
+                              onTap: () async {
+                                final d = await showDatePicker(
+                                  context: context,
+                                  initialDate: _dateDebut ?? DateTime.now(),
+                                  firstDate: DateTime(2020),
+                                  lastDate: DateTime(2030),
+                                );
+                                if (d != null) setState(() => _dateDebut = d);
+                              },
+                              child: InputDecorator(
+                                decoration: const InputDecoration(
+                                  labelText: 'Date de Début',
+                                  border: OutlineInputBorder(),
+                                  suffixIcon: Icon(Icons.calendar_today, size: 18),
+                                ),
+                                child: Text(_dateDebut != null ? dateFormat.format(_dateDebut!) : 'Choisir'),
                               ),
-                              child: Text(_dateDebut != null ? dateFormat.format(_dateDebut!) : 'Choisir'),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: InkWell(
-                            onTap: () async {
-                              final d = await showDatePicker(
-                                context: context,
-                                initialDate: _dateFin ?? DateTime.now(),
-                                firstDate: DateTime(2020),
-                                lastDate: DateTime(2030),
-                              );
-                              if (d != null) setState(() => _dateFin = d);
-                            },
-                            child: InputDecorator(
-                              decoration: const InputDecoration(
-                                labelText: 'Date de Fin',
-                                border: OutlineInputBorder(),
-                                suffixIcon: Icon(Icons.calendar_today, size: 18),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: InkWell(
+                              onTap: () async {
+                                final d = await showDatePicker(
+                                  context: context,
+                                  initialDate: _dateFin ?? DateTime.now(),
+                                  firstDate: DateTime(2020),
+                                  lastDate: DateTime(2030),
+                                );
+                                if (d != null) setState(() => _dateFin = d);
+                              },
+                              child: InputDecorator(
+                                decoration: const InputDecoration(
+                                  labelText: 'Date de Fin',
+                                  border: OutlineInputBorder(),
+                                  suffixIcon: Icon(Icons.calendar_today, size: 18),
+                                ),
+                                child: Text(_dateFin != null ? dateFormat.format(_dateFin!) : 'Choisir'),
                               ),
-                              child: Text(_dateFin != null ? dateFormat.format(_dateFin!) : 'Choisir'),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
                   ],
                 ],
               ),
@@ -260,51 +307,64 @@ class _ExportsScreenState extends State<ExportsScreen> {
             LayoutBuilder(
               builder: (context, constraints) {
                 final isWide = constraints.maxWidth > 700;
+                final cards = [
+                  _buildExportCard(
+                    type: 'ventes',
+                    title: 'Journal des Ventes & Factures',
+                    desc: 'Toutes les factures, devis, commandes et avoirs avec détail HT, TVA, TTC, règlements et soldes.',
+                    icon: Icons.receipt_long_rounded,
+                    color: QuantisColors.royalBlue,
+                    endpoint: '/exports/ventes',
+                    defaultFilename: 'journal_ventes',
+                  ),
+                  _buildExportCard(
+                    type: 'caisse',
+                    title: 'Journal de Caisse & Règlements',
+                    desc: 'Historique exhaustif de tous les encaissements, décaissements, motifs et utilisateurs de caisse.',
+                    icon: Icons.point_of_sale_rounded,
+                    color: QuantisColors.success,
+                    endpoint: '/exports/caisse',
+                    defaultFilename: 'journal_caisse',
+                  ),
+                  _buildExportCard(
+                    type: 'debiteurs',
+                    title: 'Grand Livre des Débiteurs',
+                    desc: 'Liste des clients ayant un solde débiteur (crédit) avec coordonnées et montant dû à recouvrer.',
+                    icon: Icons.people_alt_rounded,
+                    color: QuantisColors.warning,
+                    endpoint: '/exports/debiteurs',
+                    defaultFilename: 'grand_livre_debiteurs',
+                  ),
+                  _buildExportCard(
+                    type: 'stock',
+                    title: 'État de Valorisation du Stock',
+                    desc: 'Inventaire complet par article et dépôt avec valorisation financière au prix d\'achat.',
+                    icon: Icons.inventory_2_rounded,
+                    color: const Color(0xFF7C3AED),
+                    endpoint: '/exports/stock',
+                    defaultFilename: 'valorisation_stock',
+                  ),
+                ];
+
+                if (!isWide) {
+                  return Column(
+                    children: cards
+                        .map((c) => Padding(
+                              padding: const EdgeInsets.only(bottom: 16),
+                              child: c,
+                            ))
+                        .toList(),
+                  );
+                }
+
                 return GridView.count(
-                  crossAxisCount: isWide ? 2 : 1,
+                  crossAxisCount: 2,
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   crossAxisSpacing: 16,
                   mainAxisSpacing: 16,
-                  childAspectRatio: isWide ? 1.8 : 1.5,
-                  children: [
-                    _buildExportCard(
-                      type: 'ventes',
-                      title: 'Journal des Ventes & Factures',
-                      desc: 'Toutes les factures, devis, commandes et avoirs avec détail HT, TVA, TTC, règlements et soldes.',
-                      icon: Icons.receipt_long_rounded,
-                      color: QuantisColors.royalBlue,
-                      endpoint: '/exports/ventes',
-                      defaultFilename: 'journal_ventes',
-                    ),
-                    _buildExportCard(
-                      type: 'caisse',
-                      title: 'Journal de Caisse & Règlements',
-                      desc: 'Historique exhaustif de tous les encaissements, décaissements, motifs et utilisateurs de caisse.',
-                      icon: Icons.point_of_sale_rounded,
-                      color: QuantisColors.success,
-                      endpoint: '/exports/caisse',
-                      defaultFilename: 'journal_caisse',
-                    ),
-                    _buildExportCard(
-                      type: 'debiteurs',
-                      title: 'Grand Livre des Débiteurs',
-                      desc: 'Liste des clients ayant un solde débiteur (crédit) avec coordonnées et montant dû à recouvrer.',
-                      icon: Icons.people_alt_rounded,
-                      color: QuantisColors.warning,
-                      endpoint: '/exports/debiteurs',
-                      defaultFilename: 'grand_livre_debiteurs',
-                    ),
-                    _buildExportCard(
-                      type: 'stock',
-                      title: 'État de Valorisation du Stock',
-                      desc: 'Inventaire complet par article et dépôt avec valorisation financière au prix d\'achat.',
-                      icon: Icons.inventory_2_rounded,
-                      color: const Color(0xFF7C3AED),
-                      endpoint: '/exports/stock',
-                      defaultFilename: 'valorisation_stock',
-                    ),
-                  ],
+                  childAspectRatio: 1.8,
+                  children: cards,
                 );
               },
             ),
@@ -375,13 +435,11 @@ class _ExportsScreenState extends State<ExportsScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          Expanded(
-            child: Text(
-              desc,
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-            ),
+          Text(
+            desc,
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
             height: 40,

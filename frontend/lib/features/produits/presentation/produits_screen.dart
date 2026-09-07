@@ -324,15 +324,22 @@ class _ProduitsScreenState extends State<ProduitsScreen> with SingleTickerProvid
                 ),
               ),
               if (PermissionHelper.hasPermission('IMPORT_EXPORTS')) ...[
-                const SizedBox(width: 12),
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.file_upload, size: 18),
-                  label: const Text('Importer CSV'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                const SizedBox(width: 8),
+                if (MediaQuery.of(context).size.width >= 600)
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.file_upload, size: 18),
+                    label: const Text('Importer CSV'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    ),
+                    onPressed: _openImportCsv,
+                  )
+                else
+                  IconButton.filledTonal(
+                    icon: const Icon(Icons.file_upload_outlined),
+                    tooltip: 'Importer CSV',
+                    onPressed: _openImportCsv,
                   ),
-                  onPressed: _openImportCsv,
-                ),
               ],
             ],
           ),
