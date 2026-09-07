@@ -129,13 +129,19 @@ class _MainShellState extends State<MainShell> {
       list.add(_NavItem(Icons.insights_outlined, Icons.insights, 'Rapports', ActionDashboardScreen(onNavigate: _onNavigateToModule)));
     }
     if (PermissionHelper.canAccessPos) {
-      list.add(_NavItem(Icons.point_of_sale_outlined, Icons.point_of_sale, 'Caisse POS', const PosScreen()));
+      list.add(_NavItem(Icons.point_of_sale_outlined, Icons.point_of_sale, 'POS', const PosScreen()));
     }
     if (PermissionHelper.canAccessDocuments) {
       list.add(_NavItem(Icons.receipt_long_outlined, Icons.receipt_long, 'Factures', const DocumentsScreen()));
     }
     if (PermissionHelper.canAccessStock) {
       list.add(_NavItem(Icons.inventory_2_outlined, Icons.inventory_2, 'Stock', const StockScreen()));
+    }
+    if (PermissionHelper.canAccessComptabilite) {
+      list.add(_NavItem(Icons.account_balance_wallet_outlined, Icons.account_balance_wallet, 'Caisse', const ComptabiliteScreen()));
+    }
+    if (PermissionHelper.canAccessExports) {
+      list.add(_NavItem(Icons.table_view_outlined, Icons.table_view, 'Exports', const ExportsScreen()));
     }
     // Menu Plus pour les fonctionnalités autorisées restantes et paramètres de compte
     list.add(_NavItem(Icons.more_horiz_outlined, Icons.more_horiz, 'Plus', _buildPlusMenu()));
@@ -422,7 +428,7 @@ class _MainShellState extends State<MainShell> {
           const SizedBox(height: 20),
           Center(
             child: Text(
-              'Quantis Stock Mobile • Version 1.0.2 (Build 3)',
+              'Quantis Stock Mobile • Version 1.0.3 (Build 4)',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
@@ -860,14 +866,36 @@ class _MainShellState extends State<MainShell> {
         child: Scaffold(
           drawer: _buildMobileDrawer(),
           body: _buildPage(_currentIndex, isWide),
-          bottomNavigationBar: NavigationBar(
-            selectedIndex: _currentIndex,
-            onDestinationSelected: (i) => setState(() => _currentIndex = i),
-            destinations: items.map((item) => NavigationDestination(
-              icon: Icon(item.icon),
-              selectedIcon: Icon(item.selectedIcon),
-              label: item.label,
-            )).toList(),
+          bottomNavigationBar: NavigationBarTheme(
+            data: NavigationBarThemeData(
+              height: 64,
+              labelTextStyle: WidgetStateProperty.resolveWith((states) {
+                final isSelected = states.contains(WidgetState.selected);
+                return TextStyle(
+                  fontSize: 10,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                  color: isSelected ? QuantisColors.royalBlue : QuantisColors.textSecondary,
+                );
+              }),
+              iconTheme: WidgetStateProperty.resolveWith((states) {
+                final isSelected = states.contains(WidgetState.selected);
+                return IconThemeData(
+                  size: 21,
+                  color: isSelected ? QuantisColors.royalBlue : QuantisColors.textSecondary,
+                );
+              }),
+              indicatorColor: QuantisColors.royalBlue.withValues(alpha: 0.12),
+            ),
+            child: NavigationBar(
+              selectedIndex: _currentIndex,
+              onDestinationSelected: (i) => setState(() => _currentIndex = i),
+              labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+              destinations: items.map((item) => NavigationDestination(
+                icon: Icon(item.icon),
+                selectedIcon: Icon(item.selectedIcon),
+                label: item.label,
+              )).toList(),
+            ),
           ),
         ),
       );

@@ -256,38 +256,38 @@ public class UtilisateurController {
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getPermissionsCatalog() {
         List<Map<String, Object>> groups = new ArrayList<>();
 
-        groups.add(buildGroup("Catalogue Produits", "🛍️", List.of(
+        groups.add(buildGroup("Catalogue Produits", "category", List.of(
                 Permission.CREER_MODIFIER_PRODUIT, Permission.VOIR_PRODUITS,
                 Permission.SUPPRIMER_PRODUIT, Permission.GERER_CATEGORIES,
                 Permission.IMPORT_EXPORTS, Permission.SCANNER_CODES)));
 
-        groups.add(buildGroup("Gestion de Stock", "📦", List.of(
+        groups.add(buildGroup("Gestion de Stock", "inventory", List.of(
                 Permission.VOIR_STOCK, Permission.ENTREE_STOCK,
                 Permission.SORTIE_STOCK, Permission.TRANSFERT_STOCK,
                 Permission.INVENTAIRE_PHYSIQUE, Permission.FORCE_SORTIE,
                 Permission.HISTORIQUE_MOUVEMENTS)));
 
-        groups.add(buildGroup("Tiers (Clients/Fournisseurs)", "👥", List.of(
+        groups.add(buildGroup("Tiers (Clients/Fournisseurs)", "people", List.of(
                 Permission.CRUD_CLIENTS, Permission.CRUD_FOURNISSEURS,
                 Permission.VOIR_CREANCES)));
 
-        groups.add(buildGroup("Achats", "🛒", List.of(
+        groups.add(buildGroup("Achats", "shopping_cart", List.of(
                 Permission.CREER_ACHAT, Permission.RECEPTIONNER_ACHAT,
                 Permission.VOIR_ACHATS)));
 
-        groups.add(buildGroup("Ventes & Documents", "💰", List.of(
+        groups.add(buildGroup("Ventes & Documents", "receipt_long", List.of(
                 Permission.CREER_VENTE, Permission.CONVERTIR_VENTE,
                 Permission.ANNULER_VENTE, Permission.IMPRIMER_VENTE)));
 
-        groups.add(buildGroup("Paiements", "💳", List.of(
+        groups.add(buildGroup("Paiements", "payments", List.of(
                 Permission.PAIEMENT_CLIENT, Permission.PAIEMENT_FOURNISSEUR,
                 Permission.CREER_AVOIR, Permission.RECEPTIONNER_RETOUR)));
 
-        groups.add(buildGroup("Comptabilité & Rapports", "📊", List.of(
+        groups.add(buildGroup("Comptabilité & Rapports", "analytics", List.of(
                 Permission.JOURNAL_CAISSE, Permission.RAPPORTS_FINANCIERS,
                 Permission.VOIR_DASHBOARD, Permission.EXPORT_COMPTABLE)));
 
-        groups.add(buildGroup("Système & Administration", "⚙️", List.of(
+        groups.add(buildGroup("Système & Administration", "settings", List.of(
                 Permission.CRUD_UTILISATEURS, Permission.VOIR_UTILISATEURS,
                 Permission.CHANGER_MDP, Permission.VOIR_AUDIT,
                 Permission.CONFIG_SYSTEME)));

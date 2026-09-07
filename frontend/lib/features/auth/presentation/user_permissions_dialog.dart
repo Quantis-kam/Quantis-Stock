@@ -96,9 +96,11 @@ class _UserPermissionsDialogState extends State<UserPermissionsDialog> {
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: $e'), backgroundColor: QuantisColors.error),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $e'), backgroundColor: QuantisColors.error),
+        );
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -330,7 +332,7 @@ class _UserPermissionsDialogState extends State<UserPermissionsDialog> {
 
   Widget _buildPermissionGroup(Map<String, dynamic> group) {
     final label = group['label'] as String;
-    final icon = group['icon'] as String;
+    final icon = (group['icon'] as String?) ?? '';
     final perms = group['permissions'] as List<dynamic>;
     final allSelected = perms.every((p) => _selectedPermissions.contains(p['code']));
     final someSelected = perms.any((p) => _selectedPermissions.contains(p['code']));
@@ -338,7 +340,7 @@ class _UserPermissionsDialogState extends State<UserPermissionsDialog> {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ExpansionTile(
-        leading: Text(icon, style: const TextStyle(fontSize: 20)),
+        leading: _buildGroupVectorIcon(label, icon),
         title: Row(
           children: [
             Expanded(
@@ -411,6 +413,66 @@ class _UserPermissionsDialogState extends State<UserPermissionsDialog> {
           }),
           const SizedBox(height: 4),
         ],
+      ),
+    );
+  }
+
+  Widget _buildGroupVectorIcon(String label, String icon) {
+    IconData iconData;
+    Color iconColor;
+    Color bgColor;
+
+    final key = icon.toLowerCase().trim();
+    final lowerLabel = label.toLowerCase().trim();
+
+    if (key == 'inventory' || key.contains('📦') || lowerLabel.contains('stock')) {
+      iconData = Icons.inventory_2_rounded;
+      iconColor = const Color(0xFF0284C7); // Sky blue
+      bgColor = const Color(0xFFE0F2FE);
+    } else if (key == 'category' || key.contains('🛍️') || lowerLabel.contains('produit') || lowerLabel.contains('catalogue')) {
+      iconData = Icons.category_rounded;
+      iconColor = const Color(0xFF7C3AED); // Violet
+      bgColor = const Color(0xFFEDE9FE);
+    } else if (key == 'people' || key.contains('👥') || lowerLabel.contains('tiers') || lowerLabel.contains('client')) {
+      iconData = Icons.people_alt_rounded;
+      iconColor = const Color(0xFF059669); // Emerald green
+      bgColor = const Color(0xFFD1FAE5);
+    } else if (key == 'shopping_cart' || key.contains('🛒') || lowerLabel.contains('achat')) {
+      iconData = Icons.shopping_cart_rounded;
+      iconColor = const Color(0xFFEA580C); // Warm orange
+      bgColor = const Color(0xFFFFEDD5);
+    } else if (key == 'receipt_long' || key.contains('💰') || lowerLabel.contains('vente') || lowerLabel.contains('document')) {
+      iconData = Icons.receipt_long_rounded;
+      iconColor = const Color(0xFF16A34A); // Green
+      bgColor = const Color(0xFFDCFCE7);
+    } else if (key == 'payments' || key.contains('💳') || lowerLabel.contains('paiement')) {
+      iconData = Icons.account_balance_wallet_rounded;
+      iconColor = const Color(0xFF2563EB); // Royal blue
+      bgColor = const Color(0xFFDBEAFE);
+    } else if (key == 'analytics' || key.contains('📊') || lowerLabel.contains('comptab') || lowerLabel.contains('rapport')) {
+      iconData = Icons.analytics_rounded;
+      iconColor = const Color(0xFFD97706); // Amber
+      bgColor = const Color(0xFFFEF3C7);
+    } else if (key == 'settings' || key.contains('⚙️') || lowerLabel.contains('admin') || lowerLabel.contains('système')) {
+      iconData = Icons.admin_panel_settings_rounded;
+      iconColor = const Color(0xFF475569); // Slate
+      bgColor = const Color(0xFFF1F5F9);
+    } else {
+      iconData = Icons.security_rounded;
+      iconColor = QuantisColors.royalBlue;
+      bgColor = QuantisColors.royalBlue.withValues(alpha: 0.1);
+    }
+
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: iconColor.withValues(alpha: 0.35), width: 1.2),
+      ),
+      child: Center(
+        child: Icon(iconData, color: iconColor, size: 20),
       ),
     );
   }
