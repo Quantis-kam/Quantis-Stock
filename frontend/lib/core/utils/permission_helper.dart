@@ -66,11 +66,11 @@ class PermissionHelper {
 
   /// Accès à la Caisse & Comptabilité
   static bool get canAccessComptabilite =>
-      hasAnyPermission(['JOURNAL_CAISSE', 'RAPPORTS_FINANCIERS', 'EXPORT_COMPTABLE']);
+      ApiClient.isAdmin || hasAnyPermission(['JOURNAL_CAISSE', 'RAPPORTS_FINANCIERS', 'EXPORT_COMPTABLE', 'CREER_VENTE', 'PAIEMENT_CLIENT']);
 
   /// Accès aux Exports Compta & Fiscaux
   static bool get canAccessExports =>
-      hasAnyPermission(['EXPORT_COMPTABLE', 'JOURNAL_CAISSE', 'VOIR_DASHBOARD']);
+      ApiClient.isAdmin || hasAnyPermission(['EXPORT_COMPTABLE', 'JOURNAL_CAISSE', 'VOIR_DASHBOARD']);
 
   /// Accès aux Paramètres Entreprise & Facturation
   static bool get canAccessEntreprise =>

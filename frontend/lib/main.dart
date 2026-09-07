@@ -190,6 +190,107 @@ class _MainShellState extends State<MainShell> {
             const SizedBox(height: 12),
             const Divider(),
           ],
+          // Accès direct & mis en avant : Caisse & Exports
+          if (PermissionHelper.canAccessComptabilite || PermissionHelper.canAccessExports) ...[
+            Row(
+              children: [
+                if (PermissionHelper.canAccessComptabilite)
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ComptabiliteScreen())),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                        decoration: BoxDecoration(
+                          color: QuantisColors.royalBlue.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: QuantisColors.royalBlue.withValues(alpha: 0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: QuantisColors.royalBlue,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(Icons.account_balance_wallet, color: Colors.white, size: 20),
+                            ),
+                            const SizedBox(width: 10),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Caisse',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: QuantisColors.royalBlue),
+                                  ),
+                                  Text(
+                                    'Sessions & Compta',
+                                    style: TextStyle(fontSize: 10, color: QuantisColors.textMuted),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                if (PermissionHelper.canAccessComptabilite && PermissionHelper.canAccessExports)
+                  const SizedBox(width: 10),
+                if (PermissionHelper.canAccessExports)
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ExportsScreen())),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                        decoration: BoxDecoration(
+                          color: Colors.teal.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.teal.withValues(alpha: 0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.teal,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(Icons.table_view_rounded, color: Colors.white, size: 20),
+                            ),
+                            const SizedBox(width: 10),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Exports',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.teal),
+                                  ),
+                                  Text(
+                                    'CSV Excel & Fisc',
+                                    style: TextStyle(fontSize: 10, color: QuantisColors.textMuted),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            const Divider(),
+          ],
           if (PermissionHelper.canAccessProduits) ...[
             ListTile(
               leading: const Icon(Icons.category, color: QuantisColors.royalBlue),
@@ -318,7 +419,18 @@ class _MainShellState extends State<MainShell> {
             trailing: const Icon(Icons.chevron_right, color: QuantisColors.error),
             onTap: _logout,
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
+          Center(
+            child: Text(
+              'Quantis Stock Mobile • Version 1.0.2 (Build 3)',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: QuantisColors.textMuted.withValues(alpha: 0.8),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
         ],
       ),
     );
