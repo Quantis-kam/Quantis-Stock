@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import '../../../core/theme/quantis_theme.dart';
 import '../../../core/utils/permission_helper.dart';
@@ -37,7 +38,11 @@ class _UsersScreenState extends State<UsersScreen> {
         _depots = depotsList;
       });
     } catch (e) {
-      setState(() { _error = 'Impossible de charger les utilisateurs : $e'; });
+      if (e is DioException && e.response?.statusCode == 403) {
+        setState(() { _error = 'Accès refusé : vous ne disposez pas des permissions requises pour gérer les utilisateurs.'; });
+      } else {
+        setState(() { _error = 'Impossible de charger les utilisateurs : $e'; });
+      }
     } finally {
       setState(() { _loading = false; });
     }

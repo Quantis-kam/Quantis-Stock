@@ -110,6 +110,21 @@ public class Utilisateur {
      * Retourne les permissions effectives (custom ou rôle).
      */
     public Set<Permission> getPermissionsEffectives() {
+        if (role == Role.SUPER_ADMIN) {
+            return role.getPermissions();
+        }
+        if (role == Role.ADMIN) {
+            if (Boolean.TRUE.equals(permissionsCustom) && permissionsPersonnalisees != null && !permissionsPersonnalisees.isEmpty()) {
+                Set<Permission> perms = new HashSet<>(permissionsPersonnalisees);
+                perms.add(Permission.VOIR_UTILISATEURS);
+                perms.add(Permission.CRUD_UTILISATEURS);
+                perms.add(Permission.VOIR_AUDIT);
+                perms.add(Permission.CONFIG_SYSTEME);
+                perms.add(Permission.CHANGER_MDP);
+                return perms;
+            }
+            return role.getPermissions();
+        }
         if (Boolean.TRUE.equals(permissionsCustom) && permissionsPersonnalisees != null && !permissionsPersonnalisees.isEmpty()) {
             return permissionsPersonnalisees;
         }

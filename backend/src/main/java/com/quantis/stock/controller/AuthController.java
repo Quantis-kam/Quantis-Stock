@@ -37,7 +37,7 @@ public class AuthController {
      * POST /auth/register — Création d'un utilisateur (ADMIN)
      */
     @PostMapping("/register")
-    @PreAuthorize("hasAuthority('CRUD_UTILISATEURS')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN') or hasAuthority('CRUD_UTILISATEURS')")
     public ResponseEntity<ApiResponse<AuthResponse>> register(
             @Valid @RequestBody RegisterRequest request) {
         AuthResponse response = authService.register(request);

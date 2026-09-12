@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import '../../../core/theme/quantis_theme.dart';
 import '../data/user_service.dart';
@@ -32,7 +33,11 @@ class _AuditLogsScreenState extends State<AuditLogsScreen> {
         _logs = logsList;
       });
     } catch (e) {
-      setState(() { _error = 'Impossible de charger les logs d\'audit : $e'; });
+      if (e is DioException && e.response?.statusCode == 403) {
+        setState(() { _error = 'Accès refusé : vous ne disposez pas des permissions requises pour consulter les logs d\'audit.'; });
+      } else {
+        setState(() { _error = 'Impossible de charger les logs d\'audit : $e'; });
+      }
     } finally {
       setState(() { _loading = false; });
     }

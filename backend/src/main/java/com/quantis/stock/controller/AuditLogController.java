@@ -22,7 +22,7 @@ public class AuditLogController {
     private final UtilisateurRepository utilisateurRepository;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('VOIR_AUDIT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN') or hasAuthority('VOIR_AUDIT')")
     public ResponseEntity<ApiResponse<PagedResponse<AuditLog>>> findAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,

@@ -139,11 +139,16 @@ class ApiClient {
         return handler.next(options);
       },
       onError: (error, handler) async {
-        // Token expiré → tenter un refresh
-        if ((error.response?.statusCode == 401 || error.response?.statusCode == 403) &&
+        // Seul 401 Unauthorized (token expiré) tente un refresh de session
+        final statusCode = error.response?.statusCode;
+        final path = error.requestOptions.path;
+
+        if (statusCode == 401 &&
             _refreshToken != null &&
-            !_isRefreshing) {
+            !_isRefreshing &&
+            !path.contains('/auth/')) {
           _isRefreshing = true;
+          bool refreshSucceeded = false;
           try {
             final refreshDio = Dio(BaseOptions(baseUrl: ApiConstants.baseUrl));
             final res = await refreshDio.post('/auth/refresh', data: {
@@ -162,17 +167,29 @@ class ApiClient {
               await _writeStorage('refresh_token', newRefreshToken);
             }
 
-            _isRefreshing = false;
-
-            // Rejouer la requête originale avec le nouveau token
-            error.requestOptions.headers['Authorization'] = 'Bearer $_accessToken';
-            final retryResponse = await _dio!.fetch(error.requestOptions);
-            return handler.resolve(retryResponse);
+            refreshSucceeded = true;
           } catch (_) {
             _isRefreshing = false;
-            // Refresh échoué → session expirée
+            // Le refresh a échoué → session réellement expirée
             clearToken();
             onSessionExpired?.call();
+            return handler.next(error);
+          } finally {
+            _isRefreshing = false;
+          }
+
+          if (refreshSucceeded) {
+            try {
+              // Rejouer la requête originale avec le nouveau token
+              error.requestOptions.headers['Authorization'] = 'Bearer $_accessToken';
+              final retryResponse = await _dio!.fetch(error.requestOptions);
+              return handler.resolve(retryResponse);
+            } on DioException catch (retryErr) {
+              // Si la requête rejouée échoue (ex: 403 droit insuffisant), ne pas déconnecter l'utilisateur !
+              return handler.next(retryErr);
+            } catch (e) {
+              return handler.next(error);
+            }
           }
         }
         return handler.next(error);

@@ -220,6 +220,7 @@ public class DataInitializer implements CommandLineRunner {
             jdbcTemplate.update("UPDATE session_caisse SET entreprise_id = ? WHERE entreprise_id IS NULL", defaultEntId);
             jdbcTemplate.update("UPDATE mouvement_caisse SET entreprise_id = ? WHERE entreprise_id IS NULL", defaultEntId);
             jdbcTemplate.update("UPDATE utilisateur SET entreprise_id = ? WHERE entreprise_id IS NULL AND role != 'SUPER_ADMIN'", defaultEntId);
+            jdbcTemplate.update("UPDATE utilisateur SET permissions_custom = false WHERE role IN ('ADMIN', 'SUPER_ADMIN')");
         } catch (Exception e) {
             log.debug("Backfill entreprise notice: {}", e.getMessage());
         }

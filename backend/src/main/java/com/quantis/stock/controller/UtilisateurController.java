@@ -35,7 +35,7 @@ public class UtilisateurController {
     private final SecurityUtils securityUtils;
 
     @GetMapping
-    @PreAuthorize("hasAuthority('VOIR_UTILISATEURS')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN') or hasAuthority('VOIR_UTILISATEURS')")
     public ResponseEntity<ApiResponse<PagedResponse<Utilisateur>>> findAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
@@ -59,7 +59,7 @@ public class UtilisateurController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('VOIR_UTILISATEURS')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN') or hasAuthority('VOIR_UTILISATEURS')")
     public ResponseEntity<ApiResponse<Utilisateur>> findById(
             @PathVariable Long id,
             Authentication auth) {
@@ -83,7 +83,7 @@ public class UtilisateurController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('CRUD_UTILISATEURS')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN') or hasAuthority('CRUD_UTILISATEURS')")
     public ResponseEntity<ApiResponse<Utilisateur>> update(
             @PathVariable Long id,
             @Valid @RequestBody UserUpdateRequest request) {
@@ -125,7 +125,7 @@ public class UtilisateurController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('CRUD_UTILISATEURS')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN') or hasAuthority('CRUD_UTILISATEURS')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
         Utilisateur user = utilisateurRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "id", id));
@@ -144,7 +144,7 @@ public class UtilisateurController {
     }
 
     @PostMapping("/change-password")
-    @PreAuthorize("hasAuthority('CHANGER_MDP')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN') or hasAuthority('CHANGER_MDP')")
     public ResponseEntity<ApiResponse<Void>> changePassword(
             @Valid @RequestBody ChangePasswordRequest request,
             Authentication auth) {
@@ -169,7 +169,7 @@ public class UtilisateurController {
      * GET /users/{id}/permissions — Récupérer les permissions d'un utilisateur.
      */
     @GetMapping("/{id}/permissions")
-    @PreAuthorize("hasAuthority('CRUD_UTILISATEURS')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN') or hasAuthority('CRUD_UTILISATEURS') or hasAuthority('VOIR_UTILISATEURS')")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getPermissions(@PathVariable Long id) {
         Utilisateur user = utilisateurRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "id", id));
@@ -204,7 +204,7 @@ public class UtilisateurController {
      * PUT /users/{id}/permissions — Mettre à jour les permissions d'un utilisateur.
      */
     @PutMapping("/{id}/permissions")
-    @PreAuthorize("hasAuthority('CRUD_UTILISATEURS')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN') or hasAuthority('CRUD_UTILISATEURS')")
     public ResponseEntity<ApiResponse<Void>> updatePermissions(
             @PathVariable Long id,
             @RequestBody UserPermissionsRequest request) {
@@ -252,7 +252,7 @@ public class UtilisateurController {
      * GET /users/permissions/catalog — Catalogue de toutes les permissions groupées.
      */
     @GetMapping("/permissions/catalog")
-    @PreAuthorize("hasAuthority('CRUD_UTILISATEURS')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN') or hasAuthority('CRUD_UTILISATEURS')")
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getPermissionsCatalog() {
         List<Map<String, Object>> groups = new ArrayList<>();
 
