@@ -866,37 +866,39 @@ class _MainShellState extends State<MainShell> {
         child: Scaffold(
           drawer: _buildMobileDrawer(),
           body: _buildPage(_currentIndex, isWide),
-          bottomNavigationBar: NavigationBarTheme(
-            data: NavigationBarThemeData(
-              height: 64,
-              labelTextStyle: WidgetStateProperty.resolveWith((states) {
-                final isSelected = states.contains(WidgetState.selected);
-                return TextStyle(
-                  fontSize: 10,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                  color: isSelected ? QuantisColors.royalBlue : QuantisColors.textSecondary,
-                );
-              }),
-              iconTheme: WidgetStateProperty.resolveWith((states) {
-                final isSelected = states.contains(WidgetState.selected);
-                return IconThemeData(
-                  size: 21,
-                  color: isSelected ? QuantisColors.royalBlue : QuantisColors.textSecondary,
-                );
-              }),
-              indicatorColor: QuantisColors.royalBlue.withValues(alpha: 0.12),
-            ),
-            child: NavigationBar(
-              selectedIndex: _currentIndex,
-              onDestinationSelected: (i) => setState(() => _currentIndex = i),
-              labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-              destinations: items.map((item) => NavigationDestination(
-                icon: Icon(item.icon),
-                selectedIcon: Icon(item.selectedIcon),
-                label: item.label,
-              )).toList(),
-            ),
-          ),
+          bottomNavigationBar: items.length >= 2
+              ? NavigationBarTheme(
+                  data: NavigationBarThemeData(
+                    height: 64,
+                    labelTextStyle: WidgetStateProperty.resolveWith((states) {
+                      final isSelected = states.contains(WidgetState.selected);
+                      return TextStyle(
+                        fontSize: 10,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                        color: isSelected ? QuantisColors.royalBlue : QuantisColors.textSecondary,
+                      );
+                    }),
+                    iconTheme: WidgetStateProperty.resolveWith((states) {
+                      final isSelected = states.contains(WidgetState.selected);
+                      return IconThemeData(
+                        size: 21,
+                        color: isSelected ? QuantisColors.royalBlue : QuantisColors.textSecondary,
+                      );
+                    }),
+                    indicatorColor: QuantisColors.royalBlue.withValues(alpha: 0.12),
+                  ),
+                  child: NavigationBar(
+                    selectedIndex: _currentIndex,
+                    onDestinationSelected: (i) => setState(() => _currentIndex = i),
+                    labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+                    destinations: items.map((item) => NavigationDestination(
+                      icon: Icon(item.icon),
+                      selectedIcon: Icon(item.selectedIcon),
+                      label: item.label,
+                    )).toList(),
+                  ),
+                )
+              : null,
         ),
       );
     }
