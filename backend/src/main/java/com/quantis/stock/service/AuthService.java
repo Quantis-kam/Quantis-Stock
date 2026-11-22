@@ -34,7 +34,7 @@ public class AuthService {
     /**
      * Authentification par email + mot de passe.
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public AuthResponse login(LoginRequest request, String ipAddress) {
         Utilisateur user = utilisateurRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new BusinessException("Email ou mot de passe incorrect"));

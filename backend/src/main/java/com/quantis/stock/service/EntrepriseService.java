@@ -21,7 +21,7 @@ public class EntrepriseService {
     private final UtilisateurRepository utilisateurRepository;
     private final AuditService auditService;
 
-    @Transactional(readOnly = true)
+    @Transactional
     public Entreprise getEntrepriseCourante(String userEmail) {
         if (userEmail != null) {
             Utilisateur user = utilisateurRepository.findByEmail(userEmail).orElse(null);

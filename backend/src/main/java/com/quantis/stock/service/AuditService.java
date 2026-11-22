@@ -22,17 +22,24 @@ public class AuditService {
 
     public void logAction(Utilisateur utilisateur, String action, String entite,
                           Long entiteId, String details, String ipAddress) {
-        AuditLog auditLog = AuditLog.builder()
-                .utilisateur(utilisateur)
-                .action(action)
-                .entite(entite)
-                .entiteId(entiteId)
-                .details(details)
-                .ipAddress(ipAddress)
-                .build();
-        auditLogRepository.save(auditLog);
-        log.debug("Audit: {} {} {} [id={}] par {}", action, entite, entiteId,
-                utilisateur != null ? utilisateur.getEmail() : "system", ipAddress);
+        String safeIp = ipAddress != null && ipAddress.length() > 45
+                ? ipAddress.substring(0, 45)
+                : ipAddress;
+        try {
+            AuditLog auditLog = AuditLog.builder()
+                    .utilisateur(utilisateur)
+                    .action(action)
+                    .entite(entite)
+                    .entiteId(entiteId)
+                    .details(details)
+                    .ipAddress(safeIp)
+                    .build();
+            auditLogRepository.save(auditLog);
+            log.debug("Audit: {} {} {} [id={}] par {}", action, entite, entiteId,
+                    utilisateur != null ? utilisateur.getEmail() : "system", safeIp);
+        } catch (Exception e) {
+            log.warn("Échec enregistrement audit ({} {}): {}", action, entite, e.getMessage());
+        }
     }
 
     public void logAction(String action, String entite, Long entiteId, String details) {
