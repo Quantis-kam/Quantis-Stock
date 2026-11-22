@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 
+import '../../../core/constants/app_constants.dart';
 import 'quantis_voice_bridge.dart';
 import 'quantis_voice_native_service.dart';
 
@@ -103,27 +104,11 @@ class QuantisVoiceService {
     _stateController.add(newState);
   }
 
-  /// Initialise le mode Jarvis
+  /// Écoute de réveil en arrière-plan désactivée pour éviter toute demande
+  /// intempestive d'autorisation micro.
   void initJarvisMode() {
-    if (_initialized) return;
     _initialized = true;
-
-    try {
-      _setupCallbacks();
-      if (kIsWeb) {
-        if (VoiceBridge.isSupported) {
-          VoiceBridge.initJarvis();
-          _setState(VoiceState.standby);
-          debugPrint('[QuantisVoice] Mode Jarvis Web initialisé');
-        }
-      } else {
-        QuantisVoiceNativeService().initialize();
-        _setState(VoiceState.standby);
-        debugPrint('[QuantisVoice] Mode Jarvis Natif initialisé');
-      }
-    } catch (e) {
-      debugPrint('[QuantisVoice] Erreur init Jarvis: $e');
-    }
+    _setState(VoiceState.standby);
   }
 
   void _setupCallbacks() {
@@ -216,9 +201,14 @@ class QuantisVoiceService {
     }
   }
 
-  /// Démarre l'écoute vocale active
+  /// Démarre l'écoute vocale active (uniquement si le module IA Premium est activé)
   void startListening({String lang = 'fr-FR'}) {
+    if (!AppConstants.isQuantisAiPremiumEnabled) return;
     try {
+      if (!_initialized) {
+        _setupCallbacks();
+        _initialized = true;
+      }
       stopSpeaking();
       if (kIsWeb) {
         if (VoiceBridge.isSupported) {

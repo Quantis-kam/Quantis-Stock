@@ -86,6 +86,14 @@ class WhatsappShareHelper {
     return await platform.openWhatsAppDirect(phone: phone, message: message);
   }
 
+  /// Ouvre directement WhatsApp vers un numéro cible avec un message personnalisé
+  static Future<bool> sendDirectMessage({
+    required String phone,
+    required String message,
+  }) async {
+    return await platform.openWhatsAppDirect(phone: phone, message: message);
+  }
+
   /// Partage direct du fichier PDF généré vers WhatsApp / feuille de partage système
   static Future<void> sharePdfDocument(DocumentModel doc, {Map<String, dynamic>? entreprise}) async {
     await InvoicePdfGenerator.sharePdf(doc, entreprise: entreprise);

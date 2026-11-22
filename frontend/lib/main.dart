@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme/quantis_theme.dart';
+import 'core/auth/session_manager.dart';
+import 'core/constants/app_constants.dart';
 import 'core/network/api_client.dart';
 import 'core/utils/permission_helper.dart';
 import 'core/widgets/sync_indicator.dart';
@@ -23,15 +25,29 @@ import 'features/auth/presentation/users_screen.dart';
 import 'features/reports/presentation/exports_screen.dart';
 import 'features/auth/presentation/audit_logs_screen.dart';
 import 'features/auth/presentation/change_password_dialog.dart';
+import 'features/auth/presentation/pin_lock_screen.dart';
 import 'features/quantis_ai/presentation/quantis_ai_launcher.dart';
-import 'features/quantis_ai/services/quantis_voice_service.dart';
 import 'features/produits/presentation/produits_screen.dart';
 import 'features/admin/presentation/platform_admin_portal.dart';
-import 'features/auth/presentation/mobile_connect_dialog.dart';
-import 'features/auth/presentation/server_settings_dialog.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  SessionManager.instance.configure(
+    onSessionExpired: (reason) {
+      if (ApiClient.hasQuickPin && ApiClient.hasValidRefreshToken) {
+        ApiClient.lockSession(
+          reason:
+              'Verrouillé après ${AppConstants.sessionInactivityTimeout.inMinutes} min d\'inactivité',
+        );
+      } else {
+        ApiClient.clearToken(expiredMessage: reason);
+      }
+    },
+    onPersistLastActivity: ApiClient.saveLastActivity,
+    onProactiveRefresh: ApiClient.refreshSessionIfNeeded,
+    isAuthenticatedProvider: () =>
+        ApiClient.isAuthenticated && !ApiClient.isSessionLocked,
+  );
   await ApiClient.initialize();
   unawaited(ApiClient.autoConnectOnStartup());
   runApp(const ProviderScope(child: QuantisStockApp()));
@@ -44,39 +60,119 @@ class QuantisStockApp extends StatefulWidget {
   State<QuantisStockApp> createState() => _QuantisStockAppState();
 }
 
-class _QuantisStockAppState extends State<QuantisStockApp> {
+class _QuantisStockAppState extends State<QuantisStockApp>
+    with WidgetsBindingObserver {
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    HardwareKeyboard.instance.addHandler(_handleKeyEvent);
     ApiClient.authStateNotifier.addListener(_onAuthChanged);
-    // Auto-logout quand le refresh token expire
+    ApiClient.sessionLockedNotifier.addListener(_onLockChanged);
+    // Auto-logout quand le refresh token expire côté serveur
     ApiClient.onSessionExpired = () {
-      ApiClient.clearToken();
+      if (ApiClient.isAuthenticated) {
+        ApiClient.clearToken(
+          expiredMessage: 'Votre session a expiré. Veuillez vous reconnecter.',
+        );
+      }
     };
   }
 
+  bool _handleKeyEvent(KeyEvent event) {
+    if (ApiClient.isAuthenticated &&
+        !ApiClient.isSessionLocked &&
+        event is KeyDownEvent) {
+      SessionManager.instance.recordActivity();
+    }
+    return false;
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!ApiClient.isAuthenticated || ApiClient.isSessionLocked) return;
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.detached) {
+      SessionManager.instance.onAppBackgrounded();
+    } else if (state == AppLifecycleState.resumed) {
+      SessionManager.instance.onAppResumed();
+    }
+  }
+
   void _onAuthChanged() {
+    if (ApiClient.isAuthenticated && !ApiClient.isSessionLocked) {
+      if (!SessionManager.instance.isActive) {
+        SessionManager.instance.startSession();
+      }
+      if (ApiClient.pendingPinSetupPrompt) {
+        ApiClient.pendingPinSetupPrompt = false;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final navCtx = _navigatorKey.currentContext;
+          if (navCtx != null && ApiClient.isAuthenticated && !ApiClient.isSessionLocked) {
+            PinSetupDialog.show(navCtx, isPostLoginPrompt: true);
+          }
+        });
+      }
+    } else if (!ApiClient.isAuthenticated) {
+      SessionManager.instance.stopSession();
+    }
+    if (mounted) setState(() {});
+  }
+
+  void _onLockChanged() {
     if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    HardwareKeyboard.instance.removeHandler(_handleKeyEvent);
     ApiClient.authStateNotifier.removeListener(_onAuthChanged);
+    ApiClient.sessionLockedNotifier.removeListener(_onLockChanged);
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      key: ValueKey('${ApiClient.isAuthenticated}_${ApiClient.isSuperAdmin}'),
-      title: 'Quantis-Stock',
-      debugShowCheckedModeBanner: false,
-      theme: QuantisTheme.lightTheme,
-      darkTheme: QuantisTheme.darkTheme,
-      themeMode: ThemeMode.light,
-      home: ApiClient.isAuthenticated
-          ? (ApiClient.isSuperAdmin ? const PlatformAdminPortal() : const MainShell())
-          : const LoginScreen(),
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (_) {
+        if (ApiClient.isAuthenticated && !ApiClient.isSessionLocked) {
+          SessionManager.instance.recordActivity();
+        }
+      },
+      onPointerSignal: (_) {
+        if (ApiClient.isAuthenticated && !ApiClient.isSessionLocked) {
+          SessionManager.instance.recordActivity();
+        }
+      },
+      child: MaterialApp(
+        key: ValueKey('${ApiClient.isAuthenticated}_${ApiClient.isSuperAdmin}'),
+        navigatorKey: _navigatorKey,
+        title: 'Quantis-Stock',
+        debugShowCheckedModeBanner: false,
+        theme: QuantisTheme.lightTheme,
+        darkTheme: QuantisTheme.darkTheme,
+        themeMode: ThemeMode.light,
+        builder: (context, child) {
+          return Stack(
+            children: [
+              if (child != null) child,
+              if (ApiClient.isAuthenticated && ApiClient.isSessionLocked)
+                const Positioned.fill(child: PinLockScreen()),
+            ],
+          );
+        },
+        home: ApiClient.isAuthenticated
+            ? (ApiClient.isSuperAdmin
+                ? const PlatformAdminPortal()
+                : const MainShell())
+            : const LoginScreen(),
+      ),
     );
   }
 }
@@ -97,7 +193,13 @@ class _MainShellState extends State<MainShell> {
       if (PermissionHelper.canViewDashboard)
         _NavItem(Icons.insights_outlined, Icons.insights, 'Tableau de bord', ActionDashboardScreen(onNavigate: _onNavigateToModule)),
       if (PermissionHelper.canAccessAi)
-        _NavItem(Icons.auto_awesome_outlined, Icons.auto_awesome, 'Quantis AI', const QuantisAiScreen()),
+        _NavItem(
+          Icons.auto_awesome_outlined,
+          Icons.auto_awesome,
+          'Quantis AI',
+          const QuantisAiScreen(),
+          isPremium: true,
+        ),
       if (PermissionHelper.canAccessPos)
         _NavItem(Icons.point_of_sale_outlined, Icons.point_of_sale, 'Caisse POS', const PosScreen()),
       if (PermissionHelper.canAccessDocuments)
@@ -179,18 +281,42 @@ class _MainShellState extends State<MainShell> {
               ),
               child: ListTile(
                 leading: const Icon(Icons.auto_awesome, color: QuantisColors.luxuryGold),
-                title: const Text(
-                  'Quantis AI Assistant',
-                  style: TextStyle(
-                    color: QuantisColors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
+                title: Row(
+                  children: [
+                    const Flexible(
+                      child: Text(
+                        'Quantis AI Assistant',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: QuantisColors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: QuantisColors.luxuryGold,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Text(
+                        'PREMIUM',
+                        style: TextStyle(
+                          color: QuantisColors.blueDark,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 subtitle: const Text(
-                  'Expert en stock & actions automatisées',
+                  'Abonnement supérieur requis • Copilote IA & Stock',
                   style: TextStyle(color: Colors.white70, fontSize: 12),
                 ),
-                trailing: const Icon(Icons.chevron_right, color: QuantisColors.luxuryGold),
+                trailing: const Icon(Icons.lock_outline_rounded, color: QuantisColors.luxuryGold),
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const QuantisAiScreen()),
@@ -412,6 +538,14 @@ class _MainShellState extends State<MainShell> {
             const Divider(),
           ],
           ListTile(
+            leading: const Icon(Icons.pin_outlined, color: QuantisColors.royalBlue),
+            title: const Text('Code PIN rapide (4 chiffres)'),
+            subtitle: const Text('Déverrouillage rapide sans retaper le mot de passe'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => PinSetupDialog.show(context),
+          ),
+          const Divider(),
+          ListTile(
             leading: const Icon(Icons.lock_reset, color: QuantisColors.royalBlue),
             title: const Text('Modifier mon mot de passe'),
             subtitle: const Text('Sécurité et accès au compte'),
@@ -432,7 +566,7 @@ class _MainShellState extends State<MainShell> {
           const SizedBox(height: 20),
           Center(
             child: Text(
-              'Quantis Stock Mobile • Version 1.0.3 (Build 4)',
+              'Quantis Stock • Version 1.1.0',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
@@ -527,12 +661,6 @@ class _MainShellState extends State<MainShell> {
         onNavigate: (i) => setState(() => _currentIndex = i),
         onOpenAi: () => showQuantisAiChat(context),
       ),
-      const SingleActivator(LogicalKeyboardKey.space, control: true): () {
-        QuantisVoiceService().startListening();
-      },
-      const SingleActivator(LogicalKeyboardKey.space, meta: true): () {
-        QuantisVoiceService().startListening();
-      },
     };
 
     final Widget content;
@@ -624,6 +752,25 @@ class _MainShellState extends State<MainShell> {
                                           color: isSelected ? QuantisColors.luxuryGold : Colors.white70,
                                         ),
                                       ),
+                                      if (item.isPremium) ...[
+                                        const SizedBox(height: 3),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                          decoration: BoxDecoration(
+                                            color: QuantisColors.luxuryGold,
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: const Text(
+                                            'PRO',
+                                            style: TextStyle(
+                                              fontSize: 8,
+                                              fontWeight: FontWeight.w900,
+                                              color: QuantisColors.blueDark,
+                                              letterSpacing: 0.3,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ],
                                   ),
                                 ),
@@ -639,6 +786,14 @@ class _MainShellState extends State<MainShell> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Tooltip(
+                              message: 'Code PIN rapide (4 chiffres)',
+                              child: IconButton(
+                                icon: const Icon(Icons.pin_outlined, color: QuantisColors.luxuryGold, size: 22),
+                                onPressed: () => PinSetupDialog.show(context),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Tooltip(
                               message: 'Modifier mon mot de passe',
                               child: IconButton(
                                 icon: const Icon(Icons.vpn_key_outlined, color: Colors.white70, size: 22),
@@ -648,14 +803,6 @@ class _MainShellState extends State<MainShell> {
                                     builder: (_) => const ChangePasswordDialog(),
                                   );
                                 },
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Tooltip(
-                              message: 'Connecter un téléphone (Point d\'accès / QR Code)',
-                              child: IconButton(
-                                icon: const Icon(Icons.qr_code_scanner, color: QuantisColors.luxuryGold, size: 22),
-                                onPressed: () => MobileConnectDialog.show(context),
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -739,17 +886,33 @@ class _MainShellState extends State<MainShell> {
                                         color: QuantisColors.luxuryGold.withValues(alpha: 0.6),
                                       ),
                                     ),
-                                    child: const Row(
+                                    child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Icon(Icons.auto_awesome, size: 16, color: QuantisColors.royalBlue),
-                                        SizedBox(width: 6),
-                                        Text(
+                                        const Icon(Icons.auto_awesome, size: 16, color: QuantisColors.royalBlue),
+                                        const SizedBox(width: 6),
+                                        const Text(
                                           'Assistant Quantis IA',
                                           style: TextStyle(
                                             fontSize: 12,
                                             fontWeight: FontWeight.w600,
                                             color: QuantisColors.royalBlue,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                          decoration: BoxDecoration(
+                                            color: QuantisColors.luxuryGold,
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: const Text(
+                                            'PRO',
+                                            style: TextStyle(
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.w900,
+                                              color: QuantisColors.blueDark,
+                                            ),
                                           ),
                                         ),
                                       ],
@@ -804,8 +967,8 @@ class _MainShellState extends State<MainShell> {
                                     ),
                                   ),
                                   onSelected: (val) {
-                                    if (val == 'server') {
-                                      ServerSettingsDialog.show(context);
+                                    if (val == 'pin') {
+                                      PinSetupDialog.show(context);
                                     } else if (val == 'password') {
                                       showDialog(
                                         context: context,
@@ -838,12 +1001,12 @@ class _MainShellState extends State<MainShell> {
                                     ),
                                     const PopupMenuDivider(),
                                     const PopupMenuItem(
-                                      value: 'server',
+                                      value: 'pin',
                                       child: Row(
                                         children: [
-                                          Icon(Icons.dns_rounded, size: 18, color: QuantisColors.royalBlue),
+                                          Icon(Icons.pin_outlined, size: 18, color: QuantisColors.royalBlue),
                                           SizedBox(width: 10),
-                                          Text('Serveur API / Détecter'),
+                                          Text('Code PIN rapide (4 chiffres)'),
                                         ],
                                       ),
                                     ),
@@ -1002,6 +1165,23 @@ class _MainShellState extends State<MainShell> {
                     ListTile(
                       leading: Icon(item.icon, color: QuantisColors.royalBlue),
                       title: Text(item.label, style: const TextStyle(fontWeight: FontWeight.w500)),
+                      trailing: item.isPremium
+                          ? Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: QuantisColors.luxuryGold,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Text(
+                                'PREMIUM',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w900,
+                                  color: QuantisColors.blueDark,
+                                ),
+                              ),
+                            )
+                          : null,
                       onTap: () {
                         Navigator.pop(context);
                         Navigator.push(
@@ -1011,21 +1191,13 @@ class _MainShellState extends State<MainShell> {
                       },
                     ),
                   const Divider(),
-                  ValueListenableBuilder<String>(
-                    valueListenable: ApiClient.serverUrlNotifier,
-                    builder: (_, currentUrl, __) => ListTile(
-                      leading: const Icon(Icons.dns_rounded, color: QuantisColors.royalBlue),
-                      title: const Text('Serveur API / Détecter le PC'),
-                      subtitle: Text(
-                        currentUrl.replaceAll('/api/v1', ''),
-                        style: const TextStyle(fontSize: 11, color: QuantisColors.textMuted),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      onTap: () {
-                        Navigator.pop(context);
-                        ServerSettingsDialog.show(context);
-                      },
-                    ),
+                  ListTile(
+                    leading: const Icon(Icons.pin_outlined, color: QuantisColors.royalBlue),
+                    title: const Text('Code PIN rapide (4 chiffres)'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      PinSetupDialog.show(context);
+                    },
                   ),
                   ListTile(
                     leading: const Icon(Icons.lock_reset, color: QuantisColors.royalBlue),
@@ -1061,5 +1233,12 @@ class _NavItem {
   final IconData selectedIcon;
   final String label;
   final Widget page;
-  const _NavItem(this.icon, this.selectedIcon, this.label, this.page);
+  final bool isPremium;
+  const _NavItem(
+    this.icon,
+    this.selectedIcon,
+    this.label,
+    this.page, {
+    this.isPremium = false,
+  });
 }

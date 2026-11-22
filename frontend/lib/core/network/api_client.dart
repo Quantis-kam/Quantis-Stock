@@ -2,7 +2,10 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../auth/pin_service.dart';
+import '../auth/session_manager.dart';
 import '../constants/app_constants.dart';
+import '../sync/sync_manager.dart';
 import 'server_discovery_service.dart';
 
 /// État courant de la connexion au serveur backend.
@@ -13,6 +16,7 @@ enum ServerConnectionStatus { unknown, searching, connected, offline }
 /// et la redécouverte automatique du serveur en cas de changement de réseau (Wi-Fi / Point d'accès).
 class ApiClient {
   static final ValueNotifier<bool> authStateNotifier = ValueNotifier<bool>(false);
+  static final ValueNotifier<bool> sessionLockedNotifier = ValueNotifier<bool>(false);
   static final ValueNotifier<String> serverUrlNotifier =
       ValueNotifier<String>(ApiConstants.baseUrl);
   static final ValueNotifier<ServerConnectionStatus> serverStatusNotifier =
@@ -31,11 +35,18 @@ class ApiClient {
   static String? _logoUrl;
   static String? _entrepriseId;
   static bool _isSuperAdmin = false;
+  static bool _hasQuickPin = false;
   static List<String> _userPermissions = [];
   static List<String> _recentServerUrls = [];
   static bool _isRefreshing = false;
   static Future<DiscoveredServer?>? _activeDiscovery;
   static DateTime? _lastAutoDiscoveryAt;
+
+  /// Indique qu'il faut proposer la création du code PIN rapide juste après la connexion.
+  static bool pendingPinSetupPrompt = false;
+
+  /// Raison affichée sur l'écran de verrouillage PIN.
+  static String? lockReasonMessage;
 
   static final _storage = const FlutterSecureStorage(
     webOptions: WebOptions(
@@ -45,6 +56,76 @@ class ApiClient {
   );
   static final Map<String, String> _memoryStorage = {};
   static Function? onSessionExpired;
+
+  /// Message informatif affiché sur l'écran de connexion lorsqu'une session a expiré.
+  static String? sessionExpiredMessage;
+
+  static String? consumeSessionExpiredMessage() {
+    final msg = sessionExpiredMessage;
+    sessionExpiredMessage = null;
+    return msg;
+  }
+
+  static Future<void> saveLastActivity(DateTime ts) async {
+    await _writeStorage(
+      'last_activity_at',
+      ts.toUtc().millisecondsSinceEpoch.toString(),
+    );
+  }
+
+  static Future<DateTime?> readLastActivity() async {
+    final raw = await _readStorage('last_activity_at');
+    if (raw == null || raw.trim().isEmpty) return null;
+    final ms = int.tryParse(raw.trim());
+    if (ms == null) return null;
+    return DateTime.fromMillisecondsSinceEpoch(ms, isUtc: true).toLocal();
+  }
+
+  /// Mémorise le dernier email utilisé pour éviter au client de le retaper.
+  static Future<void> saveRememberedEmail(String email) async {
+    final clean = email.trim();
+    if (clean.isEmpty) return;
+    await _writeStorage('remembered_email', clean);
+  }
+
+  static Future<String?> readRememberedEmail() async {
+    return await _readStorage('remembered_email');
+  }
+
+  static Future<void> refreshQuickPinStatus() async {
+    _hasQuickPin = await PinService.instance.hasPin(_userEmail);
+  }
+
+  /// Verrouille l'application avec le code PIN rapide sans perdre la session ni l'écran courant.
+  static void lockSession({String? reason}) {
+    if (!isAuthenticated) return;
+    SessionManager.instance.stopSession();
+    lockReasonMessage = reason ?? 'Déverrouillage rapide';
+    sessionLockedNotifier.value = true;
+  }
+
+  /// Déverrouille la session après validation du code PIN 4 chiffres.
+  static Future<bool> unlockSessionWithPin() async {
+    if (!isAuthenticated) return false;
+
+    if (_refreshToken != null &&
+        JwtTokenUtils.isExpired(_refreshToken) &&
+        JwtTokenUtils.isExpired(_accessToken)) {
+      clearToken(
+        expiredMessage: 'Votre session a expiré. Veuillez vous reconnecter.',
+      );
+      return false;
+    }
+
+    // Rafraîchir le JWT silencieusement si l'access token a expiré pendant la veille
+    await refreshSessionIfNeeded();
+    if (!isAuthenticated) return false;
+
+    lockReasonMessage = null;
+    sessionLockedNotifier.value = false;
+    SessionManager.instance.startSession();
+    return true;
+  }
 
   static List<String> get recentServerUrls => List.unmodifiable(_recentServerUrls);
 
@@ -76,8 +157,10 @@ class ApiClient {
   static Future<void> saveTokens(String access, String refresh) async {
     _accessToken = access;
     _refreshToken = refresh;
+    sessionExpiredMessage = null;
     await _writeStorage('access_token', access);
     await _writeStorage('refresh_token', refresh);
+    await saveLastActivity(DateTime.now());
   }
 
   static Future<void> initialize() async {
@@ -110,25 +193,129 @@ class ApiClient {
             .toList();
       }
 
+      final defaultUrl = ApiConstants.defaultBaseUrl;
+      final isProductionCloud = defaultUrl.toLowerCase().startsWith('https://');
       final savedUrl = await _readStorage('custom_server_url');
-      // Sur mobile, ignorer uniquement "localhost" (invalide sur téléphone).
-      // En revanche 127.0.0.1 reste valide (câble USB avec adb reverse) et localhost reste valide sur PC.
-      final isInvalidMobileUrl =
-          ApiConstants.isMobilePlatform && (savedUrl?.contains('localhost') == true);
-      if (savedUrl != null && savedUrl.trim().isNotEmpty && !isInvalidMobileUrl) {
-        ApiConstants.baseUrl = ApiConstants.normalizeApiUrl(savedUrl);
-      } else {
-        if (isInvalidMobileUrl) {
+
+      if (isProductionCloud) {
+        // En production Cloud (APK & stock.quantisbf.com), toujours utiliser l'API officielle
+        // et purger toute ancienne IP locale enregistrée en développement.
+        if (savedUrl != null && savedUrl.trim().isNotEmpty) {
           await _deleteStorage('custom_server_url');
         }
-        ApiConstants.baseUrl = ApiConstants.defaultBaseUrl;
+        ApiConstants.baseUrl = defaultUrl;
+      } else {
+        // Sur mobile local, ignorer uniquement "localhost" (invalide sur téléphone).
+        final isInvalidMobileUrl =
+            ApiConstants.isMobilePlatform && (savedUrl?.contains('localhost') == true);
+        if (savedUrl != null && savedUrl.trim().isNotEmpty && !isInvalidMobileUrl) {
+          ApiConstants.baseUrl = ApiConstants.normalizeApiUrl(savedUrl);
+        } else {
+          if (isInvalidMobileUrl) {
+            await _deleteStorage('custom_server_url');
+          }
+          ApiConstants.baseUrl = defaultUrl;
+        }
       }
       _dio?.options.baseUrl = ApiConstants.baseUrl;
       serverUrlNotifier.value = ApiConstants.baseUrl;
+
+      // Contrôle strict de l'expiration / verrouillage PIN au démarrage (app fermée / rouverte)
+      if (_accessToken != null) {
+        _hasQuickPin = await PinService.instance.hasPin(_userEmail);
+        final lastActivity = await readLastActivity();
+        final isInactiveTooLong = lastActivity == null ||
+            DateTime.now().difference(lastActivity) >=
+                AppConstants.sessionInactivityTimeout;
+
+        final accessExpired = JwtTokenUtils.isExpired(_accessToken);
+        final refreshExpired =
+            _refreshToken == null || JwtTokenUtils.isExpired(_refreshToken);
+
+        // Si même le refresh token (7 jours) est expiré → reconnexion complète obligatoire
+        if (accessExpired && refreshExpired) {
+          clearToken(
+            expiredMessage: 'Votre session a expiré. Veuillez vous reconnecter.',
+          );
+          return;
+        }
+
+        // Si le client a activé le code PIN rapide (4 chiffres) → verrouillage instantané à l'ouverture
+        if (_hasQuickPin) {
+          lockReasonMessage = isInactiveTooLong
+              ? 'Verrouillé après ${AppConstants.sessionInactivityTimeout.inMinutes} min d\'inactivité'
+              : 'Déverrouillage rapide';
+          sessionLockedNotifier.value = true;
+          authStateNotifier.value = true;
+          return;
+        }
+
+        // Sinon (pas encore de PIN) → déconnexion classique après 30 min d'inactivité
+        if (isInactiveTooLong) {
+          clearToken(
+            expiredMessage:
+                'Votre session a expiré après ${AppConstants.sessionInactivityTimeout.inMinutes} minutes d\'inactivité. Veuillez vous reconnecter.',
+          );
+          return;
+        }
+
+        SessionManager.instance.restoreSession(lastActivity);
+      }
     } catch (e) {
       debugPrint('Notice storage read in initialize: $e');
     }
     authStateNotifier.value = isAuthenticated;
+  }
+
+  /// Rafraîchit silencieusement le JWT quand l'utilisateur est actif et que
+  /// le token d'accès arrive à moins de 2 minutes de son expiration.
+  static Future<void> refreshSessionIfNeeded() async {
+    if (!isAuthenticated || _refreshToken == null || _isRefreshing) return;
+    final needsRefresh = JwtTokenUtils.isExpired(
+      _accessToken,
+      skew: AppConstants.proactiveRefreshThreshold,
+    );
+    if (!needsRefresh) return;
+
+    if (JwtTokenUtils.isExpired(_refreshToken)) {
+      SessionManager.instance.expireSession(
+        customMessage: 'Votre session a expiré. Veuillez vous reconnecter.',
+      );
+      return;
+    }
+
+    _isRefreshing = true;
+    try {
+      final refreshDio = Dio(BaseOptions(
+        baseUrl: ApiConstants.baseUrl,
+        connectTimeout: const Duration(seconds: 15),
+        receiveTimeout: const Duration(seconds: 20),
+      ));
+      final res = await refreshDio.post('/auth/refresh', data: {
+        'refreshToken': _refreshToken,
+      });
+      final newAccessToken = res.data['data']['accessToken'] as String?;
+      final newRefreshToken = res.data['data']['refreshToken'] as String?;
+      if (newAccessToken != null && newAccessToken.isNotEmpty) {
+        _accessToken = newAccessToken;
+        await _writeStorage('access_token', newAccessToken);
+      }
+      if (newRefreshToken != null && newRefreshToken.isNotEmpty) {
+        _refreshToken = newRefreshToken;
+        await _writeStorage('refresh_token', newRefreshToken);
+      }
+    } on DioException catch (e) {
+      final code = e.response?.statusCode;
+      if (code == 400 || code == 401 || code == 402 || code == 403) {
+        clearToken(
+          expiredMessage: 'Votre session a expiré. Veuillez vous reconnecter.',
+        );
+      }
+    } catch (_) {
+      // Erreur réseau passagère : on ne déconnecte pas l'utilisateur actif
+    } finally {
+      _isRefreshing = false;
+    }
   }
 
   /// Met à jour l'URL serveur EN PLACE (tous les services utilisant ApiClient.instance
@@ -333,7 +520,9 @@ class ApiClient {
           } catch (_) {
             _isRefreshing = false;
             // Le refresh a échoué → session réellement expirée
-            clearToken();
+            clearToken(
+              expiredMessage: 'Votre session a expiré. Veuillez vous reconnecter.',
+            );
             onSessionExpired?.call();
             return handler.next(error);
           } finally {
@@ -356,7 +545,9 @@ class ApiClient {
           }
         } else if ((statusCode == 401 || statusCode == 403) && !path.contains('/auth/')) {
           // Token absent ou invalide sans possibilité de refresh
-          clearToken();
+          clearToken(
+            expiredMessage: 'Votre session a expiré. Veuillez vous reconnecter.',
+          );
           onSessionExpired?.call();
         }
         return handler.next(error);
@@ -443,7 +634,7 @@ class ApiClient {
     } catch (_) {}
   }
 
-  static void clearToken() {
+  static void clearToken({String? expiredMessage}) {
     _accessToken = null;
     _refreshToken = null;
     _userRole = null;
@@ -451,15 +642,23 @@ class ApiClient {
     _userEmail = null;
     _entrepriseId = null;
     _isSuperAdmin = false;
+    _hasQuickPin = false;
     _entrepriseNom = null;
     _entrepriseMonnaie = null;
     _formatFacture = null;
     _logoUrl = null;
     _userPermissions = [];
+    sessionExpiredMessage = expiredMessage;
+    lockReasonMessage = null;
+    pendingPinSetupPrompt = false;
+    SessionManager.instance.stopSession();
+    SyncManager.instance.stop();
+    sessionLockedNotifier.value = false;
     authStateNotifier.value = false;
     try {
       _deleteStorage('access_token');
       _deleteStorage('refresh_token');
+      _deleteStorage('last_activity_at');
       _deleteStorage('user_role');
       _deleteStorage('user_name');
       _deleteStorage('user_email');
@@ -474,6 +673,10 @@ class ApiClient {
   }
 
   static bool get isAuthenticated => _accessToken != null;
+  static bool get isSessionLocked => sessionLockedNotifier.value;
+  static bool get hasQuickPin => _hasQuickPin;
+  static bool get hasValidRefreshToken =>
+      _refreshToken != null && !JwtTokenUtils.isExpired(_refreshToken);
   static bool get isSuperAdmin => _isSuperAdmin || _userRole == 'SUPER_ADMIN' || _userRole == 'ROLE_SUPER_ADMIN';
   static String? get entrepriseId => _entrepriseId;
   static String? get userRole => _userRole;

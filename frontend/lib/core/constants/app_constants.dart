@@ -138,4 +138,19 @@ class AppConstants {
   static const double tvaDefault = 18.0;
   static const int seuilAlerteDefault = 10;
   static const int pageSize = 20;
+
+  /// Active l'accès au module Quantis AI (réservé aux abonnements Premium).
+  /// Quand `false`, tous les points d'entrée IA affichent l'offre Premium
+  /// et aucune écoute micro / reconnaissance vocale n'est initialisée.
+  static const bool isQuantisAiPremiumEnabled = false;
+
+  /// Contact commercial Quantis pour les passages en offre Premium.
+  static const String supportWhatsAppPhone = '22665189261';
+  static const String supportPhoneDisplay = '+226 65 18 92 61';
+
+  /// Expiration automatique de session après inactivité (app ouverte, en arrière-plan ou fermée).
+  static const Duration sessionInactivityTimeout = Duration(minutes: 30);
+
+  /// Seuil avant expiration du JWT d'accès pour rafraîchir silencieusement tant que l'utilisateur est actif.
+  static const Duration proactiveRefreshThreshold = Duration(minutes: 2);
 }

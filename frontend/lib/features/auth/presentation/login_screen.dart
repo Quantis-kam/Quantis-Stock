@@ -3,12 +3,11 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../core/auth/pin_service.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/sync/sync_manager.dart';
 import '../../../core/theme/quantis_theme.dart';
-import 'mobile_connect_dialog.dart';
-import 'server_settings_dialog.dart';
 
 /// Écran de connexion — Phase 2 Flutter (Auth JWT).
 class LoginScreen extends StatefulWidget {
@@ -27,6 +26,23 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _loading = false;
   bool _obscure = true;
   String? _error;
+  String? _sessionNotice;
+
+  @override
+  void initState() {
+    super.initState();
+    _sessionNotice = ApiClient.consumeSessionExpiredMessage();
+    _loadRememberedEmail();
+  }
+
+  Future<void> _loadRememberedEmail() async {
+    final saved = await ApiClient.readRememberedEmail();
+    if (mounted && saved != null && saved.isNotEmpty && _emailCtrl.text.isEmpty) {
+      setState(() {
+        _emailCtrl.text = saved;
+      });
+    }
+  }
 
   Future<Response<dynamic>> _postLogin(String baseUrl) {
     final isCloud = baseUrl.toLowerCase().startsWith('https://');
@@ -42,7 +58,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+      _sessionNotice = null;
+    });
 
     try {
       Response<dynamic> response;
@@ -93,6 +113,15 @@ class _LoginScreenState extends State<LoginScreen> {
         debugPrint('Notice setUserInfo: $e');
       }
 
+      // Mémoriser l'email pour les prochaines connexions et vérifier le code PIN rapide
+      final loggedEmail = (userMap['email'] as String?) ?? _emailCtrl.text.trim();
+      await ApiClient.saveRememberedEmail(loggedEmail);
+      await ApiClient.refreshQuickPinStatus();
+      if (!ApiClient.hasQuickPin &&
+          await PinService.instance.shouldPromptPinSetup(loggedEmail)) {
+        ApiClient.pendingPinSetupPrompt = true;
+      }
+
       // Démarrer la sync (en arrière-plan, sans bloquer la navigation)
       try {
         SyncManager.instance.start();
@@ -133,7 +162,7 @@ class _LoginScreenState extends State<LoginScreen> {
           _error = 'Email ou mot de passe incorrect';
         } else if (e.type == DioExceptionType.connectionTimeout ||
                    e.type == DioExceptionType.connectionError) {
-          _error = 'Impossible de joindre le serveur (${ApiConstants.baseUrl}).';
+          _error = 'Impossible de joindre le serveur. Vérifiez votre connexion Internet et réessayez.';
         } else {
           _error = 'Erreur de connexion: ${e.message}';
         }
@@ -230,6 +259,40 @@ class _LoginScreenState extends State<LoginScreen> {
                       style: TextStyle(color: QuantisColors.textMuted, fontSize: 13)),
                   const SizedBox(height: 28),
 
+                  if (_sessionNotice != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: QuantisColors.warning.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: QuantisColors.warning.withValues(alpha: 0.45),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.timer_off_outlined,
+                            color: Colors.amber.shade900,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              _sessionNotice!,
+                              style: TextStyle(
+                                color: Colors.amber.shade900,
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
                   if (_error != null) ...[
                     Container(
                       padding: const EdgeInsets.all(12),
@@ -238,33 +301,11 @@ class _LoginScreenState extends State<LoginScreen> {
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: QuantisColors.error.withValues(alpha: 0.3)),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Row(
                         children: [
-                          Row(
-                            children: [
-                              Icon(Icons.error_outline, color: QuantisColors.error, size: 20),
-                              const SizedBox(width: 8),
-                              Expanded(child: Text(_error!, style: TextStyle(color: QuantisColors.error, fontSize: 13))),
-                            ],
-                          ),
-                          if (_error!.contains('serveur') || _error!.contains('connexion')) ...[
-                            const SizedBox(height: 8),
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: TextButton.icon(
-                                onPressed: _showServerSettingsDialog,
-                                icon: const Icon(Icons.wifi_find, size: 16),
-                                label: const Text('Détecter / Configurer le serveur', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: QuantisColors.royalBlue,
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                  backgroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                ),
-                              ),
-                            ),
-                          ],
+                          const Icon(Icons.error_outline, color: QuantisColors.error, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(_error!, style: const TextStyle(color: QuantisColors.error, fontSize: 13))),
                         ],
                       ),
                     ),
@@ -310,72 +351,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           : const Text('Se connecter'),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  ValueListenableBuilder<String>(
-                    valueListenable: ApiClient.serverUrlNotifier,
-                    builder: (_, currentUrl, __) {
-                      return ValueListenableBuilder<ServerConnectionStatus>(
-                        valueListenable: ApiClient.serverStatusNotifier,
-                        builder: (_, status, __) {
-                          final displayHost = currentUrl.replaceAll('/api/v1', '');
-                          final Widget statusIcon;
-                          final Color statusColor;
-                          final String labelText;
-
-                          switch (status) {
-                            case ServerConnectionStatus.searching:
-                              statusIcon = const SizedBox(
-                                width: 14,
-                                height: 14,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              );
-                              statusColor = QuantisColors.royalBlue;
-                              labelText = 'Recherche automatique du serveur...';
-                              break;
-                            case ServerConnectionStatus.connected:
-                              statusIcon = const Icon(Icons.check_circle, size: 16, color: Colors.green);
-                              statusColor = Colors.green.shade800;
-                              labelText = 'Serveur connecté : $displayHost';
-                              break;
-                            case ServerConnectionStatus.offline:
-                              statusIcon = const Icon(Icons.wifi_off_rounded, size: 16, color: Colors.orange);
-                              statusColor = Colors.orange.shade900;
-                              labelText = 'Serveur hors ligne : $displayHost';
-                              break;
-                            case ServerConnectionStatus.unknown:
-                              statusIcon = const Icon(Icons.settings_ethernet, size: 16);
-                              statusColor = QuantisColors.textMuted;
-                              labelText = 'Serveur : $displayHost';
-                              break;
-                          }
-
-                          return TextButton.icon(
-                            onPressed: _showServerSettingsDialog,
-                            icon: statusIcon,
-                            label: Text(
-                              labelText,
-                              style: TextStyle(fontSize: 12, color: statusColor),
-                            ),
-                            style: TextButton.styleFrom(
-                              foregroundColor: statusColor,
-                            ),
-                          );
-                        },
-                      );
-                    },
-                  ),
-                  if (!ApiConstants.isCloudUrl) ...[
-                    const SizedBox(height: 8),
-                    OutlinedButton.icon(
-                      onPressed: () => MobileConnectDialog.show(context),
-                      icon: const Icon(Icons.wifi_tethering, size: 16, color: QuantisColors.royalBlue),
-                      label: const Text('Connecter un téléphone (Point d\'accès / QR Code)', style: TextStyle(fontSize: 12)),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: QuantisColors.royalBlue,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),
@@ -383,11 +358,6 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       ),
     );
-  }
-
-  Future<void> _showServerSettingsDialog() async {
-    await ServerSettingsDialog.show(context);
-    if (mounted) setState(() {});
   }
 }
 

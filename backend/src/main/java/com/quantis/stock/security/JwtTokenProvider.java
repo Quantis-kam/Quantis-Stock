@@ -41,6 +41,7 @@ public class JwtTokenProvider {
                 .subject(email)
                 .claim("userId", userId)
                 .claim("role", role)
+                .claim("type", "access")
                 .issuedAt(now)
                 .expiration(expiry)
                 .signWith(secretKey)
@@ -56,10 +57,28 @@ public class JwtTokenProvider {
 
         return Jwts.builder()
                 .subject(email)
+                .claim("type", "refresh")
                 .issuedAt(now)
                 .expiration(expiry)
                 .signWith(secretKey)
                 .compact();
+    }
+
+    /**
+     * Indique si le token est un refresh token (et non un access token).
+     */
+    public boolean isRefreshToken(String token) {
+        try {
+            Claims claims = parseClaims(token);
+            String type = claims.get("type", String.class);
+            if (type != null) {
+                return "refresh".equals(type);
+            }
+            // Rétrocompatibilité avec les anciens tokens sans claim "type"
+            return claims.get("role", String.class) == null;
+        } catch (Exception ex) {
+            return false;
+        }
     }
 
     /**

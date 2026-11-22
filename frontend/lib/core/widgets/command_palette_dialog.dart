@@ -117,9 +117,9 @@ class _CommandPaletteDialogState extends State<CommandPaletteDialog> {
     if (PermissionHelper.canAccessAi)
       {
         'title': 'Assistant Intelligent Quantis IA',
-        'subtitle': 'Interroger votre stock et piloter votre commerce en langage naturel',
-        'icon': Icons.chat_bubble_outline,
-        'color': QuantisColors.royalBlue,
+        'subtitle': 'Module Premium — Passez au forfait supérieur pour activer l\'IA',
+        'icon': Icons.workspace_premium_rounded,
+        'color': QuantisColors.goldDark,
         'type': 'ai',
       },
   ];
@@ -368,7 +368,23 @@ class _CommandPaletteDialogState extends State<CommandPaletteDialog> {
       ),
       title: Text(action['title'] as String, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
       subtitle: Text(action['subtitle'] as String, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-      trailing: const Icon(Icons.chevron_right, size: 16, color: Colors.grey),
+      trailing: action['type'] == 'ai'
+          ? Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(
+                color: QuantisColors.luxuryGold,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Text(
+                'PRO',
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w900,
+                  color: QuantisColors.blueDark,
+                ),
+              ),
+            )
+          : const Icon(Icons.chevron_right, size: 16, color: Colors.grey),
       onTap: () {
         Navigator.pop(context);
         final type = action['type'];

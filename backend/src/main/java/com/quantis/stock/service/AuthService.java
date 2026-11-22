@@ -122,10 +122,11 @@ public class AuthService {
     /**
      * Rafraîchissement du token d'accès.
      */
+    @Transactional(readOnly = true)
     public AuthResponse refreshToken(RefreshTokenRequest request) {
         String refreshToken = request.getRefreshToken();
 
-        if (!jwtTokenProvider.validateToken(refreshToken)) {
+        if (!jwtTokenProvider.validateToken(refreshToken) || !jwtTokenProvider.isRefreshToken(refreshToken)) {
             throw new BusinessException("Refresh token invalide ou expiré");
         }
 
@@ -135,6 +136,22 @@ public class AuthService {
 
         if (!user.getActif()) {
             throw new BusinessException("Compte désactivé");
+        }
+
+        boolean isSuperAdmin = user.getRole() == Role.SUPER_ADMIN;
+        if (!isSuperAdmin && user.getEntreprise() != null) {
+            com.quantis.stock.model.Entreprise ent = user.getEntreprise();
+            if (!ent.isLicenceValide() || "EXPIREE".equalsIgnoreCase(ent.getStatutLicence())) {
+                throw new com.quantis.stock.exception.LicenceExpireeException(
+                        ent.getNom(),
+                        ent.getDateExpirationLicence(),
+                        ent.getCodeUssdRenouvellement(),
+                        ent.getMontantAbonnement()
+                );
+            }
+            if (Boolean.FALSE.equals(ent.getEstActif())) {
+                throw new BusinessException("Votre entreprise est actuellement suspendue.");
+            }
         }
 
         return buildAuthResponse(user);

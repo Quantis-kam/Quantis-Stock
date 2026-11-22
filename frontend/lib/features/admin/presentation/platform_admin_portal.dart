@@ -3,6 +3,7 @@ import '../../../core/theme/quantis_theme.dart';
 import '../../../core/network/api_client.dart';
 import '../../auth/presentation/audit_logs_screen.dart';
 import '../../auth/presentation/change_password_dialog.dart';
+import '../../auth/presentation/pin_lock_screen.dart';
 import 'super_admin_screen.dart';
 
 /// Portail exclusif et autonome du Super-Administrateur Plateforme Quantis SaaS.
@@ -210,6 +211,14 @@ class _PlatformAdminPortalState extends State<PlatformAdminPortal> {
                         ),
                       ],
                     ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.pin_outlined, color: QuantisColors.luxuryGold, size: 18),
+                    tooltip: 'Code PIN rapide (4 chiffres)',
+                    onPressed: () {
+                      if (isDrawer) Navigator.of(context).pop();
+                      PinSetupDialog.show(context);
+                    },
                   ),
                   IconButton(
                     icon: const Icon(Icons.vpn_key_outlined, color: Colors.white70, size: 18),

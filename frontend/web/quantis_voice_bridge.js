@@ -532,19 +532,8 @@
     },
     
     initJarvis: function() {
-      const self = this;
+      // Écoute de réveil (double clap) désactivée pour ne jamais solliciter le micro automatiquement.
       VoiceSynth.init();
-      
-      // Démarrer la détection de claps en arrière-plan
-      ClapDetector.start(function() {
-        console.log('[QuantisVoice] 👏👏 Double clap confirmé ! Démarrage automatique de l\'écoute...');
-        self.startListening();
-        if (self.listeners.onWakeUp) {
-          self.listeners.onWakeUp();
-        }
-      });
-      
-      console.log('[QuantisVoice] Initialisé. Tapez 2 fois dans les mains 👏👏 ou cliquez le micro.');
       return true;
     },
     
@@ -642,29 +631,8 @@
     init: function() { return this.isSupported(); }
   };
 
-  // ═══════════════════════════════════════════
-  // AUTO-UNLOCK AUDIOCONTEXT SUR INTERACTION
-  // ═══════════════════════════════════════════
-  function autoUnlockAudio() {
-    if (ClapDetector.audioContext && ClapDetector.audioContext.state === 'suspended') {
-      ClapDetector.audioContext.resume().then(function() {
-        console.log('[QuantisVoice] AudioContext débloqué avec succès suite à interaction.');
-      });
-    }
-    // Si la surveillance des claps n'était pas active
-    if (!ClapDetector.isRunning) {
-      ClapDetector.start(function() {
-        if (window.QuantisVoice.listeners.onWakeUp) {
-          window.QuantisVoice.listeners.onWakeUp();
-        }
-      });
-    }
-  }
-
+  // Écoute automatique en arrière-plan désactivée (pas de demande micro au clic/touche).
   if (typeof window !== 'undefined') {
-    window.addEventListener('click', autoUnlockAudio, { passive: true });
-    window.addEventListener('keydown', autoUnlockAudio, { passive: true });
-    window.addEventListener('touchstart', autoUnlockAudio, { passive: true });
     window.addEventListener('load', function() {
       window.QuantisVoice.synth.init();
     });
