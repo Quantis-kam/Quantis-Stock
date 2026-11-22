@@ -102,7 +102,10 @@
           console.log('[ClapDetector] Surveillance active. AudioContext state:', self.audioContext.state);
         })
         .catch(function(err) {
-          console.warn('[ClapDetector] Micro en attente d\'autorisation utilisateur:', err.message);
+          if (!self._warned) {
+            self._warned = true;
+            console.log('[ClapDetector] Statut micro:', err.message);
+          }
         });
     },
     
@@ -414,12 +417,24 @@
       function loadVoices() {
         const voices = window.speechSynthesis.getVoices();
         if (voices.length > 0) {
+          // Priorité 1: Henri (voix masculine française naturelle recommandée)
           self._selectedVoice = voices.find(function(v) {
-            return v.lang.startsWith('fr') && 
-                   (v.name.includes('Google') || v.name.includes('Natural') || 
-                    v.name.includes('Thomas') || v.name.includes('Henri') ||
-                    v.name.includes('Audrey'));
-          }) || voices.find(function(v) { return v.lang.startsWith('fr'); });
+            return v.lang.startsWith('fr') && v.name.toLowerCase().includes('henri');
+          }) || 
+          // Priorité 2: Voix Natural ou Online française
+          voices.find(function(v) {
+            return v.lang.startsWith('fr') && (v.name.includes('Natural') || v.name.includes('Online'));
+          }) ||
+          // Priorité 3: Voix Google français ou Thomas
+          voices.find(function(v) {
+            return v.lang.startsWith('fr') && (v.name.includes('Google') || v.name.includes('Thomas'));
+          }) || 
+          // Priorité 4: Toute voix française
+          voices.find(function(v) { return v.lang.startsWith('fr'); });
+
+          if (self._selectedVoice) {
+            console.log('[VoiceSynth] Voix française active :', self._selectedVoice.name);
+          }
         }
       }
       

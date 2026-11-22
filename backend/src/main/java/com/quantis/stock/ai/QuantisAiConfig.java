@@ -34,6 +34,12 @@ public class QuantisAiConfig {
     /** Modèle Ollama à utiliser */
     private String ollamaModel = "qwen3:8b";
 
+    /** URL de base pour OpenJarvis (mode agent) */
+    private String openjarvisHost = "http://localhost:8000";
+
+    /** Modèle ou agent OpenJarvis */
+    private String openjarvisModel = "default";
+
     /** Température (0.0 = déterministe, 1.0 = créatif) */
     private double temperature = 0.3;
 

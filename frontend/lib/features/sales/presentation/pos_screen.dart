@@ -30,7 +30,8 @@ class _PosScreenState extends State<PosScreen> {
 
   // Panier
   final List<Map<String, dynamic>> _panier = [];
-  double _remiseGlobale = 0;
+  final double _remiseGlobale = 0;
+  bool _isDesktopCartCollapsed = false;
 
   @override
   void initState() {
@@ -211,10 +212,10 @@ class _PosScreenState extends State<PosScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final bool isWide = MediaQuery.of(context).size.width >= 950;
+    final bool isWide = MediaQuery.of(context).size.width >= 900;
     final bool isCaisseOuverte = _sessionCaisse != null && _sessionCaisse!['statut'] == 'OUVERTE';
-
     final bool isMobile = MediaQuery.of(context).size.width < 750;
+    final int totalArticles = _panier.fold<double>(0, (s, i) => s + (i['quantite'] as double)).toInt();
 
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
@@ -242,8 +243,11 @@ class _PosScreenState extends State<PosScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(isCaisseOuverte ? Icons.check_circle : Icons.warning_amber,
-                      size: 13, color: isCaisseOuverte ? QuantisColors.success : QuantisColors.warning),
+                  Icon(
+                    isCaisseOuverte ? Icons.check_circle : Icons.warning_amber,
+                    size: 13,
+                    color: isCaisseOuverte ? QuantisColors.success : QuantisColors.warning,
+                  ),
                   const SizedBox(width: 4),
                   Text(
                     isCaisseOuverte ? 'Ouverte' : 'Fermée',
@@ -259,6 +263,18 @@ class _PosScreenState extends State<PosScreen> {
           ],
         ),
         actions: [
+          // Sur mobile / compact, bouton rapide pour ouvrir le panier
+          if (!isWide)
+            IconButton(
+              icon: Badge(
+                isLabelVisible: _panier.isNotEmpty,
+                label: Text('$totalArticles'),
+                backgroundColor: QuantisColors.royalBlue,
+                child: const Icon(Icons.shopping_cart_outlined),
+              ),
+              tooltip: 'Voir le panier',
+              onPressed: _openCartModal,
+            ),
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Actualiser',
@@ -271,184 +287,192 @@ class _PosScreenState extends State<PosScreen> {
           : Column(
               children: [
                 // Barre de Contrôle Supérieure (Dépôt, Client, Recherche)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  color: Colors.white,
-                  child: isMobile
-                      ? Column(
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: DropdownButtonFormField<int>(
-                                    value: _selectedDepotId,
-                                    isExpanded: true,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Dépôt Vente',
-                                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                    ),
-                                    items: _depots.map((d) {
-                                      return DropdownMenuItem<int>(
-                                        value: d['id'] as int,
-                                        child: Text(d['nom'] ?? 'Dépôt', overflow: TextOverflow.ellipsis),
-                                      );
-                                    }).toList(),
-                                    onChanged: (val) => setState(() => _selectedDepotId = val),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: DropdownButtonFormField<int?>(
-                                    value: _selectedClientId,
-                                    isExpanded: true,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Client',
-                                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                    ),
-                                    items: [
-                                      const DropdownMenuItem<int?>(
-                                        value: null,
-                                        child: Text('Divers / Comptoir', style: TextStyle(fontStyle: FontStyle.italic), overflow: TextOverflow.ellipsis),
-                                      ),
-                                      ..._clients.map((c) {
-                                        return DropdownMenuItem<int?>(
-                                          value: c['id'] as int,
-                                          child: Text(c['nom'] ?? 'Client', overflow: TextOverflow.ellipsis),
-                                        );
-                                      }),
-                                    ],
-                                    onChanged: (val) => setState(() => _selectedClientId = val),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            TextField(
-                              decoration: InputDecoration(
-                                hintText: 'Scanner code-barres ou rechercher article...',
-                                prefixIcon: const Icon(Icons.search, size: 20),
-                                suffixIcon: _searchQuery.isNotEmpty
-                                    ? IconButton(
-                                        icon: const Icon(Icons.clear, size: 18),
-                                        onPressed: () => setState(() => _searchQuery = ''),
-                                      )
-                                    : null,
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              ),
-                              onChanged: (val) => setState(() => _searchQuery = val),
-                            ),
-                          ],
-                        )
-                      : Row(
-                          children: [
-                            // Sélecteur Dépôt
-                            SizedBox(
-                              width: 180,
-                              child: DropdownButtonFormField<int>(
-                                value: _selectedDepotId,
-                                isExpanded: true,
-                                decoration: const InputDecoration(
-                                  labelText: 'Dépôt Vente',
-                                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                ),
-                                items: _depots.map((d) {
-                                  return DropdownMenuItem<int>(
-                                    value: d['id'] as int,
-                                    child: Text(d['nom'] ?? 'Dépôt', overflow: TextOverflow.ellipsis),
-                                  );
-                                }).toList(),
-                                onChanged: (val) => setState(() => _selectedDepotId = val),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
+                _buildTopControls(isMobile),
 
-                            // Sélecteur Client
-                            SizedBox(
-                              width: 220,
-                              child: DropdownButtonFormField<int?>(
-                                value: _selectedClientId,
-                                isExpanded: true,
-                                decoration: const InputDecoration(
-                                  labelText: 'Client',
-                                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                ),
-                                items: [
-                                  const DropdownMenuItem<int?>(
-                                    value: null,
-                                    child: Text('Client Divers / Comptoir', style: TextStyle(fontStyle: FontStyle.italic)),
-                                  ),
-                                  ..._clients.map((c) {
-                                    return DropdownMenuItem<int?>(
-                                      value: c['id'] as int,
-                                      child: Text(c['nom'] ?? 'Client', overflow: TextOverflow.ellipsis),
-                                    );
-                                  }),
-                                ],
-                                onChanged: (val) => setState(() => _selectedClientId = val),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-
-                            // Champ de recherche / Code-barres
-                            Expanded(
-                              child: TextField(
-                                decoration: InputDecoration(
-                                  hintText: 'Scanner code-barres ou rechercher article (Nom, SKU)...',
-                                  prefixIcon: const Icon(Icons.search, size: 20),
-                                  suffixIcon: _searchQuery.isNotEmpty
-                                      ? IconButton(
-                                          icon: const Icon(Icons.clear, size: 18),
-                                          onPressed: () => setState(() => _searchQuery = ''),
-                                        )
-                                      : null,
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                ),
-                                onChanged: (val) => setState(() => _searchQuery = val),
-                              ),
-                            ),
-                          ],
-                        ),
-                ),
-
-                // Corps Principal
+                // Corps Principal : Catalogue en pleine largeur sur mobile !
                 Expanded(
                   child: isWide
                       ? Row(
                           children: [
                             // Colonne Gauche : Catalogue Produits
-                            Expanded(flex: 6, child: _buildCatalogSection()),
-                            // Colonne Droite : Panier
-                            SizedBox(width: 380, child: _buildCartSection(isWide: true)),
+                            Expanded(child: _buildCatalogSection(isMobile: false)),
+                            // Colonne Droite : Panier latéral (normal ou rétracté)
+                            if (!_isDesktopCartCollapsed)
+                              SizedBox(width: 380, child: _buildCartSection(isWide: true))
+                            else
+                              _buildCollapsedDesktopCartBar(),
                           ],
                         )
-                      : Column(
-                          children: [
-                            Expanded(child: _buildCatalogSection()),
-                            Container(
-                              height: 250,
-                              decoration: const BoxDecoration(
-                                color: Colors.white,
-                                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
-                              ),
-                              child: _buildCartSection(isWide: false),
-                            ),
-                          ],
+                      : _buildCatalogSection(isMobile: true),
+                ),
+              ],
+            ),
+      // Sur mobile/compact, barre d'action panier discrète et extensible au bas
+      bottomNavigationBar: isWide ? null : _buildMobileCartBar(),
+    );
+  }
+
+  /// Barre de contrôle supérieure (Dépôt, Client, Recherche)
+  Widget _buildTopControls(bool isMobile) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 10 : 16, vertical: isMobile ? 6 : 8),
+      color: Colors.white,
+      child: isMobile
+          ? Column(
+              children: [
+                Row(
+                  children: [
+                    // Sélecteur Dépôt compact
+                    Expanded(
+                      child: DropdownButtonFormField<int>(
+                        value: _selectedDepotId,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Dépôt',
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                         ),
+                        items: _depots.map((d) {
+                          return DropdownMenuItem<int>(
+                            value: d['id'] as int,
+                            child: Text(d['nom'] ?? 'Dépôt', overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
+                          );
+                        }).toList(),
+                        onChanged: (val) => setState(() => _selectedDepotId = val),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Sélecteur Client compact
+                    Expanded(
+                      child: DropdownButtonFormField<int?>(
+                        value: _selectedClientId,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Client',
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                        ),
+                        items: [
+                          const DropdownMenuItem<int?>(
+                            value: null,
+                            child: Text('Comptoir', style: TextStyle(fontStyle: FontStyle.italic, fontSize: 12), overflow: TextOverflow.ellipsis),
+                          ),
+                          ..._clients.map((c) {
+                            return DropdownMenuItem<int?>(
+                              value: c['id'] as int,
+                              child: Text(c['nom'] ?? 'Client', overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
+                            );
+                          }),
+                        ],
+                        onChanged: (val) => setState(() => _selectedClientId = val),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                // Champ de recherche compact
+                TextField(
+                  decoration: InputDecoration(
+                    hintText: 'Scanner code-barres ou rechercher article...',
+                    prefixIcon: const Icon(Icons.search, size: 18),
+                    isDense: true,
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, size: 16),
+                            onPressed: () => setState(() => _searchQuery = ''),
+                          )
+                        : null,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  ),
+                  onChanged: (val) => setState(() => _searchQuery = val),
+                ),
+              ],
+            )
+          : Row(
+              children: [
+                // Sélecteur Dépôt
+                SizedBox(
+                  width: 180,
+                  child: DropdownButtonFormField<int>(
+                    value: _selectedDepotId,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Dépôt Vente',
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    ),
+                    items: _depots.map((d) {
+                      return DropdownMenuItem<int>(
+                        value: d['id'] as int,
+                        child: Text(d['nom'] ?? 'Dépôt', overflow: TextOverflow.ellipsis),
+                      );
+                    }).toList(),
+                    onChanged: (val) => setState(() => _selectedDepotId = val),
+                  ),
+                ),
+                const SizedBox(width: 12),
+
+                // Sélecteur Client
+                SizedBox(
+                  width: 220,
+                  child: DropdownButtonFormField<int?>(
+                    value: _selectedClientId,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Client',
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    ),
+                    items: [
+                      const DropdownMenuItem<int?>(
+                        value: null,
+                        child: Text('Client Divers / Comptoir', style: TextStyle(fontStyle: FontStyle.italic)),
+                      ),
+                      ..._clients.map((c) {
+                        return DropdownMenuItem<int?>(
+                          value: c['id'] as int,
+                          child: Text(c['nom'] ?? 'Client', overflow: TextOverflow.ellipsis),
+                        );
+                      }),
+                    ],
+                    onChanged: (val) => setState(() => _selectedClientId = val),
+                  ),
+                ),
+                const SizedBox(width: 12),
+
+                // Champ de recherche / Code-barres
+                Expanded(
+                  child: TextField(
+                    decoration: InputDecoration(
+                      hintText: 'Scanner code-barres ou rechercher article (Nom, SKU)...',
+                      prefixIcon: const Icon(Icons.search, size: 20),
+                      isDense: true,
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear, size: 18),
+                              onPressed: () => setState(() => _searchQuery = ''),
+                            )
+                          : null,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                    onChanged: (val) => setState(() => _searchQuery = val),
+                  ),
                 ),
               ],
             ),
     );
   }
 
-  Widget _buildCatalogSection() {
+  /// Section Catalogue des Produits (plein écran sur mobile)
+  Widget _buildCatalogSection({required bool isMobile}) {
     final filtered = _produitsFiltres;
 
     return Column(
       children: [
         // Filtres Catégories
         Container(
-          height: 48,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          height: 42,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           color: Colors.white,
           child: ListView(
             scrollDirection: Axis.horizontal,
@@ -456,8 +480,9 @@ class _PosScreenState extends State<PosScreen> {
               Padding(
                 padding: const EdgeInsets.only(right: 6),
                 child: FilterChip(
-                  label: const Text('Tous'),
+                  label: const Text('Tous', style: TextStyle(fontSize: 12)),
                   selected: _selectedCategorieId == null,
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
                   onSelected: (_) => setState(() => _selectedCategorieId = null),
                 ),
               ),
@@ -466,8 +491,9 @@ class _PosScreenState extends State<PosScreen> {
                 return Padding(
                   padding: const EdgeInsets.only(right: 6),
                   child: FilterChip(
-                    label: Text(cat['nom'] ?? ''),
+                    label: Text(cat['nom'] ?? '', style: const TextStyle(fontSize: 12)),
                     selected: isSelected,
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
                     onSelected: (_) => setState(() => _selectedCategorieId = isSelected ? null : cat['id']),
                   ),
                 );
@@ -476,7 +502,7 @@ class _PosScreenState extends State<PosScreen> {
           ),
         ),
 
-        // Grille de Produits
+        // Grille de Produits généreuse et aérée
         Expanded(
           child: filtered.isEmpty
               ? Center(
@@ -490,12 +516,12 @@ class _PosScreenState extends State<PosScreen> {
                   ),
                 )
               : GridView.builder(
-                  padding: const EdgeInsets.all(12),
-                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 220,
-                    childAspectRatio: 0.85,
-                    crossAxisSpacing: 10,
-                    mainAxisSpacing: 10,
+                  padding: EdgeInsets.all(isMobile ? 8 : 12),
+                  gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: isMobile ? 180 : 220,
+                    childAspectRatio: isMobile ? 0.92 : 0.88,
+                    crossAxisSpacing: isMobile ? 8 : 10,
+                    mainAxisSpacing: isMobile ? 8 : 10,
                   ),
                   itemCount: filtered.length,
                   itemBuilder: (_, i) {
@@ -505,66 +531,110 @@ class _PosScreenState extends State<PosScreen> {
                     final num prix = p['prixVente'] ?? 0;
                     final num? stock = p['stockCourant'];
 
+                    // Nombre d'exemplaires déjà dans le panier
+                    final cartMatch = _panier.firstWhere(
+                      (item) => item['produitId'] == p['id'],
+                      orElse: () => {},
+                    );
+                    final num inCartQte = (cartMatch['quantite'] as num?) ?? 0;
+
                     return Card(
-                      elevation: 1.5,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      elevation: 1,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: inCartQte > 0
+                            ? const BorderSide(color: QuantisColors.royalBlue, width: 1.5)
+                            : BorderSide(color: Colors.grey.shade200),
+                      ),
                       child: InkWell(
                         borderRadius: BorderRadius.circular(12),
                         onTap: () => _ajouterAuPanier(p),
                         child: Padding(
-                          padding: const EdgeInsets.all(12),
+                          padding: EdgeInsets.all(isMobile ? 8 : 10),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Vignette / Icone
-                              Center(
-                                child: Container(
-                                  width: 60,
-                                  height: 60,
-                                  decoration: BoxDecoration(
-                                    color: QuantisColors.royalBlue.withValues(alpha: 0.08),
-                                    shape: BoxShape.circle,
+                              // Vignette / Icône + Badge si dans le panier
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Container(
+                                    width: isMobile ? 38 : 46,
+                                    height: isMobile ? 38 : 46,
+                                    decoration: BoxDecoration(
+                                      color: QuantisColors.royalBlue.withValues(alpha: 0.08),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      Icons.shopping_bag,
+                                      color: QuantisColors.royalBlue,
+                                      size: isMobile ? 20 : 24,
+                                    ),
                                   ),
-                                  child: const Icon(Icons.shopping_bag, color: QuantisColors.royalBlue, size: 28),
-                                ),
+                                  if (inCartQte > 0)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: QuantisColors.royalBlue,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        'x${inCartQte.toInt()}',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ),
+                                ],
                               ),
                               const Spacer(),
 
                               // Nom et SKU
                               Text(
                                 nom,
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: isMobile ? 12 : 13,
+                                ),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
-                              Text(
-                                sku,
-                                style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
-                              ),
-                              const SizedBox(height: 6),
+                              if (sku.isNotEmpty)
+                                Text(
+                                  sku,
+                                  style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              const SizedBox(height: 4),
 
                               // Prix et Badge Stock
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(
-                                    '$prix F',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 14,
-                                      color: QuantisColors.royalBlue,
+                                  Flexible(
+                                    child: Text(
+                                      '$prix F',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: isMobile ? 13 : 14,
+                                        color: QuantisColors.royalBlue,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
                                   if (stock != null)
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                                       decoration: BoxDecoration(
                                         color: (stock > 5 ? QuantisColors.success : QuantisColors.warning)
                                             .withValues(alpha: 0.15),
-                                        borderRadius: BorderRadius.circular(6),
+                                        borderRadius: BorderRadius.circular(5),
                                       ),
                                       child: Text(
-                                        '$stock en stock',
+                                        '$stock',
                                         style: TextStyle(
                                           fontSize: 9,
                                           fontWeight: FontWeight.bold,
@@ -586,7 +656,207 @@ class _PosScreenState extends State<PosScreen> {
     );
   }
 
-  Widget _buildCartSection({bool isWide = true}) {
+  /// Barre d'action Panier au bas de l'écran pour mobile/tablette (hauteur réduite à ~56px)
+  Widget _buildMobileCartBar() {
+    final int totalArticles = _panier.fold<double>(0, (s, i) => s + (i['quantite'] as double)).toInt();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 10,
+            offset: const Offset(0, -3),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            // Zone cliquable pour ouvrir la feuille complète du panier
+            InkWell(
+              onTap: _openCartModal,
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Badge(
+                      isLabelVisible: _panier.isNotEmpty,
+                      label: Text('$totalArticles'),
+                      backgroundColor: QuantisColors.royalBlue,
+                      child: Container(
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(
+                          color: QuantisColors.royalBlue.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.shopping_cart, color: QuantisColors.royalBlue, size: 18),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _panier.isEmpty ? 'Panier vide' : '$totalArticles article${totalArticles > 1 ? 's' : ''}',
+                          style: TextStyle(fontSize: 10, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
+                        ),
+                        Text(
+                          '${_totalPanier.toStringAsFixed(0)} FCFA',
+                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: QuantisColors.royalBlue),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const Spacer(),
+            if (_panier.isNotEmpty) ...[
+              OutlinedButton(
+                onPressed: _openCartModal,
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  side: const BorderSide(color: QuantisColors.royalBlue),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                child: const Text('Panier', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton.icon(
+                onPressed: _lancerEncaissement,
+                icon: const Icon(Icons.check_circle_outline, size: 16),
+                label: const Text('ENCAISSER', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: QuantisColors.success,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  elevation: 2,
+                ),
+              ),
+            ] else ...[
+              Text(
+                'Touchez un article pour l\'ajouter',
+                style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Colors.grey.shade500),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Ouvre la vue complète du panier sous forme de BottomSheet rétractable
+  void _openCartModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (modalCtx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            final double height = MediaQuery.of(context).size.height * 0.78;
+            return Container(
+              height: height,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                boxShadow: [
+                  BoxShadow(color: Colors.black26, blurRadius: 15, offset: Offset(0, -4)),
+                ],
+              ),
+              child: Column(
+                children: [
+                  // Poignée de glissement (drag handle)
+                  Center(
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 10, bottom: 4),
+                      width: 44,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: _buildCartSection(
+                      isWide: false,
+                      isModal: true,
+                      onCartChanged: () {
+                        setModalState(() {});
+                        setState(() {});
+                      },
+                      onCloseModal: () => Navigator.pop(modalCtx),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  /// Panier latéral replié pour desktop
+  Widget _buildCollapsedDesktopCartBar() {
+    final int totalArticles = _panier.fold<double>(0, (s, i) => s + (i['quantite'] as double)).toInt();
+    return Container(
+      width: 72,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(left: BorderSide(color: Colors.grey.shade200)),
+      ),
+      child: Column(
+        children: [
+          const SizedBox(height: 12),
+          IconButton(
+            icon: const Icon(Icons.chevron_left, color: QuantisColors.royalBlue),
+            tooltip: 'Afficher le panier',
+            onPressed: () => setState(() => _isDesktopCartCollapsed = false),
+          ),
+          const SizedBox(height: 8),
+          Badge(
+            isLabelVisible: _panier.isNotEmpty,
+            label: Text('$totalArticles'),
+            backgroundColor: QuantisColors.royalBlue,
+            child: const Icon(Icons.shopping_cart, color: QuantisColors.royalBlue, size: 24),
+          ),
+          const Spacer(),
+          RotatedBox(
+            quarterTurns: 3,
+            child: Text(
+              '${_totalPanier.toStringAsFixed(0)} FCFA',
+              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: QuantisColors.royalBlue),
+            ),
+          ),
+          const SizedBox(height: 16),
+          IconButton(
+            icon: const Icon(Icons.payment, color: QuantisColors.success),
+            tooltip: 'Encaisser',
+            onPressed: _panier.isEmpty ? null : () => _lancerEncaissement(),
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+
+  /// Section Panier (latérale sur grand écran ou modal sur petit écran)
+  Widget _buildCartSection({
+    bool isWide = true,
+    bool isModal = false,
+    VoidCallback? onCartChanged,
+    VoidCallback? onCloseModal,
+  }) {
     return Container(
       color: Colors.white,
       child: Column(
@@ -606,13 +876,32 @@ class _PosScreenState extends State<PosScreen> {
                   'Panier (${_panier.length})',
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: QuantisColors.royalBlue),
                 ),
+                if (isWide) ...[
+                  const SizedBox(width: 4),
+                  IconButton(
+                    icon: const Icon(Icons.chevron_right, size: 20, color: QuantisColors.textMuted),
+                    tooltip: 'Masquer le panier',
+                    onPressed: () => setState(() => _isDesktopCartCollapsed = true),
+                  ),
+                ],
                 const Spacer(),
                 if (_panier.isNotEmpty)
                   TextButton.icon(
-                    onPressed: _viderPanier,
+                    onPressed: () {
+                      _viderPanier();
+                      onCartChanged?.call();
+                    },
                     icon: const Icon(Icons.delete_sweep, size: 16, color: QuantisColors.error),
                     label: const Text('Vider', style: TextStyle(fontSize: 12, color: QuantisColors.error)),
                   ),
+                if (isModal) ...[
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 20),
+                    tooltip: 'Fermer',
+                    onPressed: onCloseModal ?? () => Navigator.pop(context),
+                  ),
+                ],
               ],
             ),
           ),
@@ -666,7 +955,10 @@ class _PosScreenState extends State<PosScreen> {
                               icon: const Icon(Icons.remove_circle_outline, size: 20),
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(),
-                              onPressed: () => _modifierQuantite(i, -1),
+                              onPressed: () {
+                                _modifierQuantite(i, -1);
+                                onCartChanged?.call();
+                              },
                             ),
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -676,14 +968,20 @@ class _PosScreenState extends State<PosScreen> {
                               icon: const Icon(Icons.add_circle_outline, size: 20, color: QuantisColors.royalBlue),
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(),
-                              onPressed: () => _modifierQuantite(i, 1),
+                              onPressed: () {
+                                _modifierQuantite(i, 1);
+                                onCartChanged?.call();
+                              },
                             ),
                             const SizedBox(width: 4),
                             IconButton(
                               icon: const Icon(Icons.close, size: 18, color: Colors.grey),
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(),
-                              onPressed: () => _supprimerDuPanier(i),
+                              onPressed: () {
+                                _supprimerDuPanier(i);
+                                onCartChanged?.call();
+                              },
                             ),
                           ],
                         ),
@@ -718,7 +1016,14 @@ class _PosScreenState extends State<PosScreen> {
                   width: double.infinity,
                   height: 44,
                   child: ElevatedButton.icon(
-                    onPressed: _panier.isEmpty ? null : _lancerEncaissement,
+                    onPressed: _panier.isEmpty
+                        ? null
+                        : () {
+                            if (isModal && onCloseModal != null) {
+                              onCloseModal();
+                            }
+                            _lancerEncaissement();
+                          },
                     icon: const Icon(Icons.payment, size: 18),
                     label: Text(
                       isWide ? 'ENCAISSER (F10)' : 'ENCAISSER',

@@ -74,7 +74,10 @@ class QuantisAiNotifier extends StateNotifier<QuantisAiState> {
     } catch (_) {}
   }
 
-  Future<ChatUiMessage?> sendMessage(String text) async {
+  Future<ChatUiMessage?> sendMessage(
+    String text, {
+    void Function(ChatStreamEvent event)? onEvent,
+  }) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty || state.isLoading) return null;
 
@@ -93,32 +96,65 @@ class QuantisAiNotifier extends StateNotifier<QuantisAiState> {
     );
 
     try {
-      final response = await QuantisAiService.chat(
+      ChatUiMessage? finalAssistantMsg;
+
+      await for (final event in QuantisAiService.chatStream(
         trimmed,
         conversationId: state.conversationId,
-      );
+      )) {
+        onEvent?.call(event);
 
-      final isError = response.type == 'ERROR';
-      final assistantMsg = ChatUiMessage(
-        id: _uuid.v4(),
-        text: response.message,
-        sender: MessageSender.assistant,
-        timestamp: DateTime.now(),
-        isError: isError,
-        suggestions: response.suggestions,
-      );
+        if (event.type == ChatStreamEventType.complete && event.response != null) {
+          final response = event.response!;
+          final isError = response.type == 'ERROR';
 
-      state = state.copyWith(
-        messages: [...state.messages, assistantMsg],
-        isLoading: false,
-        conversationId: response.conversationId.isNotEmpty
-            ? response.conversationId
-            : state.conversationId,
-        currentSuggestions: response.suggestions.isNotEmpty
-            ? response.suggestions
-            : state.currentSuggestions,
-      );
-      return assistantMsg;
+          final actions = response.actions.map((act) {
+            final isSuccess = act['success'] == true || act['success'] == 'true';
+            return ActionPayload(
+              title: act['name']?.toString() ?? 'Action',
+              description: act['description']?.toString(),
+              status: isSuccess ? ActionStatus.success : ActionStatus.failed,
+            );
+          }).toList();
+
+          finalAssistantMsg = ChatUiMessage(
+            id: _uuid.v4(),
+            text: response.message,
+            sender: MessageSender.assistant,
+            timestamp: DateTime.now(),
+            isError: isError,
+            suggestions: response.suggestions,
+            actions: actions,
+          );
+
+          state = state.copyWith(
+            messages: [...state.messages, finalAssistantMsg],
+            isLoading: false,
+            conversationId: response.conversationId.isNotEmpty
+                ? response.conversationId
+                : state.conversationId,
+            currentSuggestions: response.suggestions.isNotEmpty
+                ? response.suggestions
+                : state.currentSuggestions,
+          );
+        } else if (event.type == ChatStreamEventType.error) {
+          final errorMsg = ChatUiMessage(
+            id: _uuid.v4(),
+            text: event.error ?? 'Erreur de communication avec Quantis.',
+            sender: MessageSender.assistant,
+            timestamp: DateTime.now(),
+            isError: true,
+          );
+          state = state.copyWith(
+            messages: [...state.messages, errorMsg],
+            isLoading: false,
+            error: event.error,
+          );
+          finalAssistantMsg = errorMsg;
+        }
+      }
+
+      return finalAssistantMsg;
     } catch (e) {
       final errorMsg = ChatUiMessage(
         id: _uuid.v4(),

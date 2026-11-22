@@ -1,0 +1,9 @@
+target/
+data/
+*.log
+.git/
+.mvn/
+mvnw
+mvnw.cmd
+.DS_Store
+

@@ -313,10 +313,11 @@ public class QuantisAiService {
         int maxIterations = 5; // Limite anti-boucle infinie
 
         for (int i = 0; i < maxIterations; i++) {
-            String responseJson = switch (config.getProvider()) {
+            String responseJson = switch (config.getProvider().toLowerCase()) {
                 case "gemini" -> callGemini(systemPrompt, history);
-                case "openai" -> callOpenAI(systemPrompt, history);
                 case "ollama" -> callOllama(systemPrompt, history);
+                case "openjarvis" -> callOpenJarvis(systemPrompt, history);
+                case "openai" -> callOpenAI(systemPrompt, history);
                 default -> throw new IllegalArgumentException("Provider inconnu: " + config.getProvider());
             };
 
@@ -484,6 +485,46 @@ public class QuantisAiService {
         options.put("temperature", config.getTemperature());
         options.put("num_predict", config.getMaxTokens());
         body.set("options", options);
+
+        return httpPost(url, body.toString());
+    }
+
+    private String callOpenJarvis(String systemPrompt, List<Map<String, String>> history) throws Exception {
+        String url = config.getOpenjarvisHost() + "/v1/chat/completions";
+
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("model", config.getOpenjarvisModel());
+        body.put("temperature", config.getTemperature());
+        body.put("max_tokens", config.getMaxTokens());
+
+        // Messages
+        ArrayNode messages = objectMapper.createArrayNode();
+        ObjectNode sysMsg = objectMapper.createObjectNode();
+        sysMsg.put("role", "system");
+        sysMsg.put("content", systemPrompt);
+        messages.add(sysMsg);
+
+        for (Map<String, String> msg : history) {
+            ObjectNode m = objectMapper.createObjectNode();
+            m.put("role", msg.get("role"));
+            m.put("content", msg.get("content"));
+            messages.add(m);
+        }
+        body.set("messages", messages);
+
+        // Déclaration des outils métier
+        ArrayNode tools = objectMapper.createArrayNode();
+        for (Map<String, Object> toolDef : toolExecutor.getToolDefinitions()) {
+            ObjectNode tool = objectMapper.createObjectNode();
+            tool.put("type", "function");
+            ObjectNode func = objectMapper.createObjectNode();
+            func.put("name", toolDef.get("name").toString());
+            func.put("description", toolDef.get("description").toString());
+            func.set("parameters", objectMapper.valueToTree(toolDef.get("parameters")));
+            tool.set("function", func);
+            tools.add(tool);
+        }
+        body.set("tools", tools);
 
         return httpPost(url, body.toString());
     }

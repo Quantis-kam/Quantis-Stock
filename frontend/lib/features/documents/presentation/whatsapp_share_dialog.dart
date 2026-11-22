@@ -31,7 +31,13 @@ class _WhatsappShareDialogState extends State<WhatsappShareDialog> {
   @override
   void initState() {
     super.initState();
-    _phoneCtrl = TextEditingController(text: widget.document.clientTelephone ?? '');
+    final initialPhone = WhatsappShareHelper.isDummyPhone(widget.document.clientTelephone)
+        ? ''
+        : (widget.document.clientTelephone ?? '');
+    _phoneCtrl = TextEditingController(text: initialPhone);
+    _phoneCtrl.addListener(() {
+      if (mounted) setState(() {});
+    });
     _messageCtrl = TextEditingController(text: WhatsappShareHelper.generateMessage(widget.document));
   }
 
@@ -42,16 +48,33 @@ class _WhatsappShareDialogState extends State<WhatsappShareDialog> {
     super.dispose();
   }
 
-  Future<void> _sendTextOnly() async {
+  Future<void> _sendWhatsApp() async {
     final phone = _phoneCtrl.text.trim();
-    final launched = await WhatsappShareHelper.shareViaWhatsApp(widget.document, customPhone: phone.isNotEmpty ? phone : null);
+    final isSpecificPhone = phone.isNotEmpty && !WhatsappShareHelper.isDummyPhone(phone);
+    await WhatsappShareHelper.shareViaWhatsApp(
+      widget.document,
+      customPhone: isSpecificPhone ? phone : null,
+    );
     if (mounted) {
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(launched ? 'Ouverture de WhatsApp en cours...' : 'Ouverture de WhatsApp...'),
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.white, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  isSpecificPhone
+                      ? 'Ouverture de WhatsApp avec $phone...'
+                      : 'WhatsApp ouvert ! Choisissez le contact ou la discussion à qui envoyer.',
+                ),
+              ),
+            ],
+          ),
           backgroundColor: const Color(0xFF25D366),
           behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 4),
         ),
       );
     }
@@ -129,7 +152,7 @@ class _WhatsappShareDialogState extends State<WhatsappShareDialog> {
         vertical: 16,
       ),
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: isMobile ? screenWidth * 0.95 : 600),
+        constraints: BoxConstraints(maxWidth: isMobile ? screenWidth * 0.95 : 680),
         child: SingleChildScrollView(
           padding: EdgeInsets.all(isMobile ? 16 : 24),
           child: Column(
@@ -175,22 +198,22 @@ class _WhatsappShareDialogState extends State<WhatsappShareDialog> {
               const Divider(),
               const SizedBox(height: 12),
 
-              // Boîte d'astuce PDF
+              // Boîte d'astuce WhatsApp & Choix du contact
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: Colors.green.shade50,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: Colors.green.shade200),
                 ),
                 child: const Row(
                   children: [
-                    Icon(Icons.check_circle_outline, color: Color(0xFF25D366), size: 20),
+                    Icon(Icons.mark_chat_unread_outlined, color: Color(0xFF25D366), size: 22),
                     SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'Partagez le document PDF directement vers WhatsApp / vos contacts ou envoyez un résumé texte commercial.',
-                        style: TextStyle(fontSize: 12, color: Color(0xFF1B5E20)),
+                        'Laissez le champ numéro vide pour ouvrir WhatsApp et choisir le contact ou le groupe directement dans l\'application.',
+                        style: TextStyle(fontSize: 12, color: Color(0xFF1B5E20), height: 1.3),
                       ),
                     ),
                   ],
@@ -198,15 +221,23 @@ class _WhatsappShareDialogState extends State<WhatsappShareDialog> {
               ),
               const SizedBox(height: 14),
 
-              // Champ Téléphone
+              // Champ Téléphone avec bouton Effacer
               TextField(
                 controller: _phoneCtrl,
                 decoration: InputDecoration(
-                  labelText: 'Numéro WhatsApp du destinataire',
-                  hintText: 'Ex: +22670000000 ou 70000000',
+                  labelText: 'Numéro WhatsApp du destinataire (Optionnel)',
+                  hintText: 'Ex: +226 70 12 34 56',
                   prefixIcon: const Icon(Icons.phone_outlined, color: Color(0xFF25D366)),
+                  suffixIcon: _phoneCtrl.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, size: 18),
+                          tooltip: 'Effacer le numéro pour choisir dans WhatsApp',
+                          onPressed: () => _phoneCtrl.clear(),
+                        )
+                      : null,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                  helperText: 'Laissez vide pour choisir dans WhatsApp',
+                  helperText: 'Laissez vide pour choisir le contact directement dans WhatsApp',
+                  helperMaxLines: 2,
                 ),
                 keyboardType: TextInputType.phone,
               ),
@@ -232,21 +263,34 @@ class _WhatsappShareDialogState extends State<WhatsappShareDialog> {
               ),
               const SizedBox(height: 20),
 
-              // Actions
+              // Actions (Totalement responsive avec Wrap pour éliminer tout débordement)
               if (isMobile)
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     ElevatedButton.icon(
-                      onPressed: _isGeneratingPdf ? null : _sharePdfDirect,
-                      icon: _isGeneratingPdf
-                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : const Icon(Icons.share, size: 18),
-                      label: const Text('Partager la Facture PDF'),
+                      onPressed: _sendWhatsApp,
+                      icon: const Icon(Icons.chat, size: 18),
+                      label: const Text('Partager sur WhatsApp'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF25D366),
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        elevation: 1,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    ElevatedButton.icon(
+                      onPressed: _isGeneratingPdf ? null : _sharePdfDirect,
+                      icon: _isGeneratingPdf
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.share, size: 18),
+                      label: const Text('Partager le fichier PDF'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: QuantisColors.royalBlue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
                     ),
@@ -254,77 +298,74 @@ class _WhatsappShareDialogState extends State<WhatsappShareDialog> {
                     Row(
                       children: [
                         Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: _sendTextOnly,
-                            icon: const Icon(Icons.chat, size: 16),
-                            label: const Text('Texte WhatsApp'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: QuantisColors.royalBlue,
-                              foregroundColor: Colors.white,
+                          child: OutlinedButton.icon(
+                            onPressed: _isGeneratingPdf ? null : _telechargerPdf,
+                            icon: const Icon(Icons.download, size: 16),
+                            label: const Text('Télécharger PDF'),
+                            style: OutlinedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                             ),
                           ),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: OutlinedButton.icon(
-                            onPressed: _isGeneratingPdf ? null : _telechargerPdf,
-                            icon: const Icon(Icons.download, size: 16),
-                            label: const Text('Télécharger'),
+                            onPressed: _copy,
+                            icon: const Icon(Icons.copy, size: 16),
+                            label: const Text('Copier'),
                             style: OutlinedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                             ),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                    TextButton.icon(
-                      onPressed: _copy,
-                      icon: const Icon(Icons.copy, size: 16),
-                      label: const Text('Copier le texte'),
-                    ),
                   ],
                 )
               else
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 12,
+                  runSpacing: 12,
                   children: [
                     OutlinedButton.icon(
                       onPressed: _copy,
                       icon: const Icon(Icons.copy, size: 16),
-                      label: const Text('Copier'),
+                      label: const Text('Copier le texte'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
                     ),
-                    Row(
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      alignment: WrapAlignment.end,
                       children: [
                         OutlinedButton.icon(
                           onPressed: _isGeneratingPdf ? null : _telechargerPdf,
-                          icon: const Icon(Icons.download, size: 16),
+                          icon: _isGeneratingPdf
+                              ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                              : const Icon(Icons.download, size: 16),
                           label: const Text('Télécharger PDF'),
-                        ),
-                        const SizedBox(width: 10),
-                        ElevatedButton.icon(
-                          onPressed: _sendTextOnly,
-                          icon: const Icon(Icons.chat, size: 16),
-                          label: const Text('Texte WhatsApp'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: QuantisColors.royalBlue,
-                            foregroundColor: Colors.white,
+                          style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
                         ),
-                        const SizedBox(width: 10),
                         ElevatedButton.icon(
-                          onPressed: _isGeneratingPdf ? null : _sharePdfDirect,
-                          icon: _isGeneratingPdf
-                              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                              : const Icon(Icons.share, size: 16),
-                          label: const Text('Partager Facture PDF'),
+                          onPressed: _sendWhatsApp,
+                          icon: const Icon(Icons.chat, size: 18),
+                          label: const Text('Partager sur WhatsApp'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF25D366),
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            elevation: 1,
                           ),
                         ),
                       ],
@@ -338,3 +379,4 @@ class _WhatsappShareDialogState extends State<WhatsappShareDialog> {
     );
   }
 }
+

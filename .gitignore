@@ -33,8 +33,9 @@ frontend/.flutter-plugins-dependencies
 .env
 *.env.local
 
-# ===== Logs =====
+# ===== Logs & Heap Dumps =====
 *.log
+*.hprof
 
 # ===== Docker =====
 docker-data/

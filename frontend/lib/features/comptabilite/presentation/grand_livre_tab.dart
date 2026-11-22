@@ -372,31 +372,67 @@ class _GrandLivreTabState extends State<GrandLivreTab> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: QuantisColors.royalBlue.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(8),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isMobile = constraints.maxWidth < 600;
+                        if (isMobile) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: QuantisColors.royalBlue.withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Icon(Icons.menu_book, color: QuantisColors.royalBlue, size: 20),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  const Expanded(
+                                    child: Text(
+                                      'Grand Livre Général des Écritures',
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                    ),
+                                  ),
+                                ],
                               ),
-                              child: const Icon(Icons.menu_book, color: QuantisColors.royalBlue, size: 20),
+                              const SizedBox(height: 6),
+                              Text(
+                                '${_ecritures.length} opérations consolidées',
+                                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                              ),
+                            ],
+                          );
+                        }
+                        return Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: QuantisColors.royalBlue.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(Icons.menu_book, color: QuantisColors.royalBlue, size: 20),
+                                ),
+                                const SizedBox(width: 10),
+                                const Text(
+                                  'Grand Livre Général des Écritures',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 10),
-                            const Text(
-                              'Grand Livre Général des Écritures',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                            Text(
+                              '${_ecritures.length} opérations consolidées',
+                              style: const TextStyle(fontSize: 12, color: Colors.grey),
                             ),
                           ],
-                        ),
-                        Text(
-                          '${_ecritures.length} opérations consolidées',
-                          style: const TextStyle(fontSize: 12, color: Colors.grey),
-                        ),
-                      ],
+                        );
+                      },
                     ),
                     const SizedBox(height: 12),
                     const Divider(),
@@ -410,9 +446,25 @@ class _GrandLivreTabState extends State<GrandLivreTab> {
                         ),
                       )
                     else
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: DataTable(
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: Row(
+                              children: [
+                                Icon(Icons.swipe_outlined, size: 13, color: Colors.grey.shade600),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Glissez horizontalement pour voir Débit, Crédit et Solde',
+                                  style: TextStyle(fontSize: 10, color: Colors.grey.shade600, fontStyle: FontStyle.italic),
+                                ),
+                              ],
+                            ),
+                          ),
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: DataTable(
                           headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
                           columnSpacing: 20,
                           horizontalMargin: 12,
@@ -473,6 +525,8 @@ class _GrandLivreTabState extends State<GrandLivreTab> {
                           }).toList(),
                         ),
                       ),
+                    ],
+                  ),
                   ],
                 ),
               ),
@@ -499,9 +553,11 @@ class _GrandLivreTabState extends State<GrandLivreTab> {
                           child: const Icon(Icons.verified, color: Colors.green, size: 20),
                         ),
                         const SizedBox(width: 10),
-                        const Text(
-                          'Historique des Clôtures & Arrêtés Verrouillés',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        const Expanded(
+                          child: Text(
+                            'Historique des Clôtures & Arrêtés Verrouillés',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                          ),
                         ),
                       ],
                     ),

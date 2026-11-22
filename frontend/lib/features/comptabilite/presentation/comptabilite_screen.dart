@@ -133,13 +133,11 @@ class _ComptabiliteScreenState extends State<ComptabiliteScreen> with SingleTick
                         ],
                         bottom: TabBar(
                           controller: _tabController,
-                          isScrollable: isMobile,
-                          tabAlignment: isMobile ? TabAlignment.start : TabAlignment.center,
                           indicatorColor: QuantisColors.luxuryGold,
-                          tabs: const [
-                            Tab(icon: Icon(Icons.receipt_long_outlined), text: 'Journal de Caisse'),
-                            Tab(icon: Icon(Icons.history_toggle_off), text: 'Sessions de Caisse'),
-                            Tab(icon: Icon(Icons.menu_book), text: 'Grand Livre & Clôtures'),
+                          tabs: [
+                            Tab(icon: const Icon(Icons.receipt_long_outlined), text: isMobile ? 'Journal' : 'Journal de Caisse'),
+                            Tab(icon: const Icon(Icons.history_toggle_off), text: isMobile ? 'Sessions' : 'Sessions de Caisse'),
+                            Tab(icon: const Icon(Icons.menu_book), text: isMobile ? 'Grand Livre' : 'Grand Livre & Clôtures'),
                           ],
                         ),
                       ),

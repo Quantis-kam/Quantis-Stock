@@ -52,7 +52,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // Endpoints publics
                 .requestMatchers("/auth/login", "/auth/refresh", "/auth/health").permitAll()
-                .requestMatchers("/health").permitAll()
+                .requestMatchers("/health", "/network/info").permitAll()
                 .requestMatchers("/actuator/health").permitAll()
                 // OPTIONS (CORS preflight)
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()

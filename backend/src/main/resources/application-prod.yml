@@ -1,21 +1,40 @@
 # ============================================
-# Profil PROD — PostgreSQL production
+# Profil PROD — PostgreSQL Cloud (Neon / Render / VPS)
 # ============================================
 
 spring:
   datasource:
-    url: ${DATABASE_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    url: ${SPRING_DATASOURCE_URL:${DATABASE_URL}}
+    username: ${SPRING_DATASOURCE_USERNAME:${DB_USERNAME:}}
+    password: ${SPRING_DATASOURCE_PASSWORD:${DB_PASSWORD:}}
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 20
-      minimum-idle: 5
+      maximum-pool-size: ${DB_POOL_MAX:5}
+      minimum-idle: ${DB_POOL_MIN_IDLE:1}
+      idle-timeout: 120000
+      max-lifetime: 300000
+      connection-timeout: 25000
 
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: ${JPA_DDL_AUTO:update}
     show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+
+# Désactiver la découverte UDP LAN sur un hébergement Cloud
+app:
+  discovery:
+    enabled: false
+  bootstrap:
+    super-admin-email: ${SUPER_ADMIN_EMAIL:superadmin@quantisbf.com}
+    super-admin-password: ${SUPER_ADMIN_PASSWORD:Admin@2026}
+
+# En production Cloud (512 Mo RAM), utiliser Gemini API au lieu d'Ollama local
+quantis:
+  ai:
+    provider: ${QUANTIS_AI_PROVIDER:gemini}
 
 # Logging
 logging:

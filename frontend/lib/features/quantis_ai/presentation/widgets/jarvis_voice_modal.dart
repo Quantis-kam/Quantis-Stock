@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/quantis_ai_controller.dart';
+import '../../services/quantis_ai_service.dart';
 import '../../services/quantis_voice_service.dart';
 import 'jarvis_orb_visualizer.dart';
 
@@ -37,13 +38,13 @@ class JarvisVoiceModal extends ConsumerStatefulWidget {
 
 class _JarvisVoiceModalState extends ConsumerState<JarvisVoiceModal> {
   final _voiceService = QuantisVoiceService();
+  final _manualInputController = TextEditingController();
+
   VoiceState _state = VoiceState.standby;
-  double _audioLevel = 0.0;
   String _currentTranscript = '';
   String _lastAssistantResponse = '';
+  double _audioLevel = 0.0;
   List<ActionStep> _actions = [];
-
-  final _manualInputController = TextEditingController();
 
   StreamSubscription? _stateSub;
   StreamSubscription? _audioSub;
@@ -54,21 +55,41 @@ class _JarvisVoiceModalState extends ConsumerState<JarvisVoiceModal> {
   @override
   void initState() {
     super.initState();
+    _state = _voiceService.state;
+    _actions = _voiceService.currentActions;
 
     _stateSub = _voiceService.stateStream.listen((state) {
-      if (mounted) setState(() => _state = state);
+      if (mounted) {
+        final wasSpeaking = _state == VoiceState.speaking;
+        setState(() => _state = state);
+        if (wasSpeaking && state == VoiceState.standby && !_voiceService.isMuted) {
+          Future.delayed(const Duration(milliseconds: 700), () {
+            if (mounted && _state == VoiceState.standby && !_voiceService.isMuted) {
+              setState(() {
+                _currentTranscript = '';
+              });
+              _voiceService.startListening();
+            }
+          });
+        }
+      }
     });
 
-    _audioSub = _voiceService.audioLevelStream.listen((level) {
-      if (mounted) setState(() => _audioLevel = level);
+    _audioSub = _voiceService.audioLevelStream.listen((lvl) {
+      if (mounted) setState(() => _audioLevel = lvl);
     });
 
     _partialSub = _voiceService.partialTranscriptStream.listen((text) {
-      if (mounted) setState(() => _currentTranscript = text);
+      if (mounted) {
+        setState(() {
+          _currentTranscript = text;
+          _lastAssistantResponse = '';
+        });
+      }
     });
 
     _finalSub = _voiceService.finalTranscriptStream.listen((text) {
-      if (mounted) {
+      if (mounted && text.isNotEmpty) {
         setState(() => _currentTranscript = text);
         _handleFinalSpeech(text);
       }
@@ -119,13 +140,39 @@ class _JarvisVoiceModalState extends ConsumerState<JarvisVoiceModal> {
 
     _voiceService.stopListening();
     _voiceService.setProcessing();
-
     _voiceService.clearActions();
-    _voiceService.addAction('analyze', 'Analyse de votre demande...', icon: '🧠');
 
-    final response = await ref.read(quantisAiProvider.notifier).sendMessage(trimmed);
-
-    _voiceService.updateAction('analyze', ActionStatus.success, result: 'Compris');
+    final response = await ref.read(quantisAiProvider.notifier).sendMessage(
+      trimmed,
+      onEvent: (event) {
+        if (!mounted) return;
+        if (event.type == ChatStreamEventType.step) {
+          final stepId = event.step ?? 'step_${DateTime.now().millisecondsSinceEpoch}';
+          for (final a in _voiceService.currentActions) {
+            if (a.status == ActionStatus.running) {
+              _voiceService.updateAction(a.id, ActionStatus.success);
+            }
+          }
+          _voiceService.addAction(
+            stepId,
+            event.label ?? 'Traitement en cours...',
+            icon: event.icon ?? '⚙️',
+          );
+        } else if (event.type == ChatStreamEventType.complete) {
+          for (final a in _voiceService.currentActions) {
+            if (a.status == ActionStatus.running) {
+              _voiceService.updateAction(a.id, ActionStatus.success);
+            }
+          }
+        } else if (event.type == ChatStreamEventType.error) {
+          for (final a in _voiceService.currentActions) {
+            if (a.status == ActionStatus.running) {
+              _voiceService.updateAction(a.id, ActionStatus.error);
+            }
+          }
+        }
+      },
+    );
 
     if (response != null && mounted) {
       setState(() => _lastAssistantResponse = response.text);
@@ -133,8 +180,10 @@ class _JarvisVoiceModalState extends ConsumerState<JarvisVoiceModal> {
       _voiceService.addAction('speak', 'Réponse vocale...', icon: '🔊');
       _voiceService.speak(response.text);
 
-      Future.delayed(const Duration(seconds: 1), () {
-        _voiceService.updateAction('speak', ActionStatus.success);
+      Future.delayed(const Duration(milliseconds: 1200), () {
+        if (mounted) {
+          _voiceService.updateAction('speak', ActionStatus.success);
+        }
       });
     }
   }

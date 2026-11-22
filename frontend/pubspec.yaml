@@ -51,6 +51,10 @@ dependencies:
   pdf: ^3.11.1
   printing: ^5.13.2
 
+  # Voice & Speech (Mobile / Native)
+  speech_to_text: ^7.0.0
+  flutter_tts: ^4.2.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

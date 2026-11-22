@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import 'quantis_voice_bridge.dart';
+import 'quantis_voice_native_service.dart';
 
 enum VoiceState {
   /// En veille — écoute les claps en arrière-plan
@@ -48,7 +49,7 @@ class ActionStep {
 
 enum ActionStatus { running, success, error }
 
-/// Service Vocal Jarvis — Toujours prêt, activé par double clap
+/// Service Vocal Jarvis — Toujours prêt, activé par double clap ou push-to-talk
 class QuantisVoiceService {
   static final QuantisVoiceService _instance = QuantisVoiceService._internal();
   factory QuantisVoiceService() => _instance;
@@ -102,89 +103,130 @@ class QuantisVoiceService {
     _stateController.add(newState);
   }
 
-  /// Initialise le mode Jarvis — démarre la surveillance de claps
+  /// Initialise le mode Jarvis
   void initJarvisMode() {
-    if (!kIsWeb || _initialized) return;
+    if (_initialized) return;
     _initialized = true;
 
     try {
-      _setupDartCallbacks();
-      if (VoiceBridge.isSupported) {
-        VoiceBridge.initJarvis();
+      _setupCallbacks();
+      if (kIsWeb) {
+        if (VoiceBridge.isSupported) {
+          VoiceBridge.initJarvis();
+          _setState(VoiceState.standby);
+          debugPrint('[QuantisVoice] Mode Jarvis Web initialisé');
+        }
+      } else {
+        QuantisVoiceNativeService().initialize();
         _setState(VoiceState.standby);
-        debugPrint('[QuantisVoice] Mode Jarvis initialisé — surveillance double clap active');
+        debugPrint('[QuantisVoice] Mode Jarvis Natif initialisé');
       }
     } catch (e) {
       debugPrint('[QuantisVoice] Erreur init Jarvis: $e');
     }
   }
 
-  void _setupDartCallbacks() {
-    if (!kIsWeb) return;
-    try {
-      if (!VoiceBridge.isSupported) return;
+  void _setupCallbacks() {
+    if (kIsWeb) {
+      try {
+        if (!VoiceBridge.isSupported) return;
 
-      VoiceBridge.setupCallbacks(
-        onWakeUp: () {
-          debugPrint('[QuantisVoice] 👏👏 WAKE UP !');
-          _wakeUpController.add(null);
-          startListening();
-        },
-        onPartialTranscript: (text) {
-          _partialTranscriptController.add(text);
-        },
-        onFinalTranscript: (text) {
-          _finalTranscriptController.add(text);
-        },
-        onAudioLevel: (level) {
-          _audioLevelController.add(level);
-        },
-        onListenStart: () {
-          _setState(VoiceState.listening);
-        },
-        onListenEnd: () {
-          if (_state == VoiceState.listening) {
-            _setState(VoiceState.standby);
-          }
-        },
-        onSpeakStart: () {
-          _setState(VoiceState.speaking);
-        },
-        onSpeakWord: (word, charIndex, totalLength) {
-          _lastSpokenWord = word;
-          _speakWordController.add(word);
-        },
-        onSpeakEnd: () {
-          if (_state == VoiceState.speaking) {
-            _setState(VoiceState.standby);
-          }
-        },
-        onSilenceTimeout: () {
-          _silenceController.add(null);
-          stopListening();
-        },
-        onError: (err) {
-          debugPrint('[QuantisVoice] Erreur: $err');
-          _setState(VoiceState.error);
-          Future.delayed(const Duration(seconds: 2), () {
-            if (_state == VoiceState.error) {
+        VoiceBridge.setupCallbacks(
+          onWakeUp: () {
+            debugPrint('[QuantisVoice] 👏👏 WAKE UP !');
+            _wakeUpController.add(null);
+            startListening();
+          },
+          onPartialTranscript: (text) {
+            _partialTranscriptController.add(text);
+          },
+          onFinalTranscript: (text) {
+            _finalTranscriptController.add(text);
+          },
+          onAudioLevel: (level) {
+            _audioLevelController.add(level);
+          },
+          onListenStart: () {
+            _setState(VoiceState.listening);
+          },
+          onListenEnd: () {
+            if (_state == VoiceState.listening) {
               _setState(VoiceState.standby);
             }
-          });
-        },
-      );
-    } catch (e) {
-      debugPrint('[QuantisVoice] Erreur setup callbacks: $e');
+          },
+          onSpeakStart: () {
+            _setState(VoiceState.speaking);
+          },
+          onSpeakWord: (word, charIndex, totalLength) {
+            _lastSpokenWord = word;
+            _speakWordController.add(word);
+          },
+          onSpeakEnd: () {
+            if (_state == VoiceState.speaking) {
+              _setState(VoiceState.standby);
+            }
+          },
+          onSilenceTimeout: () {
+            _silenceController.add(null);
+            stopListening();
+          },
+          onError: (err) {
+            debugPrint('[QuantisVoice] Erreur: $err');
+            _setState(VoiceState.error);
+            Future.delayed(const Duration(seconds: 2), () {
+              if (_state == VoiceState.error) {
+                _setState(VoiceState.standby);
+              }
+            });
+          },
+        );
+      } catch (e) {
+        debugPrint('[QuantisVoice] Erreur setup callbacks web: $e');
+      }
+    } else {
+      final native = QuantisVoiceNativeService();
+      native.onListenStart = () => _setState(VoiceState.listening);
+      native.onListenEnd = () {
+        if (_state == VoiceState.listening) {
+          _setState(VoiceState.standby);
+        }
+      };
+      native.onPartialTranscript = (text) => _partialTranscriptController.add(text);
+      native.onFinalTranscript = (text) => _finalTranscriptController.add(text);
+      native.onAudioLevel = (level) => _audioLevelController.add(level);
+      native.onSpeakStart = () => _setState(VoiceState.speaking);
+      native.onSpeakWord = (word) {
+        _lastSpokenWord = word;
+        _speakWordController.add(word);
+      };
+      native.onSpeakEnd = () {
+        if (_state == VoiceState.speaking) {
+          _setState(VoiceState.standby);
+        }
+      };
+      native.onError = (err) {
+        debugPrint('[QuantisVoice] Erreur native: $err');
+        _setState(VoiceState.error);
+        Future.delayed(const Duration(seconds: 2), () {
+          if (_state == VoiceState.error) {
+            _setState(VoiceState.standby);
+          }
+        });
+      };
     }
   }
 
   /// Démarre l'écoute vocale active
   void startListening({String lang = 'fr-FR'}) {
-    if (!kIsWeb) return;
     try {
       stopSpeaking();
-      if (VoiceBridge.isSupported) {
-        VoiceBridge.startListening(lang);
+      if (kIsWeb) {
+        if (VoiceBridge.isSupported) {
+          VoiceBridge.startListening(lang);
+          _setState(VoiceState.listening);
+        }
+      } else {
+        QuantisVoiceNativeService().startListening(lang: lang == 'fr-FR' ? 'fr_FR' : lang);
         _setState(VoiceState.listening);
       }
     } catch (e) {
@@ -195,10 +237,13 @@ class QuantisVoiceService {
 
   /// Arrête l'écoute et retourne en veille
   void stopListening() {
-    if (!kIsWeb) return;
     try {
-      if (VoiceBridge.isSupported) {
-        VoiceBridge.stopListening();
+      if (kIsWeb) {
+        if (VoiceBridge.isSupported) {
+          VoiceBridge.stopListening();
+        }
+      } else {
+        QuantisVoiceNativeService().stopListening();
       }
       if (_state == VoiceState.listening) {
         _setState(VoiceState.standby);
@@ -215,10 +260,14 @@ class QuantisVoiceService {
 
   /// Fait parler Quantis
   void speak(String text) {
-    if (!kIsWeb || _isMuted) return;
+    if (_isMuted) return;
     try {
-      if (VoiceBridge.isSupported) {
-        VoiceBridge.speak(text);
+      if (kIsWeb) {
+        if (VoiceBridge.isSupported) {
+          VoiceBridge.speak(text);
+        }
+      } else {
+        QuantisVoiceNativeService().speak(text);
       }
     } catch (e) {
       debugPrint('[QuantisVoice] speak error: $e');
@@ -227,10 +276,13 @@ class QuantisVoiceService {
 
   /// Arrête la parole
   void stopSpeaking() {
-    if (!kIsWeb) return;
     try {
-      if (VoiceBridge.isSupported) {
-        VoiceBridge.stopSpeaking();
+      if (kIsWeb) {
+        if (VoiceBridge.isSupported) {
+          VoiceBridge.stopSpeaking();
+        }
+      } else {
+        QuantisVoiceNativeService().stopSpeaking();
       }
       if (_state == VoiceState.speaking) {
         _setState(VoiceState.standby);

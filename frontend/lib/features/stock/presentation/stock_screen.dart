@@ -230,6 +230,7 @@ class _StockScreenState extends State<StockScreen> with SingleTickerProviderStat
 
       await _service.reconcilierStock(payload);
       
+      if (!mounted) return;
       setState(() {
         _isInventoryMode = false;
       });
@@ -242,13 +243,15 @@ class _StockScreenState extends State<StockScreen> with SingleTickerProviderStat
       );
       _loadStock();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur lors du rapprochement : $e'),
-          backgroundColor: QuantisColors.error,
-        ),
-      );
-      setState(() => _stockLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors du rapprochement : $e'),
+            backgroundColor: QuantisColors.error,
+          ),
+        );
+        setState(() => _stockLoading = false);
+      }
     }
   }
 
@@ -270,6 +273,8 @@ class _StockScreenState extends State<StockScreen> with SingleTickerProviderStat
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Gestion de Stock'),
@@ -279,8 +284,8 @@ class _StockScreenState extends State<StockScreen> with SingleTickerProviderStat
           unselectedLabelColor: QuantisColors.textMuted,
           indicatorColor: QuantisColors.luxuryGold,
           tabs: [
-            const Tab(icon: Icon(Icons.dashboard_outlined, size: 18), text: 'Stock par Dépôt'),
-            const Tab(icon: Icon(Icons.history, size: 18), text: 'Historique Mouvements'),
+            Tab(icon: const Icon(Icons.dashboard_outlined, size: 18), text: isMobile ? 'Par Dépôt' : 'Stock par Dépôt'),
+            Tab(icon: const Icon(Icons.history, size: 18), text: isMobile ? 'Mouvements' : 'Historique Mouvements'),
             Tab(
               icon: Badge(
                 label: Text(_alertes.length.toString()),
@@ -982,42 +987,65 @@ class _StockScreenState extends State<StockScreen> with SingleTickerProviderStat
                   onChanged: (val) => setState(() => _filterProduitId = val),
                 ),
                 const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  onPressed: () async {
-                    final picker = await showDateRangePicker(
-                      context: context,
-                      firstDate: DateTime(2025),
-                      lastDate: DateTime(2030),
-                      initialDateRange: _filterDateRange,
-                      builder: (context, child) {
-                        return Theme(
-                          data: Theme.of(context).copyWith(
-                            colorScheme: const ColorScheme.light(
-                              primary: QuantisColors.royalBlue,
-                              onPrimary: Colors.white,
-                              surface: Colors.white,
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      final picker = await showDateRangePicker(
+                        context: context,
+                        firstDate: DateTime(2025),
+                        lastDate: DateTime(2030),
+                        initialDateRange: _filterDateRange,
+                        builder: (context, child) {
+                          return Theme(
+                            data: Theme.of(context).copyWith(
+                              colorScheme: const ColorScheme.light(
+                                primary: QuantisColors.royalBlue,
+                                onPrimary: Colors.white,
+                                surface: Colors.white,
+                              ),
                             ),
+                            child: child!,
+                          );
+                        },
+                      );
+                      if (picker != null) {
+                        setState(() {
+                          _filterDateRange = picker;
+                        });
+                      }
+                    },
+                    icon: const Icon(Icons.calendar_month_outlined, size: 20, color: QuantisColors.royalBlue),
+                    label: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _filterDateRange == null
+                                ? 'Période : Toutes les dates'
+                                : '${_filterDateRange!.start.day.toString().padLeft(2, '0')}/${_filterDateRange!.start.month.toString().padLeft(2, '0')}/${_filterDateRange!.start.year} au ${_filterDateRange!.end.day.toString().padLeft(2, '0')}/${_filterDateRange!.end.month.toString().padLeft(2, '0')}/${_filterDateRange!.end.year}',
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          child: child!,
-                        );
-                      },
-                    );
-                    if (picker != null) {
-                      setState(() {
-                        _filterDateRange = picker;
-                      });
-                    }
-                  },
-                  icon: const Icon(Icons.date_range),
-                  label: Text(
-                    _filterDateRange == null
-                        ? 'Toutes les dates'
-                        : '${_filterDateRange!.start.day}/${_filterDateRange!.start.month} au ${_filterDateRange!.end.day}/${_filterDateRange!.end.month}',
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    foregroundColor: QuantisColors.textPrimary,
-                    side: BorderSide(color: Colors.grey.shade400),
+                        ),
+                        if (_filterDateRange != null)
+                          IconButton(
+                            icon: const Icon(Icons.clear, size: 18, color: Colors.grey),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            onPressed: () {
+                              setState(() => _filterDateRange = null);
+                            },
+                          )
+                        else
+                          const Icon(Icons.arrow_drop_down, color: Colors.grey),
+                      ],
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                      foregroundColor: QuantisColors.textPrimary,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      side: BorderSide(color: Colors.grey.shade400),
+                    ),
                   ),
                 ),
               ] else ...[
@@ -1116,32 +1144,70 @@ class _StockScreenState extends State<StockScreen> with SingleTickerProviderStat
                 ),
               ],
               const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () {
-                      setState(() {
-                        _filterDepotId = null;
-                        _filterType = null;
-                        _filterProduitId = null;
-                        _filterDateRange = null;
-                      });
-                      _loadMouvements();
-                    },
-                    child: const Text('Réinitialiser', style: TextStyle(color: QuantisColors.textMuted)),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: _loadMouvements,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: QuantisColors.royalBlue,
-                      foregroundColor: Colors.white,
+              if (MediaQuery.of(context).size.width < 600) ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          setState(() {
+                            _filterDepotId = null;
+                            _filterType = null;
+                            _filterProduitId = null;
+                            _filterDateRange = null;
+                          });
+                          _loadMouvements();
+                        },
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          foregroundColor: QuantisColors.textMuted,
+                        ),
+                        child: const Text('Réinitialiser'),
+                      ),
                     ),
-                    child: const Text('Appliquer les filtres'),
-                  ),
-                ],
-              ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _loadMouvements,
+                        icon: const Icon(Icons.check, size: 16),
+                        label: const Text('Appliquer', style: TextStyle(fontWeight: FontWeight.bold)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: QuantisColors.royalBlue,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ] else ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () {
+                        setState(() {
+                          _filterDepotId = null;
+                          _filterType = null;
+                          _filterProduitId = null;
+                          _filterDateRange = null;
+                        });
+                        _loadMouvements();
+                      },
+                      child: const Text('Réinitialiser', style: TextStyle(color: QuantisColors.textMuted)),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: _loadMouvements,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: QuantisColors.royalBlue,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('Appliquer les filtres'),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),

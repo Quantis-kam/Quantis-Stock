@@ -74,11 +74,10 @@ class _ExportsScreenState extends State<ExportsScreen> {
         options: Options(responseType: ResponseType.bytes),
       );
 
-      final bytes = response.data as List<int>;
       final dateSuffix = DateFormat('yyyyMMdd').format(DateTime.now());
       final filename = '${defaultFilename}_$dateSuffix.csv';
 
-      final savedPath = await FileDownloadHelper.download(bytes, filename);
+      final savedPath = await FileDownloadHelper.download(response.data, filename);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

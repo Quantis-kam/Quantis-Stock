@@ -69,6 +69,15 @@ class _DocumentsScreenState extends State<DocumentsScreen> with SingleTickerProv
         _ => Icons.article,
       };
 
+  String _fabLabel(String type) => switch (type) {
+        'FACTURE' => 'Nouvelle Facture',
+        'COMMANDE_CLIENT' => 'Nouvelle Commande',
+        'DEVIS' => 'Nouveau Devis',
+        'BON_LIVRAISON' => 'Nouveau Bon Livraison',
+        'AVOIR' => 'Nouvel Avoir',
+        _ => 'Nouveau Document',
+      };
+
   List<DocumentModel> get _displayedDocuments {
     if (_filterNonReglees && _types[_tabController.index] == 'FACTURE') {
       return _documents.where((d) => d.statut == 'VALIDE' && !d.isPayeIntegral).toList();
@@ -86,12 +95,16 @@ class _DocumentsScreenState extends State<DocumentsScreen> with SingleTickerProv
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
+          tabAlignment: TabAlignment.start,
+          padding: EdgeInsets.zero,
+          labelPadding: EdgeInsets.symmetric(horizontal: isMobile ? 10 : 16),
           labelColor: QuantisColors.royalBlue,
           unselectedLabelColor: QuantisColors.textMuted,
           indicatorColor: QuantisColors.luxuryGold,
+          indicatorWeight: 3,
           tabs: List.generate(_labels.length, (i) => Tab(
             icon: Icon(_typeIcon(_types[i]), size: 18),
-            text: _labels[i],
+            text: isMobile && _types[i] == 'BON_LIVRAISON' ? 'Bons Livraison' : _labels[i],
           )),
         ),
         actions: [
@@ -145,7 +158,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> with SingleTickerProv
                 }
               },
               icon: const Icon(Icons.add),
-              label: Text('Nouveau ${_labels[_tabController.index].replaceAll(RegExp(r's$'), '')}'),
+              label: Text(_fabLabel(_types[_tabController.index])),
               backgroundColor: QuantisColors.royalBlue,
               foregroundColor: Colors.white,
             )

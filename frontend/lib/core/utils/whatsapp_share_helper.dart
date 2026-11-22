@@ -53,15 +53,34 @@ class WhatsappShareHelper {
     return sb.toString();
   }
 
+  static bool isDummyPhone(String? phone) {
+    if (phone == null || phone.trim().isEmpty) return true;
+    final digits = phone.replaceAll(RegExp(r'\D'), '');
+    if (digits.isEmpty) return true;
+    if (digits == '22670000000' ||
+        digits == '70000000' ||
+        digits == '00000000' ||
+        digits == '22600000000' ||
+        digits == '12345678' ||
+        digits == '22612345678') {
+      return true;
+    }
+    if (RegExp(r'^(\d)\1+$').hasMatch(digits)) return true;
+    return false;
+  }
+
   /// Ouvre directement WhatsApp avec le message commercial pré-rempli
   static Future<bool> shareViaWhatsApp(DocumentModel doc, {String? customPhone}) async {
     final message = generateMessage(doc);
 
-    String phone = customPhone ?? doc.clientTelephone ?? '';
+    String phone = customPhone ?? (isDummyPhone(doc.clientTelephone) ? '' : (doc.clientTelephone ?? ''));
     // Nettoyer les espaces, tirets et caractères non numériques (sauf +)
     phone = phone.replaceAll(RegExp(r'[^\d+]'), '');
     if (phone.startsWith('00')) {
       phone = '+${phone.substring(2)}';
+    }
+    if (isDummyPhone(phone)) {
+      phone = '';
     }
 
     return await platform.openWhatsAppDirect(phone: phone, message: message);

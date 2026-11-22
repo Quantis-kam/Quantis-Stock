@@ -6,6 +6,7 @@ import '../../../core/theme/quantis_theme.dart';
 import '../../../core/network/api_client.dart';
 import '../../documents/data/document_models.dart';
 import '../../documents/presentation/invoice_pdf_generator.dart';
+import '../../documents/presentation/whatsapp_share_dialog.dart';
 
 /// Modal d'aperçu et d'impression de reçu thermique (80mm) et facture A4
 class TicketReceiptDialog extends StatefulWidget {
@@ -98,23 +99,8 @@ class _TicketReceiptDialogState extends State<TicketReceiptDialog> {
   }
 
   Future<void> _partagerWhatsApp() async {
-    setState(() => _isProcessing = true);
-    try {
-      if (_selectedFormat == 0) {
-        await InvoicePdfGenerator.shareThermalTicket(widget.saleData);
-      } else {
-        final docModel = _getDocumentModel();
-        await InvoicePdfGenerator.sharePdf(docModel, entreprise: _getEntrepriseMap());
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur partage: $e'), backgroundColor: QuantisColors.error),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isProcessing = false);
-    }
+    final docModel = _getDocumentModel();
+    await WhatsappShareDialog.show(context, docModel, entreprise: _getEntrepriseMap());
   }
 
   Future<void> _telecharger() async {
@@ -217,7 +203,7 @@ class _TicketReceiptDialogState extends State<TicketReceiptDialog> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       insetPadding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 40, vertical: 16),
       child: Container(
-        width: isMobile ? screenWidth * 0.95 : (_selectedFormat == 0 ? 460 : 680),
+        width: isMobile ? screenWidth * 0.95 : (_selectedFormat == 0 ? 560 : 700),
         constraints: BoxConstraints(
           maxHeight: MediaQuery.of(context).size.height * 0.9,
         ),
@@ -468,20 +454,21 @@ class _TicketReceiptDialogState extends State<TicketReceiptDialog> {
                 ],
               )
             else
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+              Wrap(
+                alignment: WrapAlignment.end,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                runSpacing: 8,
                 children: [
                   TextButton(
                     onPressed: () => Navigator.pop(context),
                     child: const Text('Fermer'),
                   ),
-                  const SizedBox(width: 8),
                   OutlinedButton.icon(
                     onPressed: _isProcessing ? null : _telecharger,
                     icon: const Icon(Icons.download, size: 18),
                     label: const Text('Télécharger PDF'),
                   ),
-                  const SizedBox(width: 8),
                   ElevatedButton.icon(
                     onPressed: _isProcessing ? null : _partagerWhatsApp,
                     icon: const Icon(Icons.chat_outlined, size: 18),
@@ -491,7 +478,6 @@ class _TicketReceiptDialogState extends State<TicketReceiptDialog> {
                       foregroundColor: Colors.white,
                     ),
                   ),
-                  const SizedBox(width: 8),
                   ElevatedButton.icon(
                     onPressed: _isProcessing ? null : _imprimer,
                     icon: const Icon(Icons.print, size: 18),

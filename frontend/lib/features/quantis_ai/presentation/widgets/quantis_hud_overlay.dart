@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/quantis_ai_controller.dart';
 import '../quantis_ai_launcher.dart';
+import '../../services/quantis_ai_service.dart';
 import '../../services/quantis_voice_service.dart';
 import 'jarvis_voice_modal.dart';
 
@@ -166,9 +167,37 @@ class _QuantisHudOverlayState extends ConsumerState<QuantisHudOverlay>
     _voiceService.clearActions();
     _voiceService.addAction('analyze', 'Analyse de votre demande...', icon: '🧠');
 
-    final response = await ref.read(quantisAiProvider.notifier).sendMessage(trimmed);
-
-    _voiceService.updateAction('analyze', ActionStatus.success, result: 'Compris');
+    final response = await ref.read(quantisAiProvider.notifier).sendMessage(
+      trimmed,
+      onEvent: (event) {
+        if (!mounted) return;
+        if (event.type == ChatStreamEventType.step) {
+          final stepId = event.step ?? 'step_${DateTime.now().millisecondsSinceEpoch}';
+          for (final a in _voiceService.currentActions) {
+            if (a.status == ActionStatus.running) {
+              _voiceService.updateAction(a.id, ActionStatus.success);
+            }
+          }
+          _voiceService.addAction(
+            stepId,
+            event.label ?? 'Traitement en cours...',
+            icon: event.icon ?? '⚙️',
+          );
+        } else if (event.type == ChatStreamEventType.complete) {
+          for (final a in _voiceService.currentActions) {
+            if (a.status == ActionStatus.running) {
+              _voiceService.updateAction(a.id, ActionStatus.success);
+            }
+          }
+        } else if (event.type == ChatStreamEventType.error) {
+          for (final a in _voiceService.currentActions) {
+            if (a.status == ActionStatus.running) {
+              _voiceService.updateAction(a.id, ActionStatus.error);
+            }
+          }
+        }
+      },
+    );
 
     if (response != null && mounted) {
       setState(() {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -26,10 +27,13 @@ import 'features/quantis_ai/presentation/quantis_ai_launcher.dart';
 import 'features/quantis_ai/services/quantis_voice_service.dart';
 import 'features/produits/presentation/produits_screen.dart';
 import 'features/admin/presentation/platform_admin_portal.dart';
+import 'features/auth/presentation/mobile_connect_dialog.dart';
+import 'features/auth/presentation/server_settings_dialog.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await ApiClient.initialize();
+  unawaited(ApiClient.autoConnectOnStartup());
   runApp(const ProviderScope(child: QuantisStockApp()));
 }
 
@@ -648,6 +652,14 @@ class _MainShellState extends State<MainShell> {
                             ),
                             const SizedBox(height: 4),
                             Tooltip(
+                              message: 'Connecter un téléphone (Point d\'accès / QR Code)',
+                              child: IconButton(
+                                icon: const Icon(Icons.qr_code_scanner, color: QuantisColors.luxuryGold, size: 22),
+                                onPressed: () => MobileConnectDialog.show(context),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Tooltip(
                               message: 'Déconnexion',
                               child: IconButton(
                                 icon: const Icon(Icons.logout_rounded, color: Color(0xFFEF4444), size: 22),
@@ -792,7 +804,9 @@ class _MainShellState extends State<MainShell> {
                                     ),
                                   ),
                                   onSelected: (val) {
-                                    if (val == 'password') {
+                                    if (val == 'server') {
+                                      ServerSettingsDialog.show(context);
+                                    } else if (val == 'password') {
                                       showDialog(
                                         context: context,
                                         builder: (_) => const ChangePasswordDialog(),
@@ -823,6 +837,16 @@ class _MainShellState extends State<MainShell> {
                                       ),
                                     ),
                                     const PopupMenuDivider(),
+                                    const PopupMenuItem(
+                                      value: 'server',
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.dns_rounded, size: 18, color: QuantisColors.royalBlue),
+                                          SizedBox(width: 10),
+                                          Text('Serveur API / Détecter'),
+                                        ],
+                                      ),
+                                    ),
                                     const PopupMenuItem(
                                       value: 'password',
                                       child: Row(
@@ -987,6 +1011,22 @@ class _MainShellState extends State<MainShell> {
                       },
                     ),
                   const Divider(),
+                  ValueListenableBuilder<String>(
+                    valueListenable: ApiClient.serverUrlNotifier,
+                    builder: (_, currentUrl, __) => ListTile(
+                      leading: const Icon(Icons.dns_rounded, color: QuantisColors.royalBlue),
+                      title: const Text('Serveur API / Détecter le PC'),
+                      subtitle: Text(
+                        currentUrl.replaceAll('/api/v1', ''),
+                        style: const TextStyle(fontSize: 11, color: QuantisColors.textMuted),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      onTap: () {
+                        Navigator.pop(context);
+                        ServerSettingsDialog.show(context);
+                      },
+                    ),
+                  ),
                   ListTile(
                     leading: const Icon(Icons.lock_reset, color: QuantisColors.royalBlue),
                     title: const Text('Modifier mot de passe'),

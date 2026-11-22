@@ -33,7 +33,8 @@ spring:
 
 # API versioning
 server:
-  port: 8080
+  address: 0.0.0.0
+  port: ${PORT:8080}
   servlet:
     context-path: /api/v1
 
@@ -58,6 +59,10 @@ app:
   pagination:
     default-page-size: 20
     max-page-size: 100
+  discovery:
+    enabled: true
+    udp-port: 45808
+    beacon-interval-ms: 2000
 
 # ============================================
 # Quantis AI — Assistant Intelligent
@@ -70,6 +75,8 @@ quantis:
     model: ${QUANTIS_AI_MODEL:gemini-2.0-flash}
     ollama-host: ${QUANTIS_AI_OLLAMA_HOST:http://localhost:11434}
     ollama-model: ${QUANTIS_AI_OLLAMA_MODEL:qwen3:8b}
+    openjarvis-host: ${QUANTIS_AI_OPENJARVIS_HOST:http://localhost:8000}
+    openjarvis-model: ${QUANTIS_AI_OPENJARVIS_MODEL:default}
     temperature: 0.3
     max-tokens: 4096
     max-history-messages: 20

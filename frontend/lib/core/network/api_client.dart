@@ -1,12 +1,23 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../constants/app_constants.dart';
+import 'server_discovery_service.dart';
+
+/// État courant de la connexion au serveur backend.
+enum ServerConnectionStatus { unknown, searching, connected, offline }
 
 /// Client HTTP Dio configuré pour l'API Quantis.
-/// Gère l'injection Bearer, le refresh automatique, et la redirection login.
+/// Gère l'injection Bearer, le refresh automatique, la redirection login,
+/// et la redécouverte automatique du serveur en cas de changement de réseau (Wi-Fi / Point d'accès).
 class ApiClient {
   static final ValueNotifier<bool> authStateNotifier = ValueNotifier<bool>(false);
+  static final ValueNotifier<String> serverUrlNotifier =
+      ValueNotifier<String>(ApiConstants.baseUrl);
+  static final ValueNotifier<ServerConnectionStatus> serverStatusNotifier =
+      ValueNotifier<ServerConnectionStatus>(ServerConnectionStatus.unknown);
+
   static Dio? _dio;
   static String? _accessToken;
   static String? _refreshToken;
@@ -21,7 +32,11 @@ class ApiClient {
   static String? _entrepriseId;
   static bool _isSuperAdmin = false;
   static List<String> _userPermissions = [];
+  static List<String> _recentServerUrls = [];
   static bool _isRefreshing = false;
+  static Future<DiscoveredServer?>? _activeDiscovery;
+  static DateTime? _lastAutoDiscoveryAt;
+
   static final _storage = const FlutterSecureStorage(
     webOptions: WebOptions(
       dbName: 'quantis_stock_db',
@@ -30,6 +45,8 @@ class ApiClient {
   );
   static final Map<String, String> _memoryStorage = {};
   static Function? onSessionExpired;
+
+  static List<String> get recentServerUrls => List.unmodifiable(_recentServerUrls);
 
   static Future<void> _writeStorage(String key, String value) async {
     _memoryStorage[key] = value;
@@ -72,7 +89,8 @@ class ApiClient {
       _userEmail = await _readStorage('user_email');
       _entrepriseId = await _readStorage('entreprise_id');
       _isSuperAdmin = (await _readStorage('is_super_admin')) == 'true' ||
-                      _userRole == 'SUPER_ADMIN' || _userRole == 'ROLE_SUPER_ADMIN';
+          _userRole == 'SUPER_ADMIN' ||
+          _userRole == 'ROLE_SUPER_ADMIN';
       _entrepriseNom = await _readStorage('entreprise_nom');
       _entrepriseNif = await _readStorage('entreprise_nif');
       _entrepriseMonnaie = await _readStorage('entreprise_monnaie');
@@ -82,45 +100,160 @@ class ApiClient {
       if (permsString != null) {
         _userPermissions = permsString.split(',');
       }
+
+      final recentRaw = await _readStorage('recent_server_urls');
+      if (recentRaw != null && recentRaw.trim().isNotEmpty) {
+        _recentServerUrls = recentRaw
+            .split(',')
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList();
+      }
+
       final savedUrl = await _readStorage('custom_server_url');
-      final isInvalidMobileUrl = !kIsWeb && (savedUrl?.contains('localhost') == true ||
-                                            savedUrl?.contains('127.0.0.1') == true ||
-                                            savedUrl?.contains('192.168.11.119') == true);
+      // Sur mobile, ignorer uniquement "localhost" (invalide sur téléphone).
+      // En revanche 127.0.0.1 reste valide (câble USB avec adb reverse) et localhost reste valide sur PC.
+      final isInvalidMobileUrl =
+          ApiConstants.isMobilePlatform && (savedUrl?.contains('localhost') == true);
       if (savedUrl != null && savedUrl.trim().isNotEmpty && !isInvalidMobileUrl) {
-        ApiConstants.baseUrl = savedUrl.trim();
+        ApiConstants.baseUrl = ApiConstants.normalizeApiUrl(savedUrl);
       } else {
         if (isInvalidMobileUrl) {
           await _deleteStorage('custom_server_url');
         }
         ApiConstants.baseUrl = ApiConstants.defaultBaseUrl;
       }
+      _dio?.options.baseUrl = ApiConstants.baseUrl;
+      serverUrlNotifier.value = ApiConstants.baseUrl;
     } catch (e) {
       debugPrint('Notice storage read in initialize: $e');
     }
     authStateNotifier.value = isAuthenticated;
   }
 
-  static Future<void> setCustomServerUrl(String url) async {
-    String cleanUrl = url.trim();
-    if (cleanUrl.endsWith('/')) {
-      cleanUrl = cleanUrl.substring(0, cleanUrl.length - 1);
-    }
-    if (!cleanUrl.endsWith('/api/v1')) {
-      cleanUrl = '$cleanUrl/api/v1';
-    }
+  /// Met à jour l'URL serveur EN PLACE (tous les services utilisant ApiClient.instance
+  /// basculent immédiatement sans redémarrer l'application).
+  static Future<void> setCustomServerUrl(String url, {bool markConnected = false}) async {
+    final cleanUrl = ApiConstants.normalizeApiUrl(url);
     ApiConstants.baseUrl = cleanUrl;
+    _dio?.options.baseUrl = cleanUrl;
+    serverUrlNotifier.value = cleanUrl;
+    if (markConnected) {
+      serverStatusNotifier.value = ServerConnectionStatus.connected;
+    }
     await _writeStorage('custom_server_url', cleanUrl);
-    _dio = null;
+
+    // Mémoriser les 5 dernières URLs utilisées (Wi-Fi bureau, Point d'accès, USB...)
+    _recentServerUrls.remove(cleanUrl);
+    _recentServerUrls.insert(0, cleanUrl);
+    if (_recentServerUrls.length > 5) {
+      _recentServerUrls = _recentServerUrls.sublist(0, 5);
+    }
+    await _writeStorage('recent_server_urls', _recentServerUrls.join(','));
   }
 
   static Future<void> resetCustomServerUrl() async {
     ApiConstants.baseUrl = ApiConstants.defaultBaseUrl;
+    _dio?.options.baseUrl = ApiConstants.baseUrl;
+    serverUrlNotifier.value = ApiConstants.baseUrl;
+    serverStatusNotifier.value = ServerConnectionStatus.unknown;
     await _deleteStorage('custom_server_url');
-    _dio = null;
+  }
+
+  /// Vérifie au démarrage que le serveur répond ; en mode Cloud HTTPS, réveille
+  /// silencieusement le backend en arrière-plan sans écraser l'URL Cloud par un scan LAN.
+  static Future<void> autoConnectOnStartup() async {
+    serverStatusNotifier.value = ServerConnectionStatus.searching;
+    if (ApiConstants.isCloudUrl) {
+      final cloudOk = await ServerDiscoveryService.verifyServer(
+        ApiConstants.baseUrl,
+        timeout: const Duration(seconds: 25),
+      );
+      serverStatusNotifier.value = cloudOk != null
+          ? ServerConnectionStatus.connected
+          : ServerConnectionStatus.offline;
+      return;
+    }
+    if (kIsWeb) {
+      final webOk = await ServerDiscoveryService.verifyServer(
+        ApiConstants.baseUrl,
+        timeout: const Duration(seconds: 4),
+      );
+      serverStatusNotifier.value = webOk != null
+          ? ServerConnectionStatus.connected
+          : ServerConnectionStatus.offline;
+      return;
+    }
+    final currentOk = await ServerDiscoveryService.verifyServer(
+      ApiConstants.baseUrl,
+      timeout: const Duration(milliseconds: 1200),
+    );
+    if (currentOk != null) {
+      serverStatusNotifier.value = ServerConnectionStatus.connected;
+      return;
+    }
+    await tryAutoRediscover(force: true);
+  }
+
+  /// Tente de redécouvrir automatiquement le serveur backend (Point d'accès mobile ou Wi-Fi).
+  /// Déduplique les appels simultanés et respecte un cooldown quand `force == false`.
+  static Future<DiscoveredServer?> tryAutoRediscover({
+    bool force = false,
+    void Function(String status)? onStatus,
+  }) async {
+    if (kIsWeb) return null;
+
+    if (_activeDiscovery != null) {
+      return _activeDiscovery;
+    }
+
+    if (!force && _lastAutoDiscoveryAt != null) {
+      final elapsed = DateTime.now().difference(_lastAutoDiscoveryAt!);
+      if (elapsed < const Duration(seconds: 8)) {
+        return null;
+      }
+    }
+
+    _lastAutoDiscoveryAt = DateTime.now();
+    serverStatusNotifier.value = ServerConnectionStatus.searching;
+
+    final future = () async {
+      try {
+        final priority = <String>[
+          ApiConstants.baseUrl,
+          ..._recentServerUrls,
+        ];
+        final result = await ServerDiscoveryService.discoverServer(
+          priorityUrls: priority,
+          onStatus: onStatus,
+        );
+        final found = result.server;
+        if (found != null) {
+          await setCustomServerUrl(found.apiUrl, markConnected: true);
+          return found;
+        }
+        serverStatusNotifier.value = ServerConnectionStatus.offline;
+        return null;
+      } catch (e) {
+        debugPrint('Notice auto-rediscover: $e');
+        serverStatusNotifier.value = ServerConnectionStatus.offline;
+        return null;
+      } finally {
+        _activeDiscovery = null;
+      }
+    }();
+
+    _activeDiscovery = future;
+    return future;
   }
 
   static Dio get instance {
-    _dio ??= Dio(BaseOptions(
+    if (_dio != null) {
+      _dio!.options.baseUrl = ApiConstants.baseUrl;
+      return _dio!;
+    }
+
+    final dio = Dio(BaseOptions(
       baseUrl: ApiConstants.baseUrl,
       connectTimeout: const Duration(seconds: ApiConstants.connectTimeout),
       receiveTimeout: const Duration(seconds: ApiConstants.receiveTimeout),
@@ -130,20 +263,49 @@ class ApiClient {
       },
     ));
 
-    _dio!.interceptors.clear();
-    _dio!.interceptors.add(InterceptorsWrapper(
+    dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) {
+        // Toujours synchroniser l'URL courante (même pour les services ayant mis en cache ApiClient.instance)
+        options.baseUrl = ApiConstants.baseUrl;
         if (_accessToken != null) {
           options.headers['Authorization'] = 'Bearer $_accessToken';
         }
         return handler.next(options);
       },
+      onResponse: (response, handler) {
+        if (serverStatusNotifier.value != ServerConnectionStatus.connected) {
+          serverStatusNotifier.value = ServerConnectionStatus.connected;
+        }
+        return handler.next(response);
+      },
       onError: (error, handler) async {
-        // Seul 401 Unauthorized (token expiré) tente un refresh de session
+        // 1. Reconnexion automatique transparente en mode réseau local (Wi-Fi <-> Point d'accès)
+        final isNetworkDown = error.type == DioExceptionType.connectionError ||
+            error.type == DioExceptionType.connectionTimeout;
+        if (isNetworkDown &&
+            !kIsWeb &&
+            !ApiConstants.isCloudUrl &&
+            error.requestOptions.extra['_rediscoverRetried'] != true) {
+          final discovered = await tryAutoRediscover();
+          if (discovered != null) {
+            try {
+              error.requestOptions.extra['_rediscoverRetried'] = true;
+              error.requestOptions.baseUrl = ApiConstants.baseUrl;
+              final retryRes = await dio.fetch(error.requestOptions);
+              return handler.resolve(retryRes);
+            } on DioException catch (retryErr) {
+              return handler.next(retryErr);
+            } catch (_) {
+              return handler.next(error);
+            }
+          }
+        }
+
+        // 2. 401 Unauthorized ou 403 Forbidden (token rejeté/expiré par Spring Security) tente un refresh de session
         final statusCode = error.response?.statusCode;
         final path = error.requestOptions.path;
 
-        if (statusCode == 401 &&
+        if ((statusCode == 401 || statusCode == 403) &&
             _refreshToken != null &&
             !_isRefreshing &&
             !path.contains('/auth/')) {
@@ -181,22 +343,28 @@ class ApiClient {
           if (refreshSucceeded) {
             try {
               // Rejouer la requête originale avec le nouveau token
+              error.requestOptions.baseUrl = ApiConstants.baseUrl;
               error.requestOptions.headers['Authorization'] = 'Bearer $_accessToken';
-              final retryResponse = await _dio!.fetch(error.requestOptions);
+              final retryResponse = await dio.fetch(error.requestOptions);
               return handler.resolve(retryResponse);
             } on DioException catch (retryErr) {
-              // Si la requête rejouée échoue (ex: 403 droit insuffisant), ne pas déconnecter l'utilisateur !
+              // Si la requête rejouée échoue, ne pas déconnecter l'utilisateur inutilement
               return handler.next(retryErr);
             } catch (e) {
               return handler.next(error);
             }
           }
+        } else if ((statusCode == 401 || statusCode == 403) && !path.contains('/auth/')) {
+          // Token absent ou invalide sans possibilité de refresh
+          clearToken();
+          onSessionExpired?.call();
         }
         return handler.next(error);
       },
     ));
 
-    return _dio!;
+    _dio = dio;
+    return dio;
   }
 
   static void setToken(String token) {

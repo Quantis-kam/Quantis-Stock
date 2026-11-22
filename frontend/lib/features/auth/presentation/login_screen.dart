@@ -1,11 +1,14 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/sync/sync_manager.dart';
 import '../../../core/theme/quantis_theme.dart';
+import 'mobile_connect_dialog.dart';
+import 'server_settings_dialog.dart';
 
 /// Écran de connexion — Phase 2 Flutter (Auth JWT).
 class LoginScreen extends StatefulWidget {
@@ -18,26 +21,50 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailCtrl = TextEditingController(text: 'admin@quantis.tech');
+  final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
 
   bool _loading = false;
   bool _obscure = true;
   String? _error;
 
+  Future<Response<dynamic>> _postLogin(String baseUrl) {
+    final isCloud = baseUrl.toLowerCase().startsWith('https://');
+    return Dio(BaseOptions(
+      baseUrl: baseUrl,
+      connectTimeout: Duration(seconds: isCloud ? 35 : 8),
+      receiveTimeout: Duration(seconds: isCloud ? 45 : 15),
+    )).post('/auth/login', data: {
+      'email': _emailCtrl.text.trim(),
+      'motDePasse': _passwordCtrl.text,
+    });
+  }
+
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() { _loading = true; _error = null; });
 
     try {
-      final response = await Dio(BaseOptions(
-        baseUrl: ApiConstants.baseUrl,
-        connectTimeout: const Duration(seconds: 15),
-      )).post('/auth/login', data: {
-        'email': _emailCtrl.text.trim(),
-        'motDePasse': _passwordCtrl.text,
-      });
+      Response<dynamic> response;
+      try {
+        response = await _postLogin(ApiConstants.baseUrl);
+      } on DioException catch (firstErr) {
+        final isNetworkError = firstErr.type == DioExceptionType.connectionTimeout ||
+            firstErr.type == DioExceptionType.connectionError;
+        if (isNetworkError && !kIsWeb && !ApiConstants.isCloudUrl) {
+          // Tentative transparente de redécouverte en mode serveur local (Wi-Fi <-> Point d'accès)
+          final discovered = await ApiClient.tryAutoRediscover(force: true);
+          if (discovered != null) {
+            response = await _postLogin(discovered.apiUrl);
+          } else {
+            rethrow;
+          }
+        } else {
+          rethrow;
+        }
+      }
 
+      ApiClient.serverStatusNotifier.value = ServerConnectionStatus.connected;
       final data = response.data['data'];
       final accessToken = data['accessToken'] as String;
       final refreshToken = data['refreshToken'] as String;
@@ -248,6 +275,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: _emailCtrl,
                     decoration: const InputDecoration(
                       labelText: 'Email',
+                      hintText: 'ex: gerant@boutique.com',
                       prefixIcon: Icon(Icons.email_outlined),
                     ),
                     keyboardType: TextInputType.emailAddress,
@@ -283,17 +311,71 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  TextButton.icon(
-                    onPressed: _showServerSettingsDialog,
-                    icon: const Icon(Icons.settings_ethernet, size: 16),
-                    label: Text(
-                      'Serveur : ${ApiConstants.baseUrl.replaceAll('/api/v1', '')}',
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    style: TextButton.styleFrom(
-                      foregroundColor: QuantisColors.textMuted,
-                    ),
+                  ValueListenableBuilder<String>(
+                    valueListenable: ApiClient.serverUrlNotifier,
+                    builder: (_, currentUrl, __) {
+                      return ValueListenableBuilder<ServerConnectionStatus>(
+                        valueListenable: ApiClient.serverStatusNotifier,
+                        builder: (_, status, __) {
+                          final displayHost = currentUrl.replaceAll('/api/v1', '');
+                          final Widget statusIcon;
+                          final Color statusColor;
+                          final String labelText;
+
+                          switch (status) {
+                            case ServerConnectionStatus.searching:
+                              statusIcon = const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              );
+                              statusColor = QuantisColors.royalBlue;
+                              labelText = 'Recherche automatique du serveur...';
+                              break;
+                            case ServerConnectionStatus.connected:
+                              statusIcon = const Icon(Icons.check_circle, size: 16, color: Colors.green);
+                              statusColor = Colors.green.shade800;
+                              labelText = 'Serveur connecté : $displayHost';
+                              break;
+                            case ServerConnectionStatus.offline:
+                              statusIcon = const Icon(Icons.wifi_off_rounded, size: 16, color: Colors.orange);
+                              statusColor = Colors.orange.shade900;
+                              labelText = 'Serveur hors ligne : $displayHost';
+                              break;
+                            case ServerConnectionStatus.unknown:
+                              statusIcon = const Icon(Icons.settings_ethernet, size: 16);
+                              statusColor = QuantisColors.textMuted;
+                              labelText = 'Serveur : $displayHost';
+                              break;
+                          }
+
+                          return TextButton.icon(
+                            onPressed: _showServerSettingsDialog,
+                            icon: statusIcon,
+                            label: Text(
+                              labelText,
+                              style: TextStyle(fontSize: 12, color: statusColor),
+                            ),
+                            style: TextButton.styleFrom(
+                              foregroundColor: statusColor,
+                            ),
+                          );
+                        },
+                      );
+                    },
                   ),
+                  if (!ApiConstants.isCloudUrl) ...[
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: () => MobileConnectDialog.show(context),
+                      icon: const Icon(Icons.wifi_tethering, size: 16, color: QuantisColors.royalBlue),
+                      label: const Text('Connecter un téléphone (Point d\'accès / QR Code)', style: TextStyle(fontSize: 12)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: QuantisColors.royalBlue,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -303,244 +385,9 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  void _showServerSettingsDialog() {
-    final controller = TextEditingController(text: ApiConstants.baseUrl);
-    bool isTesting = false;
-    bool isScanning = false;
-    String? testResult;
-    bool isSuccess = false;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          final screenWidth = MediaQuery.of(context).size.width;
-          final isMobile = screenWidth < 600;
-
-          Future<void> runTest([String? overrideUrl]) async {
-            setDialogState(() {
-              isTesting = true;
-              testResult = null;
-            });
-            try {
-              String testUrl = (overrideUrl ?? controller.text).trim();
-              if (testUrl.endsWith('/')) testUrl = testUrl.substring(0, testUrl.length - 1);
-              if (!testUrl.endsWith('/api/v1')) testUrl = '$testUrl/api/v1';
-              controller.text = testUrl;
-
-              final dio = Dio(BaseOptions(connectTimeout: const Duration(seconds: 4), receiveTimeout: const Duration(seconds: 4)));
-              Response? res;
-              try {
-                res = await dio.get('$testUrl/health');
-              } catch (_) {
-                res = await dio.get('$testUrl/auth/health');
-              }
-
-              setDialogState(() {
-                isTesting = false;
-                isSuccess = true;
-                testResult = 'Connecté avec succès au serveur (${res?.statusCode ?? 200}) !';
-              });
-            } catch (e) {
-              setDialogState(() {
-                isTesting = false;
-                isSuccess = false;
-                testResult = 'Échec de connexion : vérifiez que le PC et le téléphone sont sur le même Wi-Fi.';
-              });
-            }
-          }
-
-          Future<void> runAutoScan() async {
-            setDialogState(() {
-              isScanning = true;
-              testResult = 'Recherche automatique du serveur en cours...';
-              isSuccess = false;
-            });
-
-            final candidates = <String>{
-              'http://192.168.11.108:8080/api/v1',
-              'http://192.168.1.108:8080/api/v1',
-              'http://10.0.2.2:8080/api/v1',
-              'http://localhost:8080/api/v1',
-              controller.text.trim(),
-            };
-
-            String? foundUrl;
-            final dio = Dio(BaseOptions(connectTimeout: const Duration(milliseconds: 2000), receiveTimeout: const Duration(milliseconds: 2000)));
-
-            for (final cand in candidates) {
-              if (cand.isEmpty) continue;
-              String cleanCand = cand;
-              if (cleanCand.endsWith('/')) cleanCand = cleanCand.substring(0, cleanCand.length - 1);
-              if (!cleanCand.endsWith('/api/v1')) cleanCand = '$cleanCand/api/v1';
-              try {
-                final res = await dio.get('$cleanCand/health');
-                if (res.statusCode == 200) {
-                  foundUrl = cleanCand;
-                  break;
-                }
-              } catch (_) {
-                try {
-                  final res2 = await dio.get('$cleanCand/auth/health');
-                  if (res2.statusCode == 200) {
-                    foundUrl = cleanCand;
-                    break;
-                  }
-                } catch (_) {}
-              }
-            }
-
-            setDialogState(() {
-              isScanning = false;
-              if (foundUrl != null) {
-                controller.text = foundUrl;
-                isSuccess = true;
-                testResult = 'Serveur détecté avec succès : $foundUrl';
-              } else {
-                isSuccess = false;
-                testResult = 'Aucun serveur détecté automatiquement. Entrez l\'adresse IP de votre PC manuellement.';
-              }
-            });
-          }
-
-          return AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            insetPadding: EdgeInsets.symmetric(
-              horizontal: isMobile ? 12 : 40,
-              vertical: 16,
-            ),
-            title: const Row(
-              children: [
-                Icon(Icons.dns_rounded, color: QuantisColors.royalBlue),
-                SizedBox(width: 8),
-                Text('Adresse Serveur API', style: TextStyle(fontSize: 18)),
-              ],
-            ),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Pour vous connecter sur le même réseau Wi-Fi, indiquez l\'adresse IP du PC hébergeant le serveur backend :',
-                    style: TextStyle(fontSize: 13, color: QuantisColors.textMuted),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Raccourcis rapides :',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: QuantisColors.textMuted),
-                  ),
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      ActionChip(
-                        avatar: const Icon(Icons.wifi, size: 14, color: QuantisColors.royalBlue),
-                        label: const Text('Wi-Fi PC (192.168.11.108)', style: TextStyle(fontSize: 11)),
-                        backgroundColor: QuantisColors.royalBlue.withValues(alpha: 0.08),
-                        onPressed: () {
-                          controller.text = 'http://192.168.11.108:8080/api/v1';
-                          runTest('http://192.168.11.108:8080/api/v1');
-                        },
-                      ),
-                      ActionChip(
-                        avatar: const Icon(Icons.phone_android, size: 14),
-                        label: const Text('Émulateur (10.0.2.2)', style: TextStyle(fontSize: 11)),
-                        onPressed: () {
-                          controller.text = 'http://10.0.2.2:8080/api/v1';
-                          runTest('http://10.0.2.2:8080/api/v1');
-                        },
-                      ),
-                      ActionChip(
-                        avatar: const Icon(Icons.computer, size: 14),
-                        label: const Text('Localhost', style: TextStyle(fontSize: 11)),
-                        onPressed: () {
-                          controller.text = 'http://localhost:8080/api/v1';
-                          runTest('http://localhost:8080/api/v1');
-                        },
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  TextField(
-                    controller: controller,
-                    decoration: InputDecoration(
-                      labelText: 'URL de l\'API',
-                      hintText: ApiConstants.defaultBaseUrl,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                      prefixIcon: const Icon(Icons.link),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  if (testResult != null) ...[
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: (isSuccess ? Colors.green : (isScanning ? Colors.blue : Colors.red)).withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          if (isScanning)
-                            const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
-                          else
-                            Icon(isSuccess ? Icons.check_circle : Icons.error, color: isSuccess ? Colors.green : Colors.red, size: 16),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              testResult!,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: isSuccess ? Colors.green.shade800 : (isScanning ? Colors.blue.shade800 : Colors.red.shade800),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                  ],
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      TextButton.icon(
-                        onPressed: isScanning ? null : runAutoScan,
-                        icon: isScanning
-                            ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
-                            : const Icon(Icons.radar, size: 16),
-                        label: const Text('Auto-détecter', style: TextStyle(fontSize: 12)),
-                      ),
-                      TextButton.icon(
-                        onPressed: isTesting ? null : () => runTest(),
-                        icon: isTesting
-                            ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
-                            : const Icon(Icons.wifi_tethering, size: 16),
-                        label: const Text('Tester', style: TextStyle(fontSize: 12)),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('Annuler'),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  await ApiClient.setCustomServerUrl(controller.text);
-                  if (ctx.mounted) Navigator.of(ctx).pop();
-                  if (mounted) setState(() {});
-                },
-                child: const Text('Enregistrer'),
-              ),
-            ],
-          );
-        },
-      ),
-    );
+  Future<void> _showServerSettingsDialog() async {
+    await ServerSettingsDialog.show(context);
+    if (mounted) setState(() {});
   }
 }
 

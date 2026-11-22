@@ -42,6 +42,15 @@ class _DocumentFormDialogState extends State<DocumentFormDialog> {
     {'code': 'AVOIR', 'label': 'Avoir'},
   ];
 
+  IconData _typeIcon(String code) => switch (code) {
+        'FACTURE' => Icons.receipt_long,
+        'COMMANDE_CLIENT' => Icons.shopping_bag_outlined,
+        'DEVIS' => Icons.description_outlined,
+        'BON_LIVRAISON' => Icons.local_shipping_outlined,
+        'AVOIR' => Icons.assignment_return_outlined,
+        _ => Icons.article_outlined,
+      };
+
   @override
   void initState() {
     super.initState();
@@ -220,27 +229,33 @@ class _DocumentFormDialogState extends State<DocumentFormDialog> {
                             // Type de Document
                             const Text('Type de Document :', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                             const SizedBox(height: 8),
-                            SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Row(
-                                children: _types.map((t) {
-                                  final isSel = _type == t['code'];
-                                  return Padding(
-                                    padding: const EdgeInsets.only(right: 8),
-                                    child: ChoiceChip(
-                                      label: Text(t['label']!),
-                                      selected: isSel,
-                                      selectedColor: QuantisColors.royalBlue,
-                                      labelStyle: TextStyle(
-                                        color: isSel ? Colors.white : Colors.black87,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
-                                      ),
-                                      onSelected: (_) => setState(() => _type = t['code']!),
-                                    ),
-                                  );
-                                }).toList(),
-                              ),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: _types.map((t) {
+                                final isSel = _type == t['code'];
+                                return ChoiceChip(
+                                  showCheckmark: false,
+                                  avatar: Icon(
+                                    _typeIcon(t['code']!),
+                                    size: 16,
+                                    color: isSel ? Colors.white : QuantisColors.royalBlue,
+                                  ),
+                                  label: Text(t['label']!),
+                                  selected: isSel,
+                                  selectedColor: QuantisColors.royalBlue,
+                                  backgroundColor: Colors.grey.shade50,
+                                  side: BorderSide(
+                                    color: isSel ? QuantisColors.royalBlue : Colors.grey.shade300,
+                                  ),
+                                  labelStyle: TextStyle(
+                                    color: isSel ? Colors.white : Colors.black87,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                  onSelected: (_) => setState(() => _type = t['code']!),
+                                );
+                              }).toList(),
                             ),
                             const SizedBox(height: 16),
 

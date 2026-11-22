@@ -151,258 +151,402 @@ class _CommandeFormScreenState extends State<CommandeFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 700;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Nouvelle Commande'),
         actions: [
-          TextButton.icon(
-            onPressed: _submitting ? null : _submit,
-            icon: _submitting
-                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Icon(Icons.check, color: Colors.white),
-            label: Text(_submitting ? 'Envoi...' : 'Créer', style: const TextStyle(color: Colors.white)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: ElevatedButton.icon(
+              onPressed: _submitting ? null : _submit,
+              icon: _submitting
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.check_circle_outline, size: 18),
+              label: Text(_submitting ? 'Envoi...' : 'Valider'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: QuantisColors.royalBlue,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
           ),
         ],
       ),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.08),
+              blurRadius: 10,
+              offset: const Offset(0, -3),
+            ),
+          ],
+          border: const Border(top: BorderSide(color: QuantisColors.border)),
+        ),
+        padding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 16 : 24,
+          vertical: 12,
+        ),
+        child: SafeArea(
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${_lignes.length} ligne(s) de commande',
+                      style: const TextStyle(fontSize: 11, color: QuantisColors.textMuted),
+                    ),
+                    Text(
+                      'Total: ${_totalHt.toStringAsFixed(0)} FCFA',
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        color: QuantisColors.royalBlue,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton(
+                onPressed: _submitting ? null : () => Navigator.pop(context),
+                style: OutlinedButton.styleFrom(
+                  padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 18, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                child: const Text('Annuler'),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton.icon(
+                onPressed: _submitting ? null : _submit,
+                icon: _submitting
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.check_circle, size: 18),
+                label: Text(
+                  _submitting ? 'Envoi...' : (isMobile ? 'Enregistrer' : 'Valider la commande'),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: QuantisColors.royalBlue,
+                  foregroundColor: Colors.white,
+                  elevation: 1,
+                  padding: EdgeInsets.symmetric(horizontal: isMobile ? 14 : 20, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
       body: _loadingRef
           ? const Center(child: CircularProgressIndicator())
-          : Form(
-              key: _formKey,
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  // === HEADER: Fournisseur & Dépôt ===
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Informations générales',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                          const SizedBox(height: 16),
-                          DropdownButtonFormField<int>(
-                            decoration: const InputDecoration(
-                              labelText: 'Fournisseur *',
-                              prefixIcon: Icon(Icons.business),
-                            ),
-                            items: _fournisseurs
-                                .map((f) => DropdownMenuItem<int>(
-                                      value: f['id'] as int,
-                                      child: Text(f['nom'] as String),
-                                    ))
-                                .toList(),
-                            onChanged: (v) => _fournisseurId = v,
-                            validator: (v) => v == null ? 'Sélectionnez un fournisseur' : null,
-                          ),
-                          const SizedBox(height: 12),
-                          DropdownButtonFormField<int>(
-                            decoration: const InputDecoration(
-                              labelText: 'Dépôt de destination *',
-                              prefixIcon: Icon(Icons.warehouse),
-                            ),
-                            items: _depots
-                                .map((d) => DropdownMenuItem<int>(
-                                      value: d['id'] as int,
-                                      child: Text(d['nom'] as String),
-                                    ))
-                                .toList(),
-                            onChanged: (v) => _depotId = v,
-                            validator: (v) => v == null ? 'Sélectionnez un dépôt' : null,
-                          ),
-                          const SizedBox(height: 12),
-                          InkWell(
-                            onTap: _pickDate,
-                            child: InputDecorator(
-                              decoration: const InputDecoration(
-                                labelText: 'Date de livraison prévue',
-                                prefixIcon: Icon(Icons.calendar_today),
+          : Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 900),
+                child: Form(
+                  key: _formKey,
+                  child: ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      // === HEADER: Fournisseur & Dépôt ===
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Informations générales',
+                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                              const SizedBox(height: 16),
+                              DropdownButtonFormField<int>(
+                                isExpanded: true,
+                                decoration: const InputDecoration(
+                                  labelText: 'Fournisseur *',
+                                  prefixIcon: Icon(Icons.business),
+                                ),
+                                items: _fournisseurs
+                                    .map((f) => DropdownMenuItem<int>(
+                                          value: f['id'] as int,
+                                          child: Text(f['nom'] as String, overflow: TextOverflow.ellipsis),
+                                        ))
+                                    .toList(),
+                                onChanged: (v) => _fournisseurId = v,
+                                validator: (v) => v == null ? 'Sélectionnez un fournisseur' : null,
                               ),
-                              child: Text(
-                                _dateLivraisonPrevue != null
-                                    ? '${_dateLivraisonPrevue!.day}/${_dateLivraisonPrevue!.month}/${_dateLivraisonPrevue!.year}'
-                                    : 'Non définie',
-                                style: TextStyle(
-                                  color: _dateLivraisonPrevue != null ? null : QuantisColors.textMuted,
+                              const SizedBox(height: 12),
+                              DropdownButtonFormField<int>(
+                                isExpanded: true,
+                                decoration: const InputDecoration(
+                                  labelText: 'Dépôt de destination *',
+                                  prefixIcon: Icon(Icons.warehouse),
+                                ),
+                                items: _depots
+                                    .map((d) => DropdownMenuItem<int>(
+                                          value: d['id'] as int,
+                                          child: Text(d['nom'] as String, overflow: TextOverflow.ellipsis),
+                                        ))
+                                    .toList(),
+                                onChanged: (v) => _depotId = v,
+                                validator: (v) => v == null ? 'Sélectionnez un dépôt' : null,
+                              ),
+                              const SizedBox(height: 12),
+                              InkWell(
+                                onTap: _pickDate,
+                                child: InputDecorator(
+                                  decoration: const InputDecoration(
+                                    labelText: 'Date de livraison prévue',
+                                    prefixIcon: Icon(Icons.calendar_today),
+                                  ),
+                                  child: Text(
+                                    _dateLivraisonPrevue != null
+                                        ? '${_dateLivraisonPrevue!.day}/${_dateLivraisonPrevue!.month}/${_dateLivraisonPrevue!.year}'
+                                        : 'Non définie',
+                                    style: TextStyle(
+                                      color: _dateLivraisonPrevue != null ? null : QuantisColors.textMuted,
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
+                              const SizedBox(height: 12),
+                              TextFormField(
+                                decoration: const InputDecoration(
+                                  labelText: 'Notes',
+                                  prefixIcon: Icon(Icons.notes),
+                                ),
+                                maxLines: 2,
+                                onSaved: (v) => _notes = v,
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            decoration: const InputDecoration(
-                              labelText: 'Notes',
-                              prefixIcon: Icon(Icons.notes),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // === LIGNES DE COMMANDE ===
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Lignes de commande',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                          ElevatedButton.icon(
+                            onPressed: _addLigne,
+                            icon: const Icon(Icons.add, size: 18),
+                            label: const Text('Ajouter'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: QuantisColors.royalBlue,
+                              foregroundColor: Colors.white,
                             ),
-                            maxLines: 2,
-                            onSaved: (v) => _notes = v,
                           ),
                         ],
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
+                      const SizedBox(height: 8),
 
-                  // === LIGNES DE COMMANDE ===
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Lignes de commande',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                      ElevatedButton.icon(
-                        onPressed: _addLigne,
-                        icon: const Icon(Icons.add, size: 18),
-                        label: const Text('Ajouter'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: QuantisColors.royalBlue,
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
+                      if (_lignes.isEmpty)
+                        Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              children: [
+                                Icon(Icons.shopping_cart_outlined, size: 48,
+                                    color: QuantisColors.textMuted.withValues(alpha: 0.4)),
+                                const SizedBox(height: 8),
+                                const Text('Aucune ligne ajoutée',
+                                    style: TextStyle(color: QuantisColors.textMuted)),
+                                const SizedBox(height: 4),
+                                const Text('Appuyez sur "Ajouter" pour ajouter des produits',
+                                    style: TextStyle(color: QuantisColors.textMuted, fontSize: 12)),
+                              ],
+                            ),
+                          ),
+                        )
+                      else
+                        ...List.generate(_lignes.length, (i) {
+                          final ligne = _lignes[i];
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Column(
+                                children: [
+                                  Row(
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 14,
+                                        backgroundColor: QuantisColors.royalBlue.withValues(alpha: 0.1),
+                                        child: Text('${i + 1}',
+                                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: QuantisColors.royalBlue)),
+                                      ),
+                                      const Spacer(),
+                                      IconButton(
+                                        icon: const Icon(Icons.delete_outline, color: QuantisColors.error, size: 20),
+                                        onPressed: () => _removeLigne(i),
+                                        tooltip: 'Supprimer',
+                                      ),
+                                    ],
+                                  ),
+                                  DropdownButtonFormField<int>(
+                                    isExpanded: true,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Produit',
+                                      isDense: true,
+                                    ),
+                                    value: ligne.produitId,
+                                    items: _produits
+                                        .map((p) => DropdownMenuItem<int>(
+                                              value: p['id'] as int,
+                                              child: Text(p['nom'] as String, overflow: TextOverflow.ellipsis),
+                                            ))
+                                        .toList(),
+                                    onChanged: (v) {
+                                      setState(() {
+                                        ligne.produitId = v;
+                                        // Auto-fill prix achat
+                                        final prod = _produits.firstWhere((p) => p['id'] == v, orElse: () => {});
+                                        if (prod.isNotEmpty) {
+                                          ligne.prixUnitaire = (prod['prixAchat'] as double?) ?? 0;
+                                          ligne.prixController.text = ligne.prixUnitaire.toStringAsFixed(0);
+                                        }
+                                      });
+                                    },
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: TextFormField(
+                                          decoration: const InputDecoration(
+                                            labelText: 'Quantité',
+                                            isDense: true,
+                                          ),
+                                          keyboardType: TextInputType.number,
+                                          controller: ligne.qtyController,
+                                          onChanged: (v) => setState(() {
+                                            ligne.quantite = double.tryParse(v) ?? 0;
+                                          }),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: TextFormField(
+                                          decoration: const InputDecoration(
+                                            labelText: 'Prix unitaire (FCFA)',
+                                            isDense: true,
+                                          ),
+                                          keyboardType: TextInputType.number,
+                                          controller: ligne.prixController,
+                                          onChanged: (v) => setState(() {
+                                            ligne.prixUnitaire = double.tryParse(v) ?? 0;
+                                          }),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: Text(
+                                      'Montant: ${ligne.montant.toStringAsFixed(0)} FCFA',
+                                      style: const TextStyle(fontWeight: FontWeight.w700, color: QuantisColors.royalBlue),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }),
 
-                  if (_lignes.isEmpty)
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
-                          children: [
-                            Icon(Icons.shopping_cart_outlined, size: 48,
-                                color: QuantisColors.textMuted.withValues(alpha: 0.4)),
-                            const SizedBox(height: 8),
-                            const Text('Aucune ligne ajoutée',
-                                style: TextStyle(color: QuantisColors.textMuted)),
-                            const SizedBox(height: 4),
-                            const Text('Appuyez sur "Ajouter" pour ajouter des produits',
-                                style: TextStyle(color: QuantisColors.textMuted, fontSize: 12)),
-                          ],
-                        ),
-                      ),
-                    )
-                  else
-                    ...List.generate(_lignes.length, (i) {
-                      final ligne = _lignes[i];
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 8),
+                      const SizedBox(height: 16),
+
+                      // === TOTAL ===
+                      Card(
+                        color: QuantisColors.royalBlue.withValues(alpha: 0.05),
                         child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Row(
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  CircleAvatar(
-                                    radius: 14,
-                                    backgroundColor: QuantisColors.royalBlue.withValues(alpha: 0.1),
-                                    child: Text('${i + 1}',
-                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: QuantisColors.royalBlue)),
-                                  ),
-                                  const Spacer(),
-                                  IconButton(
-                                    icon: const Icon(Icons.delete_outline, color: QuantisColors.error, size: 20),
-                                    onPressed: () => _removeLigne(i),
-                                    tooltip: 'Supprimer',
+                                  const Text('Total Général HT',
+                                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                                  Text(
+                                    '${_lignes.length} article(s) saisi(s)',
+                                    style: const TextStyle(fontSize: 12, color: QuantisColors.textMuted),
                                   ),
                                 ],
                               ),
-                              DropdownButtonFormField<int>(
-                                decoration: const InputDecoration(
-                                  labelText: 'Produit',
-                                  isDense: true,
-                                ),
-                                value: ligne.produitId,
-                                items: _produits
-                                    .map((p) => DropdownMenuItem<int>(
-                                          value: p['id'] as int,
-                                          child: Text(p['nom'] as String, overflow: TextOverflow.ellipsis),
-                                        ))
-                                    .toList(),
-                                onChanged: (v) {
-                                  setState(() {
-                                    ligne.produitId = v;
-                                    // Auto-fill prix achat
-                                    final prod = _produits.firstWhere((p) => p['id'] == v, orElse: () => {});
-                                    if (prod.isNotEmpty) {
-                                      ligne.prixUnitaire = (prod['prixAchat'] as double?) ?? 0;
-                                      ligne.prixController.text = ligne.prixUnitaire.toStringAsFixed(0);
-                                    }
-                                  });
-                                },
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: TextFormField(
-                                      decoration: const InputDecoration(
-                                        labelText: 'Quantité',
-                                        isDense: true,
-                                      ),
-                                      keyboardType: TextInputType.number,
-                                      controller: ligne.qtyController,
-                                      onChanged: (v) => setState(() {
-                                        ligne.quantite = double.tryParse(v) ?? 0;
-                                      }),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: TextFormField(
-                                      decoration: const InputDecoration(
-                                        labelText: 'Prix unitaire (FCFA)',
-                                        isDense: true,
-                                      ),
-                                      keyboardType: TextInputType.number,
-                                      controller: ligne.prixController,
-                                      onChanged: (v) => setState(() {
-                                        ligne.prixUnitaire = double.tryParse(v) ?? 0;
-                                      }),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: Text(
-                                  'Montant: ${ligne.montant.toStringAsFixed(0)} FCFA',
-                                  style: const TextStyle(fontWeight: FontWeight.w700, color: QuantisColors.royalBlue),
+                              Text(
+                                '${_totalHt.toStringAsFixed(0)} FCFA',
+                                style: const TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w800,
+                                  color: QuantisColors.royalBlue,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      );
-                    }),
+                      ),
 
-                  const SizedBox(height: 16),
+                      const SizedBox(height: 20),
 
-                  // === TOTAL ===
-                  if (_lignes.isNotEmpty)
-                    Card(
-                      color: QuantisColors.royalBlue.withValues(alpha: 0.05),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text('Total HT',
-                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                            Text(
-                              '${_totalHt.toStringAsFixed(0)} FCFA',
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w800,
-                                color: QuantisColors.royalBlue,
-                              ),
-                            ),
-                          ],
+                      // === BOUTON D'ENREGISTREMENT AU PIED DU FORMULAIRE ===
+                      SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: ElevatedButton.icon(
+                          onPressed: _submitting ? null : _submit,
+                          icon: _submitting
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Icon(Icons.check_circle, size: 22),
+                          label: Text(
+                            _submitting ? 'Création de la commande en cours...' : 'Valider et Enregistrer la Commande',
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: QuantisColors.royalBlue,
+                            foregroundColor: Colors.white,
+                            elevation: 2,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
                         ),
                       ),
-                    ),
 
-                  const SizedBox(height: 80), // Space for FAB
-                ],
+                      const SizedBox(height: 12),
+
+                      Center(
+                        child: TextButton.icon(
+                          onPressed: _submitting ? null : () => Navigator.pop(context),
+                          icon: const Icon(Icons.close, size: 18, color: QuantisColors.textMuted),
+                          label: const Text('Annuler', style: TextStyle(color: QuantisColors.textMuted)),
+                        ),
+                      ),
+
+                      const SizedBox(height: 32),
+                    ],
+                  ),
+                ),
               ),
             ),
     );
