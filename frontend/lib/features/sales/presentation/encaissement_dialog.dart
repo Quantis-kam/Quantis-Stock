@@ -215,9 +215,16 @@ class _EncaissementDialogState extends State<EncaissementDialog> {
                       'NET À PAYER :',
                       style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: QuantisColors.royalBlue),
                     ),
-                    Text(
-                      '${widget.totalTtc.toStringAsFixed(0)} $monnaie',
-                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 22, color: QuantisColors.royalBlue),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          '${widget.totalTtc.toStringAsFixed(0)} $monnaie',
+                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 22, color: QuantisColors.royalBlue),
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -324,9 +331,18 @@ class _EncaissementDialogState extends State<EncaissementDialog> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Monnaie à rendre :', style: TextStyle(fontWeight: FontWeight.bold, color: QuantisColors.success)),
-                        Text('${monnaieRendue.toStringAsFixed(0)} $monnaie',
-                            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: QuantisColors.success)),
+                        const Expanded(
+                          child: Text('Monnaie à rendre :', style: TextStyle(fontWeight: FontWeight.bold, color: QuantisColors.success)),
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerRight,
+                            child: Text('${monnaieRendue.toStringAsFixed(0)} $monnaie',
+                                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: QuantisColors.success)),
+                          ),
+                        ),
                       ],
                     ),
                   ),

@@ -169,9 +169,16 @@ class _SolderCommandeDialogState extends State<SolderCommandeDialog> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text('Montant Commande :', style: TextStyle(fontWeight: FontWeight.bold)),
-                    Text(
-                      '${widget.commande.totalTtc.toStringAsFixed(0)} $monnaie',
-                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20, color: QuantisColors.royalBlue),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          '${widget.commande.totalTtc.toStringAsFixed(0)} $monnaie',
+                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20, color: QuantisColors.royalBlue),
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -274,16 +281,21 @@ class _SolderCommandeDialogState extends State<SolderCommandeDialog> {
                     child: const Text('Annuler'),
                   ),
                   const SizedBox(width: 10),
-                  ElevatedButton.icon(
-                    onPressed: _saving ? null : _validerEtSolder,
-                    icon: _saving
-                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                        : const Icon(Icons.check_circle, size: 18),
-                    label: Text(reste <= 0 ? 'Valider & Solder' : 'Facturer & Enregistrer'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: QuantisColors.success,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+                  Flexible(
+                    child: ElevatedButton.icon(
+                      onPressed: _saving ? null : _validerEtSolder,
+                      icon: _saving
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.check_circle, size: 18),
+                      label: Text(
+                        reste <= 0 ? 'Valider & Solder' : 'Facturer & Enregistrer',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: QuantisColors.success,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+                      ),
                     ),
                   ),
                 ],

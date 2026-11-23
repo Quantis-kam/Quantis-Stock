@@ -234,9 +234,14 @@ class _DocumentsScreenState extends State<DocumentsScreen> with SingleTickerProv
                 // Filtre Factures non réglées
                 if (_types[_tabController.index] == 'FACTURE')
                   Container(
+                    width: double.infinity,
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     color: Colors.white,
-                    child: Row(
+                    child: Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
+                      runSpacing: 6,
                       children: [
                         FilterChip(
                           avatar: Icon(
@@ -244,7 +249,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> with SingleTickerProv
                             size: 16,
                             color: _filterNonReglees ? Colors.white : QuantisColors.warning,
                           ),
-                          label: const Text('Factures Non Soldées / À Crédit'),
+                          label: const Text('Non Soldées / À Crédit'),
                           selected: _filterNonReglees,
                           selectedColor: QuantisColors.warning,
                           labelStyle: TextStyle(
@@ -253,7 +258,6 @@ class _DocumentsScreenState extends State<DocumentsScreen> with SingleTickerProv
                           ),
                           onSelected: (val) => setState(() => _filterNonReglees = val),
                         ),
-                        const Spacer(),
                         Text(
                           '${_displayedDocuments.length} document(s)',
                           style: TextStyle(fontSize: 12, color: Colors.grey.shade600),

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/quantis_theme.dart';
 import '../../../core/widgets/quantis_field_toggle.dart';
@@ -102,6 +104,13 @@ class _PosScreenState extends State<PosScreen> {
     });
   }
 
+  String _formatMontant(num amount) {
+    return NumberFormat('#,##0', 'fr_FR')
+        .format(amount.round())
+        .replaceAll('\u202F', ' ')
+        .replaceAll('\u00A0', ' ');
+  }
+
   void _modifierQuantite(int index, double delta) {
     setState(() {
       final nouvelleQte = _panier[index]['quantite'] + delta;
@@ -111,6 +120,88 @@ class _PosScreenState extends State<PosScreen> {
         _panier[index]['quantite'] = nouvelleQte;
       }
     });
+  }
+
+  void _definirQuantiteIndex(int index, double nouvelleQte) {
+    if (index < 0 || index >= _panier.length) return;
+    setState(() {
+      if (nouvelleQte <= 0) {
+        _panier.removeAt(index);
+      } else {
+        _panier[index]['quantite'] = nouvelleQte;
+      }
+    });
+  }
+
+  void _definirQuantiteProduit(Map<String, dynamic> produit, double nouvelleQte) {
+    final int prodId = produit['id'];
+    final existingIndex = _panier.indexWhere((item) => item['produitId'] == prodId);
+    setState(() {
+      if (nouvelleQte <= 0) {
+        if (existingIndex != -1) _panier.removeAt(existingIndex);
+      } else if (existingIndex != -1) {
+        _panier[existingIndex]['quantite'] = nouvelleQte;
+      } else {
+        _panier.add({
+          'produitId': prodId,
+          'nom': produit['nom'],
+          'sku': produit['sku'],
+          'prixUnitaire': (produit['prixVente'] as num).toDouble(),
+          'quantite': nouvelleQte,
+          'tauxTva': (produit['tauxTva'] as num?)?.toDouble() ?? 0.0,
+          'stock': produit['stockCourant'] ?? 0,
+        });
+      }
+    });
+  }
+
+  Future<void> _ouvrirSaisieQuantite({
+    Map<String, dynamic>? produit,
+    int? cartIndex,
+    VoidCallback? onCartChanged,
+  }) async {
+    assert(produit != null || cartIndex != null);
+    Map<String, dynamic>? existingItem;
+    if (cartIndex != null && cartIndex >= 0 && cartIndex < _panier.length) {
+      existingItem = _panier[cartIndex];
+    } else if (produit != null) {
+      final idx = _panier.indexWhere((it) => it['produitId'] == produit['id']);
+      if (idx != -1) {
+        cartIndex = idx;
+        existingItem = _panier[idx];
+      }
+    }
+
+    final String nom = (existingItem?['nom'] ?? produit?['nom'] ?? 'Article').toString();
+    final double prixUnitaire = existingItem != null
+        ? (existingItem['prixUnitaire'] as num).toDouble()
+        : ((produit?['prixVente'] as num?)?.toDouble() ?? 0.0);
+    final num stockNum = existingItem != null
+        ? ((existingItem['stock'] as num?) ?? 0)
+        : ((produit?['stockCourant'] as num?) ?? 0);
+    final int stockDispo = stockNum.toInt();
+    final int qteInitiale = existingItem != null ? (existingItem['quantite'] as num).round() : 1;
+
+    final int? chosenQty = await showDialog<int>(
+      context: context,
+      builder: (_) => _PosQuantityDialog(
+        nom: nom,
+        prixUnitaire: prixUnitaire,
+        stockDispo: stockDispo,
+        qteInitiale: qteInitiale,
+        monnaie: ApiClient.entrepriseMonnaie,
+        formatMontant: _formatMontant,
+      ),
+    );
+
+    if (chosenQty == null || !mounted) return;
+
+    if (cartIndex != null && cartIndex >= 0 && cartIndex < _panier.length) {
+      _definirQuantiteIndex(cartIndex, chosenQty.toDouble());
+    } else if (produit != null) {
+      _definirQuantiteProduit(produit, chosenQty.toDouble());
+    }
+    onCartChanged?.call();
   }
 
   void _supprimerDuPanier(int index) {
@@ -591,12 +682,13 @@ class _PosScreenState extends State<PosScreen> {
                       child: InkWell(
                         borderRadius: BorderRadius.circular(12),
                         onTap: () => _ajouterAuPanier(p),
+                        onLongPress: () => _ouvrirSaisieQuantite(produit: p),
                         child: Padding(
                           padding: EdgeInsets.all(isMobile ? 8 : 10),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Vignette / Icône + Badge si dans le panier
+                              // Vignette / Icône + Badge cliquable pour saisir la quantité
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
@@ -614,18 +706,31 @@ class _PosScreenState extends State<PosScreen> {
                                     ),
                                   ),
                                   if (inCartQte > 0)
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: QuantisColors.royalBlue,
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Text(
-                                        'x${inCartQte.toInt()}',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 11,
+                                    Tooltip(
+                                      message: 'Appuyer pour saisir la quantité',
+                                      child: GestureDetector(
+                                        onTap: () => _ouvrirSaisieQuantite(produit: p),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: QuantisColors.royalBlue,
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                'x${inCartQte.toInt()}',
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 11,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 3),
+                                              const Icon(Icons.edit, size: 10, color: Colors.white70),
+                                            ],
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -719,47 +824,55 @@ class _PosScreenState extends State<PosScreen> {
         child: Row(
           children: [
             // Zone cliquable pour ouvrir la feuille complète du panier
-            InkWell(
-              onTap: _openCartModal,
-              borderRadius: BorderRadius.circular(8),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Badge(
-                      isLabelVisible: _panier.isNotEmpty,
-                      label: Text('$totalArticles'),
-                      backgroundColor: QuantisColors.royalBlue,
-                      child: Container(
-                        padding: const EdgeInsets.all(7),
-                        decoration: BoxDecoration(
-                          color: QuantisColors.royalBlue.withValues(alpha: 0.1),
-                          shape: BoxShape.circle,
+            Expanded(
+              child: InkWell(
+                onTap: _openCartModal,
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                  child: Row(
+                    children: [
+                      Badge(
+                        isLabelVisible: _panier.isNotEmpty,
+                        label: Text('$totalArticles'),
+                        backgroundColor: QuantisColors.royalBlue,
+                        child: Container(
+                          padding: const EdgeInsets.all(7),
+                          decoration: BoxDecoration(
+                            color: QuantisColors.royalBlue.withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.shopping_cart, color: QuantisColors.royalBlue, size: 18),
                         ),
-                        child: const Icon(Icons.shopping_cart, color: QuantisColors.royalBlue, size: 18),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          _panier.isEmpty ? 'Panier vide' : '$totalArticles article${totalArticles > 1 ? 's' : ''}',
-                          style: TextStyle(fontSize: 10, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              _panier.isEmpty ? 'Panier vide' : '$totalArticles article${totalArticles > 1 ? 's' : ''}',
+                              style: TextStyle(fontSize: 10, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                '${_formatMontant(_totalPanier)} ${ApiClient.entrepriseMonnaie}',
+                                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: QuantisColors.royalBlue),
+                              ),
+                            ),
+                          ],
                         ),
-                        Text(
-                          '${_totalPanier.toStringAsFixed(0)} FCFA',
-                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: QuantisColors.royalBlue),
-                        ),
-                      ],
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-            const Spacer(),
+            const SizedBox(width: 6),
             if (_panier.isNotEmpty) ...[
               OutlinedButton(
                 onPressed: _openCartModal,
@@ -770,7 +883,7 @@ class _PosScreenState extends State<PosScreen> {
                 ),
                 child: const Text('Panier', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               ElevatedButton.icon(
                 onPressed: _lancerEncaissement,
                 icon: const Icon(Icons.check_circle_outline, size: 16),
@@ -778,15 +891,19 @@ class _PosScreenState extends State<PosScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: QuantisColors.success,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   elevation: 2,
                 ),
               ),
             ] else ...[
-              Text(
-                'Touchez un article pour l\'ajouter',
-                style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Colors.grey.shade500),
+              Flexible(
+                child: Text(
+                  'Touchez ou appuyez longuement',
+                  style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Colors.grey.shade500),
+                  textAlign: TextAlign.right,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
           ],
@@ -986,13 +1103,16 @@ class _PosScreenState extends State<PosScreen> {
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                   Text(
-                                    '${pu.toStringAsFixed(0)} FCFA x ${qte.toStringAsFixed(0)} = ${totalLigne.toStringAsFixed(0)} FCFA',
+                                    '${_formatMontant(pu)} ${ApiClient.entrepriseMonnaie} × ${qte.toStringAsFixed(0)} = ${_formatMontant(totalLigne)} ${ApiClient.entrepriseMonnaie}',
                                     style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ],
                               ),
                             ),
-                            // Contrôleurs Quantité
+                            const SizedBox(width: 6),
+                            // Contrôleurs Quantité (- / [zone saisie] / +)
                             IconButton(
                               icon: const Icon(Icons.remove_circle_outline, size: 20),
                               padding: EdgeInsets.zero,
@@ -1002,10 +1122,43 @@ class _PosScreenState extends State<PosScreen> {
                                 onCartChanged?.call();
                               },
                             ),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
-                              child: Text(qte.toStringAsFixed(0), style: const TextStyle(fontWeight: FontWeight.bold)),
+                            const SizedBox(width: 4),
+                            Tooltip(
+                              message: 'Appuyer pour saisir la quantité directement',
+                              child: InkWell(
+                                onTap: () => _ouvrirSaisieQuantite(cartIndex: i, onCartChanged: onCartChanged),
+                                borderRadius: BorderRadius.circular(8),
+                                child: Container(
+                                  constraints: const BoxConstraints(minWidth: 48, maxWidth: 74),
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: QuantisColors.royalBlue.withValues(alpha: 0.08),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: QuantisColors.royalBlue.withValues(alpha: 0.4)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          qte.toStringAsFixed(0),
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w900,
+                                            fontSize: 13,
+                                            color: QuantisColors.royalBlue,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 3),
+                                      const Icon(Icons.edit, size: 11, color: QuantisColors.royalBlue),
+                                    ],
+                                  ),
+                                ),
+                              ),
                             ),
+                            const SizedBox(width: 4),
                             IconButton(
                               icon: const Icon(Icons.add_circle_outline, size: 20, color: QuantisColors.royalBlue),
                               padding: EdgeInsets.zero,
@@ -1096,7 +1249,7 @@ class _PosScreenState extends State<PosScreen> {
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                     ),
                     Text(
-                      '${_totalPanier.toStringAsFixed(0)} ${ApiClient.entrepriseMonnaie}',
+                      '${_formatMontant(_totalPanier)} ${ApiClient.entrepriseMonnaie}',
                       style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: QuantisColors.royalBlue),
                     ),
                   ],
@@ -1131,6 +1284,276 @@ class _PosScreenState extends State<PosScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Dialogue de saisie directe de quantité pour le POS (évite de cliquer 50 fois).
+class _PosQuantityDialog extends StatefulWidget {
+  final String nom;
+  final double prixUnitaire;
+  final int stockDispo;
+  final int qteInitiale;
+  final String monnaie;
+  final String Function(num) formatMontant;
+
+  const _PosQuantityDialog({
+    required this.nom,
+    required this.prixUnitaire,
+    required this.stockDispo,
+    required this.qteInitiale,
+    required this.monnaie,
+    required this.formatMontant,
+  });
+
+  @override
+  State<_PosQuantityDialog> createState() => _PosQuantityDialogState();
+}
+
+class _PosQuantityDialogState extends State<_PosQuantityDialog> {
+  late final TextEditingController _ctrl;
+  static const List<int> _presets = [5, 10, 20, 50, 100];
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(text: '${widget.qteInitiale}');
+    _ctrl.selection = TextSelection(baseOffset: 0, extentOffset: _ctrl.text.length);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  int get _currentQty => int.tryParse(_ctrl.text.trim()) ?? 0;
+
+  void _applyQty(int value) {
+    final safe = value < 0 ? 0 : value;
+    _ctrl.text = '$safe';
+    _ctrl.selection = TextSelection.collapsed(offset: _ctrl.text.length);
+    setState(() {});
+  }
+
+  void _confirm() {
+    Navigator.pop(context, _currentQty);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final qty = _currentQty;
+    final double totalLigne = qty * widget.prixUnitaire;
+    final bool depasseStock = widget.stockDispo > 0 && qty > widget.stockDispo;
+
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 380),
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: QuantisColors.royalBlue.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.dialpad_rounded, color: QuantisColors.royalBlue, size: 20),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.nom,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            '${widget.formatMontant(widget.prixUnitaire)} ${widget.monnaie} / unité${widget.stockDispo > 0 ? "  •  Stock : ${widget.stockDispo}" : ""}',
+                            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 20),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Zone de saisie directe + boutons - / +
+                Row(
+                  children: [
+                    IconButton.filledTonal(
+                      onPressed: qty > 0 ? () => _applyQty(qty - 1) : null,
+                      icon: const Icon(Icons.remove),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextField(
+                        controller: _ctrl,
+                        autofocus: true,
+                        textAlign: TextAlign.center,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                          color: QuantisColors.royalBlue,
+                        ),
+                        decoration: InputDecoration(
+                          labelText: 'Quantité',
+                          hintText: 'Ex: 50',
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onChanged: (_) => setState(() {}),
+                        onSubmitted: (_) => _confirm(),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    IconButton.filledTonal(
+                      onPressed: () => _applyQty(qty + 1),
+                      icon: const Icon(Icons.add),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // Raccourcis quantités rapides
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    ..._presets.map((q) => ActionChip(
+                          label: Text('$q', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          backgroundColor: qty == q
+                              ? QuantisColors.royalBlue.withValues(alpha: 0.15)
+                              : Colors.grey.shade100,
+                          onPressed: () => _applyQty(q),
+                        )),
+                    if (widget.stockDispo > 1 && !_presets.contains(widget.stockDispo))
+                      ActionChip(
+                        avatar: const Icon(Icons.inventory_2_outlined, size: 14, color: QuantisColors.royalBlue),
+                        label: Text(
+                          'Stock (${widget.stockDispo})',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: QuantisColors.royalBlue),
+                        ),
+                        onPressed: () => _applyQty(widget.stockDispo),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // Aperçu total ligne
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: (qty == 0 ? QuantisColors.error : QuantisColors.royalBlue).withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: qty == 0
+                      ? const Text(
+                          'Quantité 0 : l\'article sera retiré du panier.',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: QuantisColors.error),
+                          textAlign: TextAlign.center,
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '$qty × ${widget.formatMontant(widget.prixUnitaire)} ${widget.monnaie}',
+                              style: TextStyle(fontSize: 12, color: Colors.grey.shade700, fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerRight,
+                                child: Text(
+                                  '${widget.formatMontant(totalLigne)} ${widget.monnaie}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 16,
+                                    color: QuantisColors.royalBlue,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+
+                if (depasseStock) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: QuantisColors.warning.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: QuantisColors.warning),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.warning_amber_rounded, size: 16, color: QuantisColors.warning),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Quantité supérieure au stock affiché (${widget.stockDispo}).',
+                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Annuler'),
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: ElevatedButton.icon(
+                        onPressed: _confirm,
+                        icon: Icon(qty == 0 ? Icons.delete_outline : Icons.check, size: 18),
+                        label: Text(
+                          qty == 0 ? 'Retirer' : 'Appliquer ($qty)',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: qty == 0 ? QuantisColors.error : QuantisColors.royalBlue,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -220,9 +220,16 @@ class _ReglementCreanceDialogState extends State<ReglementCreanceDialog> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text('Dette totale actuelle :', style: TextStyle(fontWeight: FontWeight.bold)),
-                    Text(
-                      '${widget.client.soldeCredit.toStringAsFixed(0)} $monnaie',
-                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: QuantisColors.error),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          '${widget.client.soldeCredit.toStringAsFixed(0)} $monnaie',
+                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: QuantisColors.error),
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -370,16 +377,25 @@ class _ReglementCreanceDialogState extends State<ReglementCreanceDialog> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      resteApres <= 0 ? 'Statut après règlement :' : 'Nouveau solde restant :',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                    Expanded(
+                      child: Text(
+                        resteApres <= 0 ? 'Statut après règlement :' : 'Nouveau solde restant :',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                      ),
                     ),
-                    Text(
-                      resteApres <= 0 ? 'COMPTE SOLDÉ ✓' : '${resteApres.toStringAsFixed(0)} $monnaie',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 14,
-                        color: resteApres <= 0 ? QuantisColors.success : QuantisColors.royalBlue,
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          resteApres <= 0 ? 'COMPTE SOLDÉ ✓' : '${resteApres.toStringAsFixed(0)} $monnaie',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 14,
+                            color: resteApres <= 0 ? QuantisColors.success : QuantisColors.royalBlue,
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -396,16 +412,18 @@ class _ReglementCreanceDialogState extends State<ReglementCreanceDialog> {
                     child: const Text('Annuler'),
                   ),
                   const SizedBox(width: 10),
-                  ElevatedButton.icon(
-                    onPressed: _saving ? null : _valider,
-                    icon: _saving
-                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                        : const Icon(Icons.check_circle, size: 18),
-                    label: const Text('Confirmer l\'encaissement'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: QuantisColors.success,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+                  Flexible(
+                    child: ElevatedButton.icon(
+                      onPressed: _saving ? null : _valider,
+                      icon: _saving
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.check_circle, size: 18),
+                      label: const Text('Confirmer l\'encaissement', overflow: TextOverflow.ellipsis),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: QuantisColors.success,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+                      ),
                     ),
                   ),
                 ],

@@ -205,32 +205,36 @@ class _DocumentDetailScreenState extends State<DocumentDetailScreen> {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: Colors.indigo.shade300),
           ),
-          child: Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 12,
-            runSpacing: 10,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.shopping_bag_rounded, color: Colors.indigo.shade700, size: 22),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Icon(Icons.shopping_bag_rounded, color: Colors.indigo.shade700, size: 22),
+                  ),
                   const SizedBox(width: 10),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        doc.statut == 'BROUILLON' ? 'Commande en attente de validation' : 'Commande confirmée — En attente de règlement',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Colors.indigo.shade900),
-                      ),
-                      const Text(
-                        'Le client a réglé ? Cliquez ci-dessous pour valider, déstocker et émettre sa facture soldée.',
-                        style: TextStyle(fontSize: 11.5, color: Colors.black87),
-                      ),
-                    ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          doc.statut == 'BROUILLON' ? 'Commande en attente de validation' : 'Commande confirmée — En attente de règlement',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Colors.indigo.shade900),
+                        ),
+                        const SizedBox(height: 2),
+                        const Text(
+                          'Le client a réglé ? Cliquez ci-dessous pour valider, déstocker et émettre sa facture soldée.',
+                          style: TextStyle(fontSize: 11.5, color: Colors.black87),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
+              const SizedBox(height: 12),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -270,21 +274,23 @@ class _DocumentDetailScreenState extends State<DocumentDetailScreen> {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: Colors.amber.shade400),
           ),
-          child: Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 12,
-            runSpacing: 8,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Row(
-                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(Icons.edit_note, color: QuantisColors.warning, size: 22),
                   SizedBox(width: 8),
-                  Text('Facture en brouillon — Validez-la pour pouvoir l\'encaisser.',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  Expanded(
+                    child: Text(
+                      'Facture en brouillon — Validez-la pour pouvoir l\'encaisser.',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                  ),
                 ],
               ),
+              const SizedBox(height: 10),
               ElevatedButton.icon(
                 onPressed: _valider,
                 icon: const Icon(Icons.check_circle, size: 18),
@@ -305,23 +311,23 @@ class _DocumentDetailScreenState extends State<DocumentDetailScreen> {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: Colors.orange.shade400),
           ),
-          child: Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 12,
-            runSpacing: 8,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(Icons.account_balance_wallet, color: Colors.orange.shade900, size: 22),
                   const SizedBox(width: 8),
-                  Text(
-                    'Facture à crédit — Reste à encaisser : ${doc.soldeRestant.toStringAsFixed(0)} $monnaie',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Colors.orange.shade900),
+                  Expanded(
+                    child: Text(
+                      'Facture à crédit — Reste à encaisser : ${doc.soldeRestant.toStringAsFixed(0)} $monnaie',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Colors.orange.shade900),
+                    ),
                   ),
                 ],
               ),
+              const SizedBox(height: 10),
               ElevatedButton.icon(
                 onPressed: _ouvrirPaiement,
                 icon: const Icon(Icons.payments, size: 18),
@@ -346,8 +352,10 @@ class _DocumentDetailScreenState extends State<DocumentDetailScreen> {
             children: [
               Icon(Icons.check_circle, color: QuantisColors.success, size: 20),
               SizedBox(width: 8),
-              Text('Facture intégralement soldée',
-                  style: TextStyle(fontWeight: FontWeight.bold, color: QuantisColors.success, fontSize: 13)),
+              Expanded(
+                child: Text('Facture intégralement soldée',
+                    style: TextStyle(fontWeight: FontWeight.bold, color: QuantisColors.success, fontSize: 13)),
+              ),
             ],
           ),
         );
@@ -364,14 +372,12 @@ class _DocumentDetailScreenState extends State<DocumentDetailScreen> {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Colors.blue.shade300),
         ),
-        child: Wrap(
-          alignment: WrapAlignment.spaceBetween,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: 12,
-          runSpacing: 8,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text('Devis en brouillon — Validez-le pour le transformer en commande ou facture.',
                 style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+            const SizedBox(height: 10),
             ElevatedButton.icon(
               onPressed: _valider,
               icon: const Icon(Icons.check_circle, size: 18),
@@ -972,6 +978,7 @@ class _DocumentDetailScreenState extends State<DocumentDetailScreen> {
     final bool isPayee = doc.statut == 'VALIDE' && doc.isPayeIntegral;
 
     final clientCard = Container(
+      width: isMobile ? double.infinity : null,
       padding: EdgeInsets.all(isMobile ? 12 : 16),
       decoration: BoxDecoration(
         color: theme.lightBg,
@@ -1052,16 +1059,19 @@ class _DocumentDetailScreenState extends State<DocumentDetailScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        doc.typeLabel.toUpperCase(),
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: theme.primary, letterSpacing: 0.8),
-                      ),
-                      Text(doc.numero, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                    ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          doc.typeLabel.toUpperCase(),
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: theme.primary, letterSpacing: 0.8),
+                        ),
+                        Text(doc.numero, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   _buildStatutBadge(doc, isPayee),
                 ],
               ),
@@ -1172,6 +1182,7 @@ class _DocumentDetailScreenState extends State<DocumentDetailScreen> {
     final bool isPayee = doc.statut == 'VALIDE' && doc.isPayeIntegral;
 
     final destinataireCard = Container(
+      width: isMobile ? double.infinity : null,
       padding: EdgeInsets.all(isMobile ? 12 : 16),
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
@@ -1251,10 +1262,13 @@ class _DocumentDetailScreenState extends State<DocumentDetailScreen> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            '${doc.typeLabel.toUpperCase()}  ${doc.numero}',
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                          Expanded(
+                            child: Text(
+                              '${doc.typeLabel.toUpperCase()}  ${doc.numero}',
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                            ),
                           ),
+                          const SizedBox(width: 8),
                           _buildStatutBadge(doc, isPayee, whiteBg: true),
                         ],
                       ),
@@ -1422,10 +1436,13 @@ class _DocumentDetailScreenState extends State<DocumentDetailScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  '${doc.typeLabel} ${doc.numero}',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: theme.primary),
+                Expanded(
+                  child: Text(
+                    '${doc.typeLabel} ${doc.numero}',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: theme.primary),
+                  ),
                 ),
+                const SizedBox(width: 8),
                 Text('Date : ${doc.dateDocument ?? "—"}', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
               ],
             ),
@@ -1465,13 +1482,16 @@ class _DocumentDetailScreenState extends State<DocumentDetailScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Facturé à', style: TextStyle(fontSize: 11, color: Colors.grey.shade500, letterSpacing: 0.5)),
-                  Text(doc.clientNom ?? 'Client Divers', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-                ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Facturé à', style: TextStyle(fontSize: 11, color: Colors.grey.shade500, letterSpacing: 0.5)),
+                    Text(doc.clientNom ?? 'Client Divers', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               _buildStatutBadge(doc, isPayee),
             ],
           ),
