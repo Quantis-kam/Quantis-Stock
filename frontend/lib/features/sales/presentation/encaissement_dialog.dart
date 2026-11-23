@@ -256,13 +256,15 @@ class _EncaissementDialogState extends State<EncaissementDialog> {
                     border: Border.all(color: QuantisColors.warning),
                   ),
                   child: Row(
-                    children: const [
-                      Icon(Icons.info, color: QuantisColors.warning, size: 20),
-                      SizedBox(width: 8),
+                    children: [
+                      const Icon(Icons.info, color: QuantisColors.warning, size: 20),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'La totalité de la vente sera enregistrée à crédit sur le compte du client.',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                          widget.clientNom != null
+                              ? 'La totalité de la vente sera enregistrée à crédit sur le compte de ${widget.clientNom}.'
+                              : 'La totalité sera enregistrée à crédit. Conseil : sélectionnez un client nominatif dans la barre du POS pour un meilleur suivi de sa dette.',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                         ),
                       ),
                     ],

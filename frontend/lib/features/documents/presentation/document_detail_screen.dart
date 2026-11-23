@@ -1108,15 +1108,24 @@ class _DocumentDetailScreenState extends State<DocumentDetailScreen> {
     final String monnaie = _entreprise?['monnaie'] ?? ApiClient.entrepriseMonnaie;
     final bool isPayee = doc.statut == 'VALIDE' && doc.isPayeIntegral;
 
+    final bool hasTva = doc.totalTva > 0;
     final tableWidget = Table(
-      columnWidths: const {
-        0: FlexColumnWidth(1),
-        1: FlexColumnWidth(6),
-        2: FlexColumnWidth(2),
-        3: FlexColumnWidth(3),
-        4: FlexColumnWidth(2),
-        5: FlexColumnWidth(3),
-      },
+      columnWidths: hasTva
+          ? const {
+              0: FlexColumnWidth(1),
+              1: FlexColumnWidth(6),
+              2: FlexColumnWidth(2),
+              3: FlexColumnWidth(3),
+              4: FlexColumnWidth(2),
+              5: FlexColumnWidth(3),
+            }
+          : const {
+              0: FlexColumnWidth(1),
+              1: FlexColumnWidth(7),
+              2: FlexColumnWidth(2),
+              3: FlexColumnWidth(3),
+              4: FlexColumnWidth(3),
+            },
       children: [
         TableRow(
           decoration: BoxDecoration(border: Border(bottom: BorderSide(color: theme.primary, width: 2))),
@@ -1124,9 +1133,9 @@ class _DocumentDetailScreenState extends State<DocumentDetailScreen> {
             _th('#'),
             _th('ARTICLE / DESCRIPTION'),
             _th('QTÉ', align: TextAlign.center),
-            _th('P.U. HT', align: TextAlign.right),
-            _th('TVA', align: TextAlign.center),
-            _th('TOTAL TTC', align: TextAlign.right),
+            _th(hasTva ? 'P.U. HT' : 'PRIX UNIT.', align: TextAlign.right),
+            if (hasTva) _th('TVA', align: TextAlign.center),
+            _th(hasTva ? 'TOTAL TTC' : 'TOTAL', align: TextAlign.right),
           ],
         ),
         ...List.generate(doc.lignes.length, (i) {
@@ -1138,7 +1147,7 @@ class _DocumentDetailScreenState extends State<DocumentDetailScreen> {
               _td(l.designation, bold: true),
               _td(l.quantite.toStringAsFixed(0), align: TextAlign.center),
               _td('${l.prixUnitaire.toStringAsFixed(0)} $monnaie', align: TextAlign.right),
-              _td('${l.tauxTva.toStringAsFixed(0)}%', align: TextAlign.center),
+              if (hasTva) _td('${l.tauxTva.toStringAsFixed(0)}%', align: TextAlign.center),
               _td('${l.montantTtc.toStringAsFixed(0)} $monnaie', align: TextAlign.right, bold: true, color: theme.primary),
             ],
           );
@@ -1452,6 +1461,7 @@ class _DocumentDetailScreenState extends State<DocumentDetailScreen> {
   // =========================================================================
 
   Widget _buildStandardTable(DocumentModel doc, InvoiceColorTheme theme, String monnaie, {bool isMobile = false}) {
+    final bool hasTva = doc.totalTva > 0;
     final tableContent = Container(
       width: isMobile ? 540 : null,
       decoration: BoxDecoration(
@@ -1466,13 +1476,14 @@ class _DocumentDetailScreenState extends State<DocumentDetailScreen> {
               color: theme.primary,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               child: Row(
-                children: const [
-                  Expanded(flex: 1, child: Text('#', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
-                  Expanded(flex: 6, child: Text('DÉSIGNATION / ARTICLE', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
-                  Expanded(flex: 2, child: Text('QTÉ', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
-                  Expanded(flex: 3, child: Text('PRIX UNIT. HT', textAlign: TextAlign.right, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
-                  Expanded(flex: 2, child: Text('TVA', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
-                  Expanded(flex: 3, child: Text('TOTAL TTC', textAlign: TextAlign.right, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
+                children: [
+                  const Expanded(flex: 1, child: Text('#', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
+                  const Expanded(flex: 6, child: Text('DÉSIGNATION / ARTICLE', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
+                  const Expanded(flex: 2, child: Text('QTÉ', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
+                  Expanded(flex: 3, child: Text(hasTva ? 'PRIX UNIT. HT' : 'PRIX UNIT.', textAlign: TextAlign.right, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
+                  if (hasTva)
+                    const Expanded(flex: 2, child: Text('TVA', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
+                  Expanded(flex: 3, child: Text(hasTva ? 'TOTAL TTC' : 'TOTAL', textAlign: TextAlign.right, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
                 ],
               ),
             ),
@@ -1488,7 +1499,8 @@ class _DocumentDetailScreenState extends State<DocumentDetailScreen> {
                     Expanded(flex: 6, child: Text(l.designation, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
                     Expanded(flex: 2, child: Text(l.quantite.toStringAsFixed(0), textAlign: TextAlign.center, style: const TextStyle(fontSize: 11))),
                     Expanded(flex: 3, child: Text('${l.prixUnitaire.toStringAsFixed(0)} $monnaie', textAlign: TextAlign.right, style: const TextStyle(fontSize: 11))),
-                    Expanded(flex: 2, child: Text('${l.tauxTva.toStringAsFixed(0)}%', textAlign: TextAlign.center, style: TextStyle(fontSize: 10, color: Colors.grey.shade700))),
+                    if (hasTva)
+                      Expanded(flex: 2, child: Text('${l.tauxTva.toStringAsFixed(0)}%', textAlign: TextAlign.center, style: TextStyle(fontSize: 10, color: Colors.grey.shade700))),
                     Expanded(
                       flex: 3,
                       child: Text(
@@ -1571,6 +1583,7 @@ class _DocumentDetailScreenState extends State<DocumentDetailScreen> {
       ],
     );
 
+    final bool hasTva = doc.totalTva > 0;
     final totalBoxWidget = Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1580,17 +1593,20 @@ class _DocumentDetailScreenState extends State<DocumentDetailScreen> {
       ),
       child: Column(
         children: [
-          _rowInfo('Total Brut HT :', '${doc.totalHt.toStringAsFixed(0)} $monnaie'),
-          const SizedBox(height: 8),
-          _rowInfo('Total TVA (18%) :', '${doc.totalTva.toStringAsFixed(0)} $monnaie'),
-          const Divider(height: 20),
+          if (hasTva) ...[
+            _rowInfo('Total Brut HT :', '${doc.totalHt.toStringAsFixed(0)} $monnaie'),
+            const SizedBox(height: 8),
+            _rowInfo('Total TVA :', '${doc.totalTva.toStringAsFixed(0)} $monnaie'),
+            const Divider(height: 20),
+          ],
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(color: theme.primary, borderRadius: BorderRadius.circular(8)),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('TOTAL TTC :', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                Text(hasTva ? 'TOTAL TTC :' : 'TOTAL NET :',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
                 Text(
                   '${doc.totalTtc.toStringAsFixed(0)} $monnaie',
                   style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18),

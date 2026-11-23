@@ -94,7 +94,7 @@ class ProduitModel {
     this.codeBarres,
     this.prixAchat = 0,
     this.prixVente = 0,
-    this.tauxTva = 18.0,
+    this.tauxTva = 0.0,
     this.seuilAlerte = 10,
     this.imageUrl,
     this.categorieId,
@@ -118,7 +118,7 @@ class ProduitModel {
       codeBarres: json['codeBarres'] as String?,
       prixAchat: (json['prixAchat'] as num?)?.toDouble() ?? 0,
       prixVente: (json['prixVente'] as num?)?.toDouble() ?? 0,
-      tauxTva: (json['tauxTva'] as num?)?.toDouble() ?? 18.0,
+      tauxTva: (json['tauxTva'] as num?)?.toDouble() ?? 0.0,
       seuilAlerte: json['seuilAlerte'] as int? ?? 10,
       imageUrl: json['imageUrl'] as String?,
       categorieId: (json['categorie'] as Map<String, dynamic>?)?['id'] as int?,
@@ -150,8 +150,9 @@ class ProduitModel {
     };
   }
 
-  double get marge => prixVente - prixAchat;
-  double get margePercent => prixAchat > 0 ? (marge / prixAchat) * 100 : 0;
+  bool get hasPrixAchat => prixAchat > 0;
+  double get marge => hasPrixAchat ? (prixVente - prixAchat) : 0;
+  double get margePercent => hasPrixAchat ? ((prixVente - prixAchat) / prixAchat) * 100 : 0;
 }
 
 /// Service API Produits.

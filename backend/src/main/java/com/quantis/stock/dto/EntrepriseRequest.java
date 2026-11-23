@@ -6,6 +6,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -27,4 +29,8 @@ public class EntrepriseRequest {
 
     @Builder.Default
     private String formatFacture = "FAC-{YYYY}-{NNNNN}";
+
+    private Boolean tvaActive;
+    private BigDecimal tauxTvaDefaut;
+    private Boolean suiviPrixAchat;
 }

@@ -42,6 +42,7 @@ class _PosScreenState extends State<PosScreen> {
   Future<void> _loadInitialData() async {
     setState(() => _loading = true);
     try {
+      await ApiClient.syncEntreprisePreferences();
       final resProduits = await _api.get('/products?size=100');
       final resCats = await _api.get('/categories');
       final resDepots = await _api.get('/stock/depots');
@@ -88,7 +89,9 @@ class _PosScreenState extends State<PosScreen> {
           'sku': produit['sku'],
           'prixUnitaire': (produit['prixVente'] as num).toDouble(),
           'quantite': 1.0,
-          'tauxTva': (produit['tauxTva'] as num?)?.toDouble() ?? 0.0,
+          'tauxTva': ApiClient.tvaActive
+              ? ((produit['tauxTva'] as num?)?.toDouble() ?? 0.0)
+              : 0.0,
           'stock': produit['stockCourant'] ?? 0,
         });
       }
@@ -118,14 +121,37 @@ class _PosScreenState extends State<PosScreen> {
     });
   }
 
-  double get _totalPanier {
+  double _effectiveItemTva(Map<String, dynamic> item) {
+    if (!ApiClient.tvaActive) return 0.0;
+    return (item['tauxTva'] as num?)?.toDouble() ?? 0.0;
+  }
+
+  double get _totalHtPanier {
     double total = 0;
     for (final item in _panier) {
       final qte = item['quantite'] as double;
       final pu = item['prixUnitaire'] as double;
       total += (qte * pu);
     }
-    return total - _remiseGlobale > 0 ? (total - _remiseGlobale) : 0;
+    return total;
+  }
+
+  double get _totalTvaPanier {
+    double tvaTotal = 0;
+    for (final item in _panier) {
+      final qte = item['quantite'] as double;
+      final pu = item['prixUnitaire'] as double;
+      final taux = _effectiveItemTva(item);
+      if (taux > 0) {
+        tvaTotal += (qte * pu) * (taux / 100.0);
+      }
+    }
+    return tvaTotal;
+  }
+
+  double get _totalPanier {
+    final total = _totalHtPanier + _totalTvaPanier - _remiseGlobale;
+    return total > 0 ? total : 0;
   }
 
   Future<void> _lancerEncaissement() async {
@@ -161,7 +187,7 @@ class _PosScreenState extends State<PosScreen> {
           'produitId': item['produitId'],
           'quantite': item['quantite'],
           'prixUnitaire': item['prixUnitaire'],
-          'tauxTva': item['tauxTva'],
+          'tauxTva': _effectiveItemTva(item),
         }).toList(),
         'moyenPaiement': result['moyenPaiement'],
         'montantPaye': result['montantPaye'],
@@ -184,8 +210,12 @@ class _PosScreenState extends State<PosScreen> {
       }
     } catch (e) {
       if (mounted) {
+        final msg = ApiClient.formatErrorMessage(
+          e,
+          fallback: 'Impossible de finaliser l\'encaissement. Vérifiez les données et réessayez.',
+        );
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur encaissement: $e'), backgroundColor: QuantisColors.error),
+          SnackBar(content: Text('Erreur encaissement : $msg'), backgroundColor: QuantisColors.error),
         );
       }
     }
@@ -1001,12 +1031,35 @@ class _PosScreenState extends State<PosScreen> {
             ),
             child: Column(
               children: [
+                if (_totalTvaPanier > 0) ...[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Sous-total HT :', style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+                      Text('${_totalHtPanier.toStringAsFixed(0)} ${ApiClient.entrepriseMonnaie}',
+                          style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('TVA :', style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+                      Text('${_totalTvaPanier.toStringAsFixed(0)} ${ApiClient.entrepriseMonnaie}',
+                          style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                ],
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Total Net :', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                     Text(
-                      '${_totalPanier.toStringAsFixed(0)} FCFA',
+                      _totalTvaPanier > 0 ? 'Total TTC :' : 'Total Net :',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    Text(
+                      '${_totalPanier.toStringAsFixed(0)} ${ApiClient.entrepriseMonnaie}',
                       style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: QuantisColors.royalBlue),
                     ),
                   ],

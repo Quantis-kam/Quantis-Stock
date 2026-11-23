@@ -107,6 +107,9 @@ class _LoginScreenState extends State<LoginScreen> {
           logoUrl: userMap['logoUrl'] as String?,
           entrepriseId: userMap['entrepriseId']?.toString(),
           isSuperAdmin: userMap['isSuperAdmin'] == true || userMap['role'] == 'SUPER_ADMIN',
+          tvaActive: userMap['tvaActive'] as bool?,
+          tauxTvaDefaut: (userMap['tauxTvaDefaut'] as num?)?.toDouble(),
+          suiviPrixAchat: userMap['suiviPrixAchat'] as bool?,
           notifyAuth: false,
         );
       } catch (e) {

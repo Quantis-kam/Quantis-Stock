@@ -64,8 +64,10 @@ public class LigneDocument {
      * Calcule les montants HT, TVA et TTC.
      */
     public void calculerMontants() {
+        BigDecimal rate = tauxTva != null ? tauxTva : BigDecimal.ZERO;
+        this.tauxTva = rate;
         this.montantHt = prixUnitaire.multiply(quantite).setScale(2, RoundingMode.HALF_UP);
-        this.montantTva = montantHt.multiply(tauxTva)
+        this.montantTva = montantHt.multiply(rate)
                 .divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
         this.montantTtc = montantHt.add(montantTva);
     }

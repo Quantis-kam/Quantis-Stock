@@ -1,0 +1,49 @@
+package com.quantis.stock.config;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.core.annotation.Order;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Component;
+
+/**
+ * Migration de schéma idempotente au démarrage (tous profils : dev & prod PostgreSQL / H2).
+ *
+ * Garantit que les contraintes CHECK auto-générées par Hibernate sur les anciennes valeurs
+ * d'enum (ex: paiement.moyen) n'empêchent pas l'enregistrement des nouveaux modes de paiement
+ * (WAVE, ORANGE_MONEY, MOOV_MONEY, CARTE_BANCAIRE, CREDIT) et initialise les préférences
+ * TVA / Prix d'achat sur les entreprises existantes.
+ */
+@Slf4j
+@Component
+@Order(1)
+@RequiredArgsConstructor
+public class SchemaMigrationRunner implements CommandLineRunner {
+
+    private final JdbcTemplate jdbcTemplate;
+
+    @Override
+    public void run(String... args) {
+        // 1. Supprimer toute ancienne contrainte CHECK Hibernate sur paiement.moyen
+        execIgnore("ALTER TABLE paiement DROP CONSTRAINT IF EXISTS paiement_moyen_check");
+
+        // 2. Élargir paiement.moyen à VARCHAR(30) (PostgreSQL + H2)
+        execIgnore("ALTER TABLE paiement ALTER COLUMN moyen TYPE VARCHAR(30)");
+        execIgnore("ALTER TABLE paiement ALTER COLUMN moyen VARCHAR(30)");
+
+        // 3. Initialiser les nouvelles préférences entreprise pour les lignes existantes
+        execIgnore("UPDATE entreprise SET tva_active = TRUE WHERE tva_active IS NULL");
+        execIgnore("UPDATE entreprise SET taux_tva_defaut = 18.00 WHERE taux_tva_defaut IS NULL");
+        execIgnore("UPDATE entreprise SET suivi_prix_achat = TRUE WHERE suivi_prix_achat IS NULL");
+    }
+
+    private void execIgnore(String sql) {
+        try {
+            jdbcTemplate.execute(sql);
+        } catch (Exception e) {
+            log.debug("Migration SQL ignorée ({}): {}", sql, e.getMessage());
+        }
+    }
+}
+

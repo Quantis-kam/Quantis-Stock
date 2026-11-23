@@ -131,8 +131,9 @@ public class DashboardService {
 
         for (var sc : stocks) {
             if (sc.getQuantite() != null && sc.getQuantite().compareTo(BigDecimal.ZERO) > 0) {
-                BigDecimal prix = sc.getProduit().getPrixAchat() != null
-                        ? sc.getProduit().getPrixAchat()
+                BigDecimal prixAchat = sc.getProduit().getPrixAchat();
+                BigDecimal prix = (prixAchat != null && prixAchat.compareTo(BigDecimal.ZERO) > 0)
+                        ? prixAchat
                         : (sc.getProduit().getPrixVente() != null ? sc.getProduit().getPrixVente() : BigDecimal.ZERO);
                 BigDecimal totalLigne = sc.getQuantite().multiply(prix);
                 valeurStock = valeurStock.add(totalLigne);

@@ -133,12 +133,14 @@ class _ArretStockScreenState extends State<ArretStockScreen> {
                   // Valuation cards
                   Row(
                     children: [
+                      if (ApiClient.suiviPrixAchat || totalAchat > 0) ...[
+                        Expanded(
+                          child: _cardValuation('Valeur Achat Totale', '${totalAchat.toStringAsFixed(0)} ${ApiClient.entrepriseMonnaie}', QuantisColors.royalBlue),
+                        ),
+                        const SizedBox(width: 12),
+                      ],
                       Expanded(
-                        child: _cardValuation('Valeur Achat Totale', '${totalAchat.toStringAsFixed(0)} FCFA', QuantisColors.royalBlue),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _cardValuation('Valeur Vente Totale', '${totalVente.toStringAsFixed(0)} FCFA', QuantisColors.success),
+                        child: _cardValuation('Valeur Vente Totale', '${totalVente.toStringAsFixed(0)} ${ApiClient.entrepriseMonnaie}', QuantisColors.success),
                       ),
                     ],
                   ),
@@ -154,17 +156,26 @@ class _ArretStockScreenState extends State<ArretStockScreen> {
                       itemBuilder: (context, idx) {
                         final l = lignes[idx];
                         final qte = (l['quantiteProjetee'] as num? ?? 0).toDouble();
+                        final pa = (l['prixAchatUnitaire'] as num? ?? 0).toDouble();
+                        final pv = (l['prixVenteUnitaire'] as num? ?? 0).toDouble();
                         final valAchat = (l['valeurAchatTotale'] as num? ?? 0).toDouble();
+                        final valVente = (l['valeurVenteTotale'] as num? ?? 0).toDouble();
+                        final showAchat = ApiClient.suiviPrixAchat && pa > 0;
 
                         return ListTile(
                           title: Text(l['produit']?['nom'] ?? 'Produit', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                          subtitle: Text('P.Achat: ${l['prixAchatUnitaire']} FCFA | P.Vente: ${l['prixVenteUnitaire']} FCFA'),
+                          subtitle: Text(showAchat
+                              ? 'P.Achat: ${pa.toStringAsFixed(0)} ${ApiClient.entrepriseMonnaie} | P.Vente: ${pv.toStringAsFixed(0)} ${ApiClient.entrepriseMonnaie}'
+                              : 'P.Vente: ${pv.toStringAsFixed(0)} ${ApiClient.entrepriseMonnaie}'),
                           trailing: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
                               Text('${qte.toStringAsFixed(0)} en stock', style: const TextStyle(fontWeight: FontWeight.bold, color: QuantisColors.royalBlue)),
-                              Text('${valAchat.toStringAsFixed(0)} FCFA', style: const TextStyle(fontSize: 11, color: QuantisColors.textMuted)),
+                              Text(
+                                '${(showAchat ? valAchat : valVente).toStringAsFixed(0)} ${ApiClient.entrepriseMonnaie}',
+                                style: const TextStyle(fontSize: 11, color: QuantisColors.textMuted),
+                              ),
                             ],
                           ),
                         );
@@ -313,6 +324,8 @@ class _ArretStockScreenState extends State<ArretStockScreen> {
                               itemBuilder: (context, index) {
                                 final a = _arrets[index];
                                 final totalAchat = (a['valeurTotaleAchat'] as num? ?? 0).toDouble();
+                                final totalVente = (a['valeurTotaleVente'] as num? ?? 0).toDouble();
+                                final useAchat = ApiClient.suiviPrixAchat && totalAchat > 0;
                                 final dateStr = a['dateArret'] != null
                                     ? a['dateArret'].toString().substring(0, 16).replaceAll('T', ' ')
                                     : '-';
@@ -336,8 +349,14 @@ class _ArretStockScreenState extends State<ArretStockScreen> {
                                           mainAxisAlignment: MainAxisAlignment.center,
                                           crossAxisAlignment: CrossAxisAlignment.end,
                                           children: [
-                                            Text('${totalAchat.toStringAsFixed(0)} FCFA', style: const TextStyle(fontWeight: FontWeight.bold, color: QuantisColors.royalBlue, fontSize: 14)),
-                                            const Text('Valeur Achat', style: TextStyle(fontSize: 10, color: QuantisColors.textMuted)),
+                                            Text(
+                                              '${(useAchat ? totalAchat : totalVente).toStringAsFixed(0)} ${ApiClient.entrepriseMonnaie}',
+                                              style: const TextStyle(fontWeight: FontWeight.bold, color: QuantisColors.royalBlue, fontSize: 14),
+                                            ),
+                                            Text(
+                                              useAchat ? 'Valeur Achat' : 'Valeur Vente',
+                                              style: const TextStyle(fontSize: 10, color: QuantisColors.textMuted),
+                                            ),
                                           ],
                                         ),
                                         const SizedBox(width: 8),

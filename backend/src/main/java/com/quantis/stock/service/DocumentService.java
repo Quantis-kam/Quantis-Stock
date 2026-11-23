@@ -86,6 +86,8 @@ public class DocumentService {
             document.setDocumentParent(parent);
         }
 
+        boolean tvaActive = entreprise == null || entreprise.isTvaActiveEffective();
+
         // Lignes
         for (DocumentRequest.LigneRequest lr : request.getLignes()) {
             Produit produit = produitRepository.findById(lr.getProduitId())
@@ -97,6 +99,12 @@ public class DocumentService {
                         .orElseThrow(() -> new ResourceNotFoundException("Variante", "id", lr.getVarianteId()));
             }
 
+            BigDecimal tauxTvaLigne = !tvaActive
+                    ? BigDecimal.ZERO
+                    : (lr.getTauxTva() != null
+                        ? lr.getTauxTva()
+                        : (produit.getTauxTva() != null ? produit.getTauxTva() : BigDecimal.ZERO));
+
             LigneDocument ligne = LigneDocument.builder()
                     .document(document)
                     .produit(produit)
@@ -104,7 +112,7 @@ public class DocumentService {
                     .designation(lr.getDesignation() != null ? lr.getDesignation() : produit.getNom())
                     .quantite(lr.getQuantite())
                     .prixUnitaire(lr.getPrixUnitaire())
-                    .tauxTva(lr.getTauxTva() != null ? lr.getTauxTva() : produit.getTauxTva())
+                    .tauxTva(tauxTvaLigne)
                     .build();
 
             ligne.calculerMontants();
@@ -279,7 +287,7 @@ public class DocumentService {
             com.quantis.stock.model.MouvementCaisse mouvementCaisse = com.quantis.stock.model.MouvementCaisse.builder()
                     .type(com.quantis.stock.model.enums.TypeCaisse.ENTREE)
                     .montant(request.getMontant())
-                    .libelle("Paiement " + document.getNumero() + " (" + request.getMoyen() + ")")
+                    .libelle("Paiement " + document.getNumero() + " (" + request.getMoyen().getLibelle() + ")")
                     .dateMouvement(request.getDatePaiement() != null ? request.getDatePaiement() : LocalDate.now())
                     .categorie("VENTE")
                     .reference(document.getNumero())
@@ -435,6 +443,8 @@ public class DocumentService {
                 .utilisateur(utilisateur)
                 .build();
 
+        boolean tvaActivePos = entrepriseCourante == null || entrepriseCourante.isTvaActiveEffective();
+
         // Lignes et déstockage immédiat
         for (PosSaleRequest.LignePosRequest lr : request.getLignes()) {
             Produit produit = produitRepository.findById(lr.getProduitId())
@@ -447,7 +457,11 @@ public class DocumentService {
             }
 
             BigDecimal prix = lr.getPrixUnitaire() != null ? lr.getPrixUnitaire() : produit.getPrixVente();
-            BigDecimal tva = lr.getTauxTva() != null ? lr.getTauxTva() : produit.getTauxTva();
+            BigDecimal tva = !tvaActivePos
+                    ? BigDecimal.ZERO
+                    : (lr.getTauxTva() != null
+                        ? lr.getTauxTva()
+                        : (produit.getTauxTva() != null ? produit.getTauxTva() : BigDecimal.ZERO));
 
             LigneDocument ligne = LigneDocument.builder()
                     .document(document)
@@ -486,7 +500,9 @@ public class DocumentService {
 
         // Paiement immédiat
         Paiement paiement = null;
-        BigDecimal montantPaye = request.getMontantPaye() != null ? request.getMontantPaye() : BigDecimal.ZERO;
+        BigDecimal montantPaye = request.getMoyenPaiement() == com.quantis.stock.model.enums.MoyenPaiement.CREDIT
+                ? BigDecimal.ZERO
+                : (request.getMontantPaye() != null ? request.getMontantPaye() : BigDecimal.ZERO);
 
         if (montantPaye.compareTo(BigDecimal.ZERO) > 0) {
             paiement = Paiement.builder()
@@ -504,7 +520,7 @@ public class DocumentService {
                 com.quantis.stock.model.MouvementCaisse mouvementCaisse = com.quantis.stock.model.MouvementCaisse.builder()
                         .type(com.quantis.stock.model.enums.TypeCaisse.ENTREE)
                         .montant(montantPaye)
-                        .libelle("Encaissement " + numero + " (" + request.getMoyenPaiement() + ")")
+                        .libelle("Encaissement " + numero + " (" + request.getMoyenPaiement().getLibelle() + ")")
                         .dateMouvement(LocalDate.now())
                         .categorie("VENTE")
                         .reference(numero)

@@ -7,6 +7,7 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 
 /**
@@ -57,6 +58,19 @@ public class Entreprise {
     @Column(name = "format_facture", length = 50)
     private String formatFacture = "FAC-{YYYY}-{NNNNN}";
 
+    // --- Préférences Fiscales & Gestion Commerciale ---
+    @Builder.Default
+    @Column(name = "tva_active")
+    private Boolean tvaActive = true;
+
+    @Builder.Default
+    @Column(name = "taux_tva_defaut", precision = 5, scale = 2)
+    private BigDecimal tauxTvaDefaut = new BigDecimal("18.00");
+
+    @Builder.Default
+    @Column(name = "suivi_prix_achat")
+    private Boolean suiviPrixAchat = true;
+
     @Builder.Default
     @Column(name = "est_actif", nullable = false)
     private Boolean estActif = true;
@@ -93,5 +107,20 @@ public class Entreprise {
             return true; // licence non encore initialisée ou illimitée
         }
         return !java.time.LocalDate.now().isAfter(dateExpirationLicence);
+    }
+
+    public boolean isTvaActiveEffective() {
+        return !Boolean.FALSE.equals(tvaActive);
+    }
+
+    public BigDecimal getTauxTvaDefautEffective() {
+        if (!isTvaActiveEffective()) {
+            return BigDecimal.ZERO;
+        }
+        return tauxTvaDefaut != null ? tauxTvaDefaut : new BigDecimal("18.00");
+    }
+
+    public boolean isSuiviPrixAchatEffective() {
+        return !Boolean.FALSE.equals(suiviPrixAchat);
     }
 }

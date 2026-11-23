@@ -69,6 +69,7 @@ class _DocumentFormDialogState extends State<DocumentFormDialog> {
   Future<void> _loadData() async {
     setState(() => _loading = true);
     try {
+      await ApiClient.syncEntreprisePreferences();
       final resClients = await _api.get('/clients?size=100');
       final resDepots = await _api.get('/stock/depots');
       final resProduits = await _api.get('/products?size=100');
@@ -166,7 +167,7 @@ class _DocumentFormDialogState extends State<DocumentFormDialog> {
           'designation': l['designation'],
           'quantite': l['quantite'],
           'prixUnitaire': l['prixUnitaire'],
-          'tauxTva': l['tauxTva'],
+          'tauxTva': ApiClient.tvaActive ? l['tauxTva'] : 0.0,
         }).toList(),
       };
 
@@ -177,7 +178,10 @@ class _DocumentFormDialogState extends State<DocumentFormDialog> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e'), backgroundColor: QuantisColors.error),
+          SnackBar(
+            content: Text(ApiClient.formatErrorMessage(e, fallback: 'Erreur lors de la création du document')),
+            backgroundColor: QuantisColors.error,
+          ),
         );
       }
     } finally {
@@ -470,7 +474,9 @@ class _DocumentFormDialogState extends State<DocumentFormDialog> {
                                                 if (p != null) {
                                                   l['designation'] = p['nom'];
                                                   l['prixUnitaire'] = (p['prixVente'] as num).toDouble();
-                                                  l['tauxTva'] = (p['tauxTva'] as num?)?.toDouble() ?? 0.0;
+                                                  l['tauxTva'] = ApiClient.tvaActive
+                                                      ? ((p['tauxTva'] as num?)?.toDouble() ?? 0.0)
+                                                      : 0.0;
                                                 }
                                               });
                                             },
@@ -540,7 +546,9 @@ class _DocumentFormDialogState extends State<DocumentFormDialog> {
                                                   if (p != null) {
                                                     l['designation'] = p['nom'];
                                                     l['prixUnitaire'] = (p['prixVente'] as num).toDouble();
-                                                    l['tauxTva'] = (p['tauxTva'] as num?)?.toDouble() ?? 0.0;
+                                                    l['tauxTva'] = ApiClient.tvaActive
+                                                        ? ((p['tauxTva'] as num?)?.toDouble() ?? 0.0)
+                                                        : 0.0;
                                                   }
                                                 });
                                               },
@@ -618,15 +626,18 @@ class _DocumentFormDialogState extends State<DocumentFormDialog> {
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text('HT: ${_totalHt.toStringAsFixed(0)} F', style: const TextStyle(fontSize: 11)),
-                                        Text('TVA: ${_totalTva.toStringAsFixed(0)} F', style: const TextStyle(fontSize: 11)),
-                                      ],
+                                    if (_totalTva > 0)
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text('HT: ${_totalHt.toStringAsFixed(0)} F', style: const TextStyle(fontSize: 11)),
+                                          Text('TVA: ${_totalTva.toStringAsFixed(0)} F', style: const TextStyle(fontSize: 11)),
+                                        ],
+                                      ),
+                                    Text(
+                                      '${_totalTva > 0 ? "TOTAL TTC" : "TOTAL"}: ${_totalTtc.toStringAsFixed(0)} ${ApiClient.entrepriseMonnaie}',
+                                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: QuantisColors.royalBlue),
                                     ),
-                                    Text('TOTAL: ${_totalTtc.toStringAsFixed(0)} FCFA',
-                                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: QuantisColors.royalBlue)),
                                   ],
                                 ),
                                 const SizedBox(height: 10),
@@ -661,10 +672,14 @@ class _DocumentFormDialogState extends State<DocumentFormDialog> {
                                 Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text('Total HT: ${_totalHt.toStringAsFixed(0)} FCFA', style: const TextStyle(fontSize: 12)),
-                                    Text('TVA: ${_totalTva.toStringAsFixed(0)} FCFA', style: const TextStyle(fontSize: 12)),
-                                    Text('TOTAL TTC: ${_totalTtc.toStringAsFixed(0)} FCFA',
-                                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: QuantisColors.royalBlue)),
+                                    if (_totalTva > 0) ...[
+                                      Text('Total HT: ${_totalHt.toStringAsFixed(0)} ${ApiClient.entrepriseMonnaie}', style: const TextStyle(fontSize: 12)),
+                                      Text('TVA: ${_totalTva.toStringAsFixed(0)} ${ApiClient.entrepriseMonnaie}', style: const TextStyle(fontSize: 12)),
+                                    ],
+                                    Text(
+                                      '${_totalTva > 0 ? "TOTAL TTC" : "TOTAL NET"}: ${_totalTtc.toStringAsFixed(0)} ${ApiClient.entrepriseMonnaie}',
+                                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: QuantisColors.royalBlue),
+                                    ),
                                   ],
                                 ),
                                 Row(

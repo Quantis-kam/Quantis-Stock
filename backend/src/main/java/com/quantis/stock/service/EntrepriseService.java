@@ -51,6 +51,18 @@ public class EntrepriseService {
         if (request.getLogoUrl() != null) entreprise.setLogoUrl(request.getLogoUrl());
         if (request.getMonnaie() != null) entreprise.setMonnaie(request.getMonnaie());
         if (request.getFormatFacture() != null) entreprise.setFormatFacture(request.getFormatFacture());
+        if (request.getTvaActive() != null) {
+            entreprise.setTvaActive(request.getTvaActive());
+            if (Boolean.FALSE.equals(request.getTvaActive()) && request.getTauxTvaDefaut() == null) {
+                entreprise.setTauxTvaDefaut(java.math.BigDecimal.ZERO);
+            }
+        }
+        if (request.getTauxTvaDefaut() != null) {
+            entreprise.setTauxTvaDefaut(request.getTauxTvaDefaut().max(java.math.BigDecimal.ZERO));
+        }
+        if (request.getSuiviPrixAchat() != null) {
+            entreprise.setSuiviPrixAchat(request.getSuiviPrixAchat());
+        }
 
         entreprise = entrepriseRepository.save(entreprise);
         log.info("Profil Entreprise mis à jour: {} (logoUrl: {})", entreprise.getNom(), entreprise.getLogoUrl() != null ? "défini" : "aucun");

@@ -83,7 +83,10 @@ class _PaiementFactureDialogState extends State<PaiementFactureDialog> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e'), backgroundColor: QuantisColors.error),
+          SnackBar(
+            content: Text(ApiClient.formatErrorMessage(e, fallback: 'Erreur lors de l\'enregistrement du règlement')),
+            backgroundColor: QuantisColors.error,
+          ),
         );
       }
     } finally {

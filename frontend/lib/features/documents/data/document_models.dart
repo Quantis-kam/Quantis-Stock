@@ -102,7 +102,7 @@ class LigneDocumentModel {
     this.designation = '',
     this.quantite = 0,
     this.prixUnitaire = 0,
-    this.tauxTva = 18,
+    this.tauxTva = 0,
     this.montantHt = 0,
     this.montantTva = 0,
     this.montantTtc = 0,
@@ -114,7 +114,7 @@ class LigneDocumentModel {
       designation: json['designation'] as String? ?? '',
       quantite: (json['quantite'] as num?)?.toDouble() ?? 0,
       prixUnitaire: (json['prixUnitaire'] as num?)?.toDouble() ?? 0,
-      tauxTva: (json['tauxTva'] as num?)?.toDouble() ?? 18,
+      tauxTva: (json['tauxTva'] as num?)?.toDouble() ?? 0,
       montantHt: (json['montantHt'] as num?)?.toDouble() ?? 0,
       montantTva: (json['montantTva'] as num?)?.toDouble() ?? 0,
       montantTtc: (json['montantTtc'] as num?)?.toDouble() ?? 0,
@@ -147,12 +147,19 @@ class PaiementModel {
     );
   }
 
-  String get moyenLabel => switch (moyen) {
+  String get moyenLabel => formatMoyen(moyen);
+
+  static String formatMoyen(String code) => switch (code.toUpperCase()) {
         'ESPECES' => 'Espèces',
+        'WAVE' => 'Wave',
+        'ORANGE_MONEY' => 'Orange Money',
+        'MOOV_MONEY' => 'Moov Money',
+        'CARTE_BANCAIRE' => 'Carte Bancaire',
+        'CARTE' => 'Carte',
+        'CREDIT' => 'À Crédit',
         'CHEQUE' => 'Chèque',
         'VIREMENT' => 'Virement',
         'MOBILE_MONEY' => 'Mobile Money',
-        'CARTE' => 'Carte',
-        _ => moyen,
+        _ => code,
       };
 }

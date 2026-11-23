@@ -189,12 +189,14 @@ class _TicketReceiptDialogState extends State<TicketReceiptDialog> {
     final String caissier = widget.saleData['caissierNom'] ?? 'Caissier';
     final String client = widget.saleData['clientNom'] ?? 'Client Divers';
 
+    final num totalTva = (doc['totalTva'] as num?) ?? 0;
     final num totalTtc = widget.saleData['montantTotal'] ?? doc['totalTtc'] ?? 0;
     final num montantPaye = widget.saleData['montantPaye'] ?? 0;
     final num montantRecu = widget.saleData['montantRecu'] ?? montantPaye;
     final num monnaieRendue = widget.saleData['monnaieRendue'] ?? 0;
     final num soldeRestant = widget.saleData['soldeRestant'] ?? 0;
-    final String moyenPaiement = paiement?['moyen'] ?? 'ESPECES';
+    final String moyenPaiementCode = paiement?['moyen'] ?? (montantPaye <= 0 && soldeRestant > 0 ? 'CREDIT' : 'ESPECES');
+    final String moyenPaiementLabel = PaiementModel.formatMoyen(moyenPaiementCode);
 
     final screenWidth = MediaQuery.of(context).size.width;
     final isMobile = screenWidth < 600;
@@ -317,10 +319,21 @@ class _TicketReceiptDialogState extends State<TicketReceiptDialog> {
                       const Divider(thickness: 1, height: 20),
 
                       // Totaux
+                      if (totalTva > 0) ...[
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Dont TVA', style: TextStyle(fontSize: 11, color: Colors.black54)),
+                            Text('$totalTva $monnaie', style: const TextStyle(fontSize: 11, color: Colors.black54)),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                      ],
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('TOTAL TTC', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+                          Text(totalTva > 0 ? 'TOTAL TTC' : 'TOTAL NET',
+                              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
                           Text(
                             '$totalTtc $monnaie',
                             style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: QuantisColors.royalBlue),
@@ -331,7 +344,7 @@ class _TicketReceiptDialogState extends State<TicketReceiptDialog> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('Règlement ($moyenPaiement)', style: const TextStyle(fontSize: 12)),
+                          Text('Règlement ($moyenPaiementLabel)', style: const TextStyle(fontSize: 12)),
                           Text('$montantPaye $monnaie', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                         ],
                       ),

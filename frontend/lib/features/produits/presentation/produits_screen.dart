@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/theme/quantis_theme.dart';
 import '../../../core/utils/permission_helper.dart';
 import '../data/produit_service.dart';
@@ -50,6 +51,7 @@ class _ProduitsScreenState extends State<ProduitsScreen> with SingleTickerProvid
   Future<void> _load({String? search}) async {
     setState(() { _loadingProducts = true; _productsError = null; });
     try {
+      await ApiClient.syncEntreprisePreferences();
       final prds = await _service.getProduits(search: search);
       setState(() {
         _produits = prds;
@@ -574,11 +576,17 @@ class _ProduitCard extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Text('${produit.prixVente.toStringAsFixed(0)} FCFA',
+            Text('${produit.prixVente.toStringAsFixed(0)} ${ApiClient.entrepriseMonnaie}',
                 style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-            if (produit.marge > 0)
-              Text('+${produit.margePercent.toStringAsFixed(0)}%',
-                  style: const TextStyle(fontSize: 11, color: QuantisColors.success, fontWeight: FontWeight.w600)),
+            if (ApiClient.suiviPrixAchat && produit.hasPrixAchat && produit.marge != 0)
+              Text(
+                '${produit.marge > 0 ? '+' : ''}${produit.margePercent.toStringAsFixed(0)}%',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: produit.marge > 0 ? QuantisColors.success : QuantisColors.error,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
           ],
         ),
       ),

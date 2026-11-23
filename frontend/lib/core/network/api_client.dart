@@ -34,6 +34,9 @@ class ApiClient {
   static String? _formatFacture;
   static String? _logoUrl;
   static String? _entrepriseId;
+  static bool _tvaActive = true;
+  static double _tauxTvaDefaut = 18.0;
+  static bool _suiviPrixAchat = true;
   static bool _isSuperAdmin = false;
   static bool _hasQuickPin = false;
   static List<String> _userPermissions = [];
@@ -179,6 +182,12 @@ class ApiClient {
       _entrepriseMonnaie = await _readStorage('entreprise_monnaie');
       _formatFacture = await _readStorage('format_facture');
       _logoUrl = await _readStorage('logo_url');
+      final savedTvaActive = await _readStorage('tva_active');
+      _tvaActive = savedTvaActive == null ? true : savedTvaActive != 'false';
+      final savedTauxTva = await _readStorage('taux_tva_defaut');
+      _tauxTvaDefaut = double.tryParse(savedTauxTva ?? '') ?? (_tvaActive ? 18.0 : 0.0);
+      final savedSuiviPa = await _readStorage('suivi_prix_achat');
+      _suiviPrixAchat = savedSuiviPa == null ? true : savedSuiviPa != 'false';
       final permsString = await _readStorage('user_permissions');
       if (permsString != null) {
         _userPermissions = permsString.split(',');
@@ -322,6 +331,14 @@ class ApiClient {
         if (newRefreshToken != null && newRefreshToken.isNotEmpty) {
           _refreshToken = newRefreshToken;
           await _writeStorage('refresh_token', newRefreshToken);
+        }
+        final refreshedUser = data?['utilisateur'] as Map<String, dynamic>?;
+        if (refreshedUser != null) {
+          await _applyEntrepriseFlags(
+            tvaActive: refreshedUser['tvaActive'] as bool?,
+            tauxTvaDefaut: (refreshedUser['tauxTvaDefaut'] as num?)?.toDouble(),
+            suiviPrixAchat: refreshedUser['suiviPrixAchat'] as bool?,
+          );
         }
         completer.complete(newAccessToken != null && newAccessToken.isNotEmpty);
       } on DioException catch (e) {
@@ -592,6 +609,9 @@ class ApiClient {
     String? logoUrl,
     String? entrepriseId,
     bool? isSuperAdmin,
+    bool? tvaActive,
+    double? tauxTvaDefaut,
+    bool? suiviPrixAchat,
     bool notifyAuth = true,
   }) async {
     _userRole = role;
@@ -604,6 +624,9 @@ class ApiClient {
     _logoUrl = logoUrl;
     _entrepriseId = entrepriseId;
     _isSuperAdmin = isSuperAdmin ?? (role == 'SUPER_ADMIN' || role == 'ROLE_SUPER_ADMIN');
+    _tvaActive = tvaActive ?? true;
+    _tauxTvaDefaut = tauxTvaDefaut ?? (_tvaActive ? 18.0 : 0.0);
+    _suiviPrixAchat = suiviPrixAchat ?? true;
     if (notifyAuth) {
       authStateNotifier.value = true;
     }
@@ -617,6 +640,9 @@ class ApiClient {
       await _writeStorage('entreprise_monnaie', _entrepriseMonnaie!);
       await _writeStorage('format_facture', _formatFacture!);
       await _writeStorage('is_super_admin', _isSuperAdmin ? 'true' : 'false');
+      await _writeStorage('tva_active', _tvaActive ? 'true' : 'false');
+      await _writeStorage('taux_tva_defaut', _tauxTvaDefaut.toString());
+      await _writeStorage('suivi_prix_achat', _suiviPrixAchat ? 'true' : 'false');
       if (_entrepriseId != null) {
         await _writeStorage('entreprise_id', _entrepriseId!);
       } else {
@@ -630,20 +656,64 @@ class ApiClient {
     }
   }
 
+  static Future<void> _applyEntrepriseFlags({
+    bool? tvaActive,
+    double? tauxTvaDefaut,
+    bool? suiviPrixAchat,
+  }) async {
+    if (tvaActive != null) {
+      _tvaActive = tvaActive;
+      await _writeStorage('tva_active', _tvaActive ? 'true' : 'false');
+    }
+    if (tauxTvaDefaut != null) {
+      _tauxTvaDefaut = tauxTvaDefaut;
+      await _writeStorage('taux_tva_defaut', _tauxTvaDefaut.toString());
+    }
+    if (suiviPrixAchat != null) {
+      _suiviPrixAchat = suiviPrixAchat;
+      await _writeStorage('suivi_prix_achat', _suiviPrixAchat ? 'true' : 'false');
+    }
+  }
+
+  /// Synchronise discrètement les préférences fiscales/prix de l'entreprise depuis le backend.
+  static Future<void> syncEntreprisePreferences() async {
+    if (!isAuthenticated) return;
+    try {
+      final res = await instance.get('/entreprise');
+      final data = res.data['data'] as Map<String, dynamic>?;
+      if (data != null) {
+        await _applyEntrepriseFlags(
+          tvaActive: data['tvaActive'] as bool?,
+          tauxTvaDefaut: (data['tauxTvaDefaut'] as num?)?.toDouble(),
+          suiviPrixAchat: data['suiviPrixAchat'] as bool?,
+        );
+      }
+    } catch (_) {}
+  }
+
   static Future<void> updateEntrepriseInfo({
     required String nom,
     required String monnaie,
     required String formatFacture,
     String? logoUrl,
+    bool? tvaActive,
+    double? tauxTvaDefaut,
+    bool? suiviPrixAchat,
   }) async {
     _entrepriseNom = nom;
     _entrepriseMonnaie = monnaie;
     _formatFacture = formatFacture;
     _logoUrl = logoUrl;
+    if (tvaActive != null) _tvaActive = tvaActive;
+    if (tauxTvaDefaut != null) _tauxTvaDefaut = tauxTvaDefaut;
+    if (suiviPrixAchat != null) _suiviPrixAchat = suiviPrixAchat;
     try {
       await _writeStorage('entreprise_nom', nom);
       await _writeStorage('entreprise_monnaie', monnaie);
       await _writeStorage('format_facture', formatFacture);
+      await _writeStorage('tva_active', _tvaActive ? 'true' : 'false');
+      await _writeStorage('taux_tva_defaut', _tauxTvaDefaut.toString());
+      await _writeStorage('suivi_prix_achat', _suiviPrixAchat ? 'true' : 'false');
       if (logoUrl != null && logoUrl.isNotEmpty) {
         await _writeStorage('logo_url', logoUrl);
       } else {
@@ -665,6 +735,9 @@ class ApiClient {
     _entrepriseMonnaie = null;
     _formatFacture = null;
     _logoUrl = null;
+    _tvaActive = true;
+    _tauxTvaDefaut = 18.0;
+    _suiviPrixAchat = true;
     _userPermissions = [];
     sessionExpiredMessage = expiredMessage;
     lockReasonMessage = null;
@@ -686,8 +759,32 @@ class ApiClient {
       _deleteStorage('entreprise_monnaie');
       _deleteStorage('format_facture');
       _deleteStorage('logo_url');
+      _deleteStorage('tva_active');
+      _deleteStorage('taux_tva_defaut');
+      _deleteStorage('suivi_prix_achat');
       _deleteStorage('user_permissions');
     } catch (_) {}
+  }
+
+  /// Extrait un message lisible à afficher à l'utilisateur depuis une erreur Dio ou générique.
+  static String formatErrorMessage(Object error, {String fallback = 'Une erreur est survenue.'}) {
+    if (error is DioException) {
+      final data = error.response?.data;
+      if (data is Map) {
+        final msg = data['message']?.toString();
+        if (msg != null && msg.trim().isNotEmpty) return msg.trim();
+        final err = data['error']?.toString();
+        if (err != null && err.trim().isNotEmpty) return err.trim();
+      }
+      if (error.type == DioExceptionType.connectionTimeout ||
+          error.type == DioExceptionType.connectionError) {
+        return 'Impossible de joindre le serveur. Vérifiez votre connexion Internet.';
+      }
+      if (error.response?.statusCode != null) {
+        return '$fallback (HTTP ${error.response!.statusCode})';
+      }
+    }
+    return fallback;
   }
 
   static bool get isAuthenticated => _accessToken != null || _refreshToken != null;
@@ -705,6 +802,9 @@ class ApiClient {
   static String get entrepriseMonnaie => _entrepriseMonnaie ?? 'FCFA';
   static String get formatFacture => _formatFacture ?? 'FAC-{YYYY}-{NNNNN}';
   static String? get logoUrl => _logoUrl;
+  static bool get tvaActive => _tvaActive;
+  static double get tauxTvaDefaut => _tvaActive ? _tauxTvaDefaut : 0.0;
+  static bool get suiviPrixAchat => _suiviPrixAchat;
   static List<String> get userPermissions => _userPermissions;
   static bool get isAdmin => isSuperAdmin || _userRole == 'ADMIN' || _userRole == 'ROLE_ADMIN' || _userRole == 'GERANT' || _userRole == 'ROLE_GERANT';
 

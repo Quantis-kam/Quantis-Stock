@@ -24,6 +24,10 @@ class _EntrepriseScreenState extends State<EntrepriseScreen> {
   final _adresseCtrl = TextEditingController();
   final _monnaieCtrl = TextEditingController(text: 'FCFA');
   final _formatFactureCtrl = TextEditingController(text: 'FAC-{YYYY}-{NNNNN}');
+  final _tauxTvaDefautCtrl = TextEditingController(text: '18');
+
+  bool _tvaActive = true;
+  bool _suiviPrixAchat = true;
 
   String? _logoBase64;
   Uint8List? _logoBytes;
@@ -49,6 +53,7 @@ class _EntrepriseScreenState extends State<EntrepriseScreen> {
     _adresseCtrl.dispose();
     _monnaieCtrl.dispose();
     _formatFactureCtrl.dispose();
+    _tauxTvaDefautCtrl.dispose();
     super.dispose();
   }
 
@@ -68,6 +73,20 @@ class _EntrepriseScreenState extends State<EntrepriseScreen> {
           } catch (_) {}
         }
 
+        final tvaActive = data['tvaActive'] != false;
+        final tauxTvaDefaut = (data['tauxTvaDefaut'] as num?)?.toDouble() ?? (tvaActive ? 18.0 : 0.0);
+        final suiviPrixAchat = data['suiviPrixAchat'] != false;
+
+        await ApiClient.updateEntrepriseInfo(
+          nom: data['nom'] ?? ApiClient.entrepriseNom,
+          monnaie: data['monnaie'] ?? 'FCFA',
+          formatFacture: data['formatFacture'] ?? 'FAC-{YYYY}-{NNNNN}',
+          logoUrl: logo,
+          tvaActive: tvaActive,
+          tauxTvaDefaut: tauxTvaDefaut,
+          suiviPrixAchat: suiviPrixAchat,
+        );
+
         setState(() {
           _nomCtrl.text = data['nom'] ?? '';
           _nifCtrl.text = data['nif'] ?? '';
@@ -77,6 +96,11 @@ class _EntrepriseScreenState extends State<EntrepriseScreen> {
           _adresseCtrl.text = data['adresse'] ?? '';
           _monnaieCtrl.text = data['monnaie'] ?? 'FCFA';
           _formatFactureCtrl.text = data['formatFacture'] ?? 'FAC-{YYYY}-{NNNNN}';
+          _tvaActive = tvaActive;
+          _tauxTvaDefautCtrl.text = tauxTvaDefaut % 1 == 0
+              ? tauxTvaDefaut.toStringAsFixed(0)
+              : tauxTvaDefaut.toStringAsFixed(2);
+          _suiviPrixAchat = suiviPrixAchat;
           _logoBase64 = logo;
           _logoBytes = bytes;
           _loading = false;
@@ -139,6 +163,12 @@ class _EntrepriseScreenState extends State<EntrepriseScreen> {
 
     try {
       final dio = ApiClient.instance;
+      final parsedTva = double.tryParse(
+            _tauxTvaDefautCtrl.text.trim().replaceAll('%', '').replaceAll(',', '.'),
+          ) ??
+          (_tvaActive ? 18.0 : 0.0);
+      final effectiveTauxTva = _tvaActive ? parsedTva.clamp(0.0, 100.0) : 0.0;
+
       final body = {
         'nom': _nomCtrl.text.trim(),
         'nif': _nifCtrl.text.trim(),
@@ -149,6 +179,9 @@ class _EntrepriseScreenState extends State<EntrepriseScreen> {
         'logoUrl': _logoBase64,
         'monnaie': _monnaieCtrl.text.trim(),
         'formatFacture': _formatFactureCtrl.text.trim(),
+        'tvaActive': _tvaActive,
+        'tauxTvaDefaut': effectiveTauxTva,
+        'suiviPrixAchat': _suiviPrixAchat,
       };
 
       await dio.put('/entreprise', data: body);
@@ -159,6 +192,9 @@ class _EntrepriseScreenState extends State<EntrepriseScreen> {
         monnaie: _monnaieCtrl.text.trim(),
         formatFacture: _formatFactureCtrl.text.trim(),
         logoUrl: _logoBase64,
+        tvaActive: _tvaActive,
+        tauxTvaDefaut: effectiveTauxTva,
+        suiviPrixAchat: _suiviPrixAchat,
       );
 
       if (mounted) {
@@ -634,6 +670,80 @@ class _EntrepriseScreenState extends State<EntrepriseScreen> {
                               ),
                             ],
                           ),
+                        const SizedBox(height: 20),
+
+                        // Préférences TVA & Prix d'achat (adaptées à chaque commerce)
+                        Card(
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: BorderSide(color: Colors.grey.shade300),
+                          ),
+                          child: Column(
+                            children: [
+                              SwitchListTile(
+                                secondary: Icon(
+                                  Icons.percent_rounded,
+                                  color: _tvaActive ? QuantisColors.royalBlue : Colors.grey.shade500,
+                                ),
+                                title: const Text(
+                                  'Assujetti à la TVA',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                ),
+                                subtitle: Text(
+                                  _tvaActive
+                                      ? 'La TVA est appliquée sur les produits et factures (modifiable produit par produit, y compris à 0%).'
+                                      : 'TVA désactivée : toutes vos ventes POS et factures sont à 0% (aucune ligne TVA affichée).',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                                value: _tvaActive,
+                                activeColor: QuantisColors.royalBlue,
+                                onChanged: (val) {
+                                  setState(() {
+                                    _tvaActive = val;
+                                    if (val && (double.tryParse(_tauxTvaDefautCtrl.text) ?? 0) <= 0) {
+                                      _tauxTvaDefautCtrl.text = '18';
+                                    }
+                                  });
+                                },
+                              ),
+                              if (_tvaActive)
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                                  child: TextFormField(
+                                    controller: _tauxTvaDefautCtrl,
+                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                    decoration: const InputDecoration(
+                                      labelText: 'Taux de TVA par défaut (%)',
+                                      hintText: 'Ex: 18 (ou 0 pour exonéré par défaut)',
+                                      prefixIcon: Icon(Icons.calculate_outlined),
+                                      border: OutlineInputBorder(),
+                                    ),
+                                  ),
+                                ),
+                              const Divider(height: 1),
+                              SwitchListTile(
+                                secondary: Icon(
+                                  Icons.price_check_outlined,
+                                  color: _suiviPrixAchat ? QuantisColors.royalBlue : Colors.grey.shade500,
+                                ),
+                                title: const Text(
+                                  'Suivi des prix d\'achat & marges par produit',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                ),
+                                subtitle: Text(
+                                  _suiviPrixAchat
+                                      ? 'Affiche le champ Prix d\'achat (facultatif) et calcule les marges par produit.'
+                                      : 'Mode simplifié : masque les prix d\'achat lors de la création produit. Le bénéfice reste calculé via vos dépenses de caisse et achats fournisseurs.',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                                value: _suiviPrixAchat,
+                                activeColor: QuantisColors.royalBlue,
+                                onChanged: (val) => setState(() => _suiviPrixAchat = val),
+                              ),
+                            ],
+                          ),
+                        ),
                         const SizedBox(height: 32),
 
                         if (isMobile)

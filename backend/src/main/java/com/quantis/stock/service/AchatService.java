@@ -162,6 +162,15 @@ public class AchatService {
             BigDecimal ligneVal = ligne.getPrixUnitaire().multiply(lr.getQuantiteRecue());
             totalReceptionVal = totalReceptionVal.add(ligneVal);
 
+            // Auto-renseigner le prix d'achat produit s'il était vide / 0 lors de la création rapide
+            Produit prod = ligne.getProduit();
+            if (prod != null && ligne.getPrixUnitaire() != null
+                    && ligne.getPrixUnitaire().compareTo(BigDecimal.ZERO) > 0
+                    && (prod.getPrixAchat() == null || prod.getPrixAchat().compareTo(BigDecimal.ZERO) <= 0)) {
+                prod.setPrixAchat(ligne.getPrixUnitaire());
+                produitRepository.save(prod);
+            }
+
             // Créer automatiquement un mouvement ENTREE de stock
             MouvementRequest mvtRequest = new MouvementRequest();
             mvtRequest.setType(TypeMouvement.ENTREE);

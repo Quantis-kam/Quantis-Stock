@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
+import '../../../core/network/api_client.dart';
 import '../../../core/theme/quantis_theme.dart';
 import '../data/produit_service.dart';
 import '../data/categorie_service.dart';
@@ -37,22 +38,39 @@ class _ProduitFormDialogState extends State<ProduitFormDialog> {
   bool _saving = false;
 
   // Real-time Margin details
+  double _prixAchat = 0;
   double _marge = 0;
   double _margePercent = 0;
+
+  static double _parseNumber(String raw) {
+    final cleaned = raw.trim().replaceAll('%', '').replaceAll(' ', '').replaceAll(',', '.');
+    return double.tryParse(cleaned) ?? 0.0;
+  }
+
+  static String _formatTva(double value) {
+    return value % 1 == 0 ? value.toStringAsFixed(0) : value.toStringAsFixed(2);
+  }
 
   @override
   void initState() {
     super.initState();
     final p = widget.produit;
+    final defaultTva = ApiClient.tvaActive ? ApiClient.tauxTvaDefaut : 0.0;
 
     _nomCtrl = TextEditingController(text: p?.nom ?? '');
     _descCtrl = TextEditingController(text: p?.description ?? '');
     _skuCtrl = TextEditingController(text: p?.reference ?? '');
     _barcodeCtrl = TextEditingController(text: p?.codeBarres ?? '');
-    _prixAchatCtrl = TextEditingController(text: p?.prixAchat.toStringAsFixed(0) ?? '0');
-    _prixVenteCtrl = TextEditingController(text: p?.prixVente.toStringAsFixed(0) ?? '0');
+    _prixAchatCtrl = TextEditingController(
+      text: (p != null && p.prixAchat > 0) ? p.prixAchat.toStringAsFixed(0) : '',
+    );
+    _prixVenteCtrl = TextEditingController(
+      text: p != null ? p.prixVente.toStringAsFixed(0) : '',
+    );
     _seuilCtrl = TextEditingController(text: p?.seuilAlerte.toString() ?? '10');
-    _tvaCtrl = TextEditingController(text: p?.tauxTva.toStringAsFixed(2) ?? '18.00');
+    _tvaCtrl = TextEditingController(
+      text: p != null ? _formatTva(p.tauxTva) : _formatTva(defaultTva),
+    );
 
     _selectedCategorieId = p?.categorieId;
     _selectedUniteId = p?.uniteId;
@@ -79,10 +97,11 @@ class _ProduitFormDialogState extends State<ProduitFormDialog> {
   }
 
   void _updateMargin() {
-    final pa = double.tryParse(_prixAchatCtrl.text) ?? 0;
-    final pv = double.tryParse(_prixVenteCtrl.text) ?? 0;
+    final pa = _parseNumber(_prixAchatCtrl.text);
+    final pv = _parseNumber(_prixVenteCtrl.text);
     setState(() {
-      _marge = pv - pa;
+      _prixAchat = pa;
+      _marge = pa > 0 ? (pv - pa) : 0;
       _margePercent = pa > 0 ? (_marge / pa) * 100 : 0;
     });
   }
@@ -181,10 +200,12 @@ class _ProduitFormDialogState extends State<ProduitFormDialog> {
       description: _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
       reference: _skuCtrl.text.trim(),
       codeBarres: _barcodeCtrl.text.trim().isEmpty ? null : _barcodeCtrl.text.trim(),
-      prixAchat: double.tryParse(_prixAchatCtrl.text) ?? 0,
-      prixVente: double.tryParse(_prixVenteCtrl.text) ?? 0,
-      tauxTva: double.tryParse(_tvaCtrl.text) ?? 18.0,
-      seuilAlerte: int.tryParse(_seuilCtrl.text) ?? 10,
+      prixAchat: ApiClient.suiviPrixAchat
+          ? _parseNumber(_prixAchatCtrl.text)
+          : (widget.produit?.prixAchat ?? 0),
+      prixVente: _parseNumber(_prixVenteCtrl.text),
+      tauxTva: ApiClient.tvaActive ? _parseNumber(_tvaCtrl.text) : 0.0,
+      seuilAlerte: int.tryParse(_seuilCtrl.text.trim()) ?? 10,
       categorieId: _selectedCategorieId,
       uniteId: _selectedUniteId,
       variantes: _variantes,
@@ -197,12 +218,17 @@ class _ProduitFormDialogState extends State<ProduitFormDialog> {
       } else {
         await _produitService.updateProduit(widget.produit!.id!, prd);
       }
-      Navigator.pop(context, true);
+      if (mounted) Navigator.pop(context, true);
     } catch (e) {
-      setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur d\'enregistrement: $e'), backgroundColor: QuantisColors.error),
-      );
+      if (mounted) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(ApiClient.formatErrorMessage(e, fallback: 'Erreur d\'enregistrement')),
+            backgroundColor: QuantisColors.error,
+          ),
+        );
+      }
     }
   }
 
@@ -377,25 +403,40 @@ class _ProduitFormDialogState extends State<ProduitFormDialog> {
                       const SizedBox(height: 24),
 
                       // Section Prix & Marges
-                      const Text('Prix & Taxes (FCFA)', style: TextStyle(fontWeight: FontWeight.bold, color: QuantisColors.textSecondary)),
+                      Text(
+                        ApiClient.tvaActive
+                            ? 'Prix & Taxes (${ApiClient.entrepriseMonnaie})'
+                            : 'Prix & Stock (${ApiClient.entrepriseMonnaie})',
+                        style: const TextStyle(fontWeight: FontWeight.bold, color: QuantisColors.textSecondary),
+                      ),
                       const SizedBox(height: 12),
 
                       if (isMobile) ...[
                         Row(
                           children: [
-                            Expanded(
-                              child: TextFormField(
-                                controller: _prixAchatCtrl,
-                                keyboardType: TextInputType.number,
-                                decoration: const InputDecoration(labelText: 'Prix d\'achat'),
+                            if (ApiClient.suiviPrixAchat) ...[
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _prixAchatCtrl,
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  decoration: const InputDecoration(
+                                    labelText: 'Prix d\'achat (optionnel)',
+                                    hintText: 'Optionnel',
+                                  ),
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 12),
+                              const SizedBox(width: 12),
+                            ],
                             Expanded(
                               child: TextFormField(
                                 controller: _prixVenteCtrl,
-                                keyboardType: TextInputType.number,
-                                decoration: const InputDecoration(labelText: 'Prix de vente'),
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                decoration: const InputDecoration(
+                                  labelText: 'Prix de vente *',
+                                  hintText: 'Ex: 5000',
+                                ),
+                                validator: (v) =>
+                                    (v == null || v.trim().isEmpty) ? 'Requis' : null,
                               ),
                             ),
                           ],
@@ -403,14 +444,19 @@ class _ProduitFormDialogState extends State<ProduitFormDialog> {
                         const SizedBox(height: 12),
                         Row(
                           children: [
-                            Expanded(
-                              child: TextFormField(
-                                controller: _tvaCtrl,
-                                keyboardType: TextInputType.number,
-                                decoration: const InputDecoration(labelText: 'TVA (%)'),
+                            if (ApiClient.tvaActive) ...[
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _tvaCtrl,
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  decoration: const InputDecoration(
+                                    labelText: 'TVA (%)',
+                                    hintText: '0 ou 18',
+                                  ),
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 12),
+                              const SizedBox(width: 12),
+                            ],
                             Expanded(
                               child: TextFormField(
                                 controller: _seuilCtrl,
@@ -423,29 +469,44 @@ class _ProduitFormDialogState extends State<ProduitFormDialog> {
                       ] else
                         Row(
                           children: [
-                            Expanded(
-                              child: TextFormField(
-                                controller: _prixAchatCtrl,
-                                keyboardType: TextInputType.number,
-                                decoration: const InputDecoration(labelText: 'Prix d\'achat'),
+                            if (ApiClient.suiviPrixAchat) ...[
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _prixAchatCtrl,
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  decoration: const InputDecoration(
+                                    labelText: 'Prix d\'achat (optionnel)',
+                                    hintText: 'Laisser vide si non suivi',
+                                  ),
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 16),
+                              const SizedBox(width: 16),
+                            ],
                             Expanded(
                               child: TextFormField(
                                 controller: _prixVenteCtrl,
-                                keyboardType: TextInputType.number,
-                                decoration: const InputDecoration(labelText: 'Prix de vente'),
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                decoration: const InputDecoration(
+                                  labelText: 'Prix de vente *',
+                                  hintText: 'Ex: 5000',
+                                ),
+                                validator: (v) =>
+                                    (v == null || v.trim().isEmpty) ? 'Requis' : null,
                               ),
                             ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: TextFormField(
-                                controller: _tvaCtrl,
-                                keyboardType: TextInputType.number,
-                                decoration: const InputDecoration(labelText: 'Taux TVA (%)'),
+                            if (ApiClient.tvaActive) ...[
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _tvaCtrl,
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  decoration: const InputDecoration(
+                                    labelText: 'Taux TVA (%)',
+                                    hintText: '0 ou 18',
+                                  ),
+                                ),
                               ),
-                            ),
+                            ],
                             const SizedBox(width: 16),
                             Expanded(
                               child: TextFormField(
@@ -456,36 +517,73 @@ class _ProduitFormDialogState extends State<ProduitFormDialog> {
                             ),
                           ],
                         ),
-                      const SizedBox(height: 12),
-
-                      // Calculateur de marge dynamique en temps réel
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: _marge >= 0 
-                              ? QuantisColors.success.withValues(alpha: 0.08) 
-                              : QuantisColors.error.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: _marge >= 0 
-                                ? QuantisColors.success.withValues(alpha: 0.3) 
-                                : QuantisColors.error.withValues(alpha: 0.3),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      if (!ApiClient.tvaActive) ...[
+                        const SizedBox(height: 8),
+                        Row(
                           children: [
-                            const Text('Marge estimée :', style: TextStyle(fontWeight: FontWeight.w600)),
-                            Text(
-                              '${_marge.toStringAsFixed(0)} FCFA  (${_margePercent.toStringAsFixed(1)}%)',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: _marge >= 0 ? QuantisColors.success : QuantisColors.error,
+                            Icon(Icons.info_outline, size: 14, color: Colors.grey.shade600),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'TVA désactivée (0%) pour votre entreprise — modifiable dans Profil Entreprise.',
+                                style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
                               ),
                             ),
                           ],
                         ),
-                      ),
+                      ],
+                      const SizedBox(height: 12),
+
+                      // Calculateur de marge dynamique en temps réel (uniquement si suivi actif)
+                      if (ApiClient.suiviPrixAchat)
+                        _prixAchat > 0
+                            ? Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: _marge >= 0
+                                      ? QuantisColors.success.withValues(alpha: 0.08)
+                                      : QuantisColors.error.withValues(alpha: 0.08),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: _marge >= 0
+                                        ? QuantisColors.success.withValues(alpha: 0.3)
+                                        : QuantisColors.error.withValues(alpha: 0.3),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text('Marge estimée :', style: TextStyle(fontWeight: FontWeight.w600)),
+                                    Text(
+                                      '${_marge.toStringAsFixed(0)} ${ApiClient.entrepriseMonnaie}  (${_margePercent.toStringAsFixed(1)}%)',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: _marge >= 0 ? QuantisColors.success : QuantisColors.error,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade100,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.grey.shade300),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.lightbulb_outline, size: 16, color: Colors.grey.shade700),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'Prix d\'achat non renseigné (optionnel) — la marge produit s\'affichera dès qu\'un coût d\'achat sera saisi.',
+                                        style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                       const SizedBox(height: 24),
 
                       // Section Variantes

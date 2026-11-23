@@ -121,18 +121,25 @@ public class ProduitService {
             }
         }
 
+        java.math.BigDecimal defaultTva = (entreprise != null)
+                ? entreprise.getTauxTvaDefautEffective()
+                : new java.math.BigDecimal("18.00");
+        java.math.BigDecimal effectiveTva = (entreprise != null && !entreprise.isTvaActiveEffective())
+                ? java.math.BigDecimal.ZERO
+                : (request.getTauxTva() != null ? request.getTauxTva() : defaultTva);
+
         Produit produit = Produit.builder()
                 .entreprise(entreprise)
                 .sku(request.getSku())
                 .codeBarres(request.getCodeBarres())
                 .nom(request.getNom())
                 .description(request.getDescription())
-                .prixAchat(request.getPrixAchat())
-                .prixVente(request.getPrixVente())
+                .prixAchat(request.getPrixAchat() != null ? request.getPrixAchat() : java.math.BigDecimal.ZERO)
+                .prixVente(request.getPrixVente() != null ? request.getPrixVente() : java.math.BigDecimal.ZERO)
+                .tauxTva(effectiveTva)
                 .imageUrl(request.getImageUrl())
                 .build();
 
-        if (request.getTauxTva() != null) produit.setTauxTva(request.getTauxTva());
         if (request.getSeuilAlerte() != null) produit.setSeuilAlerte(request.getSeuilAlerte());
 
         // Catégorie
@@ -189,10 +196,14 @@ public class ProduitService {
         produit.setCodeBarres(request.getCodeBarres());
         produit.setNom(request.getNom());
         produit.setDescription(request.getDescription());
-        produit.setPrixAchat(request.getPrixAchat());
-        produit.setPrixVente(request.getPrixVente());
+        produit.setPrixAchat(request.getPrixAchat() != null ? request.getPrixAchat() : java.math.BigDecimal.ZERO);
+        produit.setPrixVente(request.getPrixVente() != null ? request.getPrixVente() : java.math.BigDecimal.ZERO);
         produit.setImageUrl(request.getImageUrl());
-        if (request.getTauxTva() != null) produit.setTauxTva(request.getTauxTva());
+        if (request.getTauxTva() != null) {
+            produit.setTauxTva(request.getTauxTva());
+        } else if (produit.getEntreprise() != null && !produit.getEntreprise().isTvaActiveEffective()) {
+            produit.setTauxTva(java.math.BigDecimal.ZERO);
+        }
         if (request.getSeuilAlerte() != null) produit.setSeuilAlerte(request.getSeuilAlerte());
 
         if (request.getCategorieId() != null) {
@@ -272,9 +283,15 @@ public class ProduitService {
                     try { seuilAlerte = Integer.parseInt(tokens[5].trim()); } catch (Exception e) {}
                 }
                 
-                java.math.BigDecimal tauxTva = new java.math.BigDecimal("18");
+                Entreprise entImport = securityUtils.getCurrentEntreprise().orElse(null);
+                java.math.BigDecimal tauxTva = entImport != null
+                        ? entImport.getTauxTvaDefautEffective()
+                        : new java.math.BigDecimal("18");
                 if (tokens.length > 6 && !tokens[6].trim().isEmpty()) {
-                    try { tauxTva = new java.math.BigDecimal(tokens[6].trim()); } catch (Exception e) {}
+                    try { tauxTva = new java.math.BigDecimal(tokens[6].trim().replace("%", "").replace(",", ".")); } catch (Exception e) {}
+                }
+                if (entImport != null && !entImport.isTvaActiveEffective()) {
+                    tauxTva = java.math.BigDecimal.ZERO;
                 }
                 
                 String codeBarres = tokens.length > 7 ? tokens[7].trim() : null;

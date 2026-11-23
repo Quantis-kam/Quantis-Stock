@@ -32,6 +32,9 @@ public class AuthResponse {
         private String entrepriseMonnaie;
         private String formatFacture;
         private String logoUrl;
+        private Boolean tvaActive;
+        private java.math.BigDecimal tauxTvaDefaut;
+        private Boolean suiviPrixAchat;
         private Boolean isSuperAdmin;
         private java.util.List<String> permissions;
         private String dateExpirationLicence;

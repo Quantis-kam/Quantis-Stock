@@ -45,7 +45,7 @@ public class Paiement {
     private BigDecimal montant;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(nullable = false, length = 30)
     private MoyenPaiement moyen;
 
     @Column(name = "date_paiement")

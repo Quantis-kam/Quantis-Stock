@@ -188,7 +188,7 @@ class InvoicePdfGenerator {
                       _headerCell('DÉSIGNATION', fontBold, align: pw.TextAlign.left),
                       _headerCell('QTÉ', fontBold, align: pw.TextAlign.center),
                       _headerCell('PRIX UNITAIRE', fontBold, align: pw.TextAlign.right),
-                      _headerCell('TOTAL TTC', fontBold, align: pw.TextAlign.right),
+                      _headerCell(doc.totalTva > 0 ? 'TOTAL TTC' : 'TOTAL', fontBold, align: pw.TextAlign.right),
                     ],
                   ),
                   // Lignes d'articles
@@ -275,11 +275,14 @@ class InvoicePdfGenerator {
                     ),
                     child: pw.Column(
                       children: [
-                        _totalRowPdf('Total HT :', currency.format(doc.totalHt), fontRegular),
-                        pw.SizedBox(height: 4),
-                        _totalRowPdf('TVA (18%) :', currency.format(doc.totalTva), fontRegular),
-                        pw.Divider(color: PdfColors.grey300, thickness: 0.5),
-                        _totalRowPdf('Total TTC :', currency.format(doc.totalTtc), fontBold,
+                        if (doc.totalTva > 0) ...[
+                          _totalRowPdf('Total HT :', currency.format(doc.totalHt), fontRegular),
+                          pw.SizedBox(height: 4),
+                          _totalRowPdf('TVA :', currency.format(doc.totalTva), fontRegular),
+                          pw.Divider(color: PdfColors.grey300, thickness: 0.5),
+                        ],
+                        _totalRowPdf(doc.totalTva > 0 ? 'Total TTC :' : 'Total Net :',
+                            currency.format(doc.totalTtc), fontBold,
                             fontSize: 13, color: primaryColor),
                         if (doc.montantPaye > 0) ...[
                           pw.SizedBox(height: 4),
@@ -419,11 +422,13 @@ class InvoicePdfGenerator {
     final String caissier = saleData['caissierNom'] ?? 'Caissier';
     final String client = saleData['clientNom'] ?? 'Client Comptoir';
 
+    final num totalTva = (doc['totalTva'] as num?) ?? 0;
     final num totalTtc = saleData['montantTotal'] ?? doc['totalTtc'] ?? 0;
     final num montantPaye = saleData['montantPaye'] ?? 0;
     final num monnaieRendue = saleData['monnaieRendue'] ?? 0;
     final num soldeRestant = saleData['soldeRestant'] ?? 0;
-    final String moyenPaiement = paiement?['moyen'] ?? 'ESPECES';
+    final String moyenPaiementCode = paiement?['moyen'] ?? (montantPaye <= 0 && soldeRestant > 0 ? 'CREDIT' : 'ESPECES');
+    final String moyenPaiement = PaiementModel.formatMoyen(moyenPaiementCode);
 
     final currency = NumberFormat.currency(
       locale: 'fr_FR',
@@ -512,10 +517,18 @@ class InvoicePdfGenerator {
               pw.SizedBox(height: 4),
 
               // Totaux
+              if (totalTva > 0)
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Text('Dont TVA', style: pw.TextStyle(font: fontRegular, fontSize: 8)),
+                    pw.Text(currency.format(totalTva), style: pw.TextStyle(font: fontRegular, fontSize: 8)),
+                  ],
+                ),
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
-                  pw.Text('TOTAL TTC', style: pw.TextStyle(font: fontBold, fontSize: 11)),
+                  pw.Text(totalTva > 0 ? 'TOTAL TTC' : 'TOTAL NET', style: pw.TextStyle(font: fontBold, fontSize: 11)),
                   pw.Text(currency.format(totalTtc), style: pw.TextStyle(font: fontBold, fontSize: 12)),
                 ],
               ),

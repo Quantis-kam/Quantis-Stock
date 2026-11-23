@@ -228,8 +228,9 @@ public class ComptabiliteService {
         BigDecimal valeurStock = BigDecimal.ZERO;
         for (StockCourant sc : stocks) {
             if (sc.getQuantite() != null && sc.getQuantite().compareTo(BigDecimal.ZERO) > 0) {
-                BigDecimal prix = sc.getProduit().getPrixAchat() != null
-                        ? sc.getProduit().getPrixAchat()
+                BigDecimal prixAchat = sc.getProduit().getPrixAchat();
+                BigDecimal prix = (prixAchat != null && prixAchat.compareTo(BigDecimal.ZERO) > 0)
+                        ? prixAchat
                         : (sc.getProduit().getPrixVente() != null ? sc.getProduit().getPrixVente() : BigDecimal.ZERO);
                 valeurStock = valeurStock.add(sc.getQuantite().multiply(prix));
             }

@@ -75,10 +75,39 @@ void main() {
   group('PaiementModel', () {
     test('Labels moyens de paiement', () {
       expect(PaiementModel(moyen: 'ESPECES').moyenLabel, 'Espèces');
+      expect(PaiementModel(moyen: 'WAVE').moyenLabel, 'Wave');
+      expect(PaiementModel(moyen: 'ORANGE_MONEY').moyenLabel, 'Orange Money');
+      expect(PaiementModel(moyen: 'MOOV_MONEY').moyenLabel, 'Moov Money');
+      expect(PaiementModel(moyen: 'CARTE_BANCAIRE').moyenLabel, 'Carte Bancaire');
+      expect(PaiementModel(moyen: 'CREDIT').moyenLabel, 'À Crédit');
       expect(PaiementModel(moyen: 'MOBILE_MONEY').moyenLabel, 'Mobile Money');
       expect(PaiementModel(moyen: 'VIREMENT').moyenLabel, 'Virement');
       expect(PaiementModel(moyen: 'CHEQUE').moyenLabel, 'Chèque');
       expect(PaiementModel(moyen: 'CARTE').moyenLabel, 'Carte');
+    });
+
+    test('LigneDocumentModel respecte TVA 0% et ne force pas 18%', () {
+      final ligne = LigneDocumentModel.fromJson({
+        'id': 1,
+        'designation': 'Article sans TVA',
+        'quantite': 2,
+        'prixUnitaire': 5000,
+        'tauxTva': 0,
+        'montantHt': 10000,
+        'montantTva': 0,
+        'montantTtc': 10000,
+      });
+      expect(ligne.tauxTva, 0);
+      expect(ligne.montantTva, 0);
+      expect(ligne.montantTtc, 10000);
+
+      final ligneMissingTva = LigneDocumentModel.fromJson({
+        'id': 2,
+        'designation': 'Article sans champ TVA',
+        'quantite': 1,
+        'prixUnitaire': 2500,
+      });
+      expect(ligneMissingTva.tauxTva, 0);
     });
   });
 
