@@ -52,8 +52,8 @@ management:
 app:
   jwt:
     secret: ${JWT_SECRET:quantis-stock-dev-secret-key-change-in-production-2026}
-    access-token-expiration-ms: ${JWT_ACCESS_EXPIRATION_MS:900000}    # 15 minutes
-    refresh-token-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000} # 7 jours (déverrouillage rapide PIN 4 chiffres)
+    access-token-expiration-ms: ${JWT_ACCESS_EXPIRATION_MS:900000}      # 15 minutes
+    refresh-token-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:31536000000} # 365 jours glissants (connexion par code PIN uniquement après la 1ère connexion)
   default-tva: 18
   devise: FCFA
   pagination:

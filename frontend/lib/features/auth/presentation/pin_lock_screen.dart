@@ -305,8 +305,7 @@ class _PinLockScreenState extends State<PinLockScreen>
                         }),
                       ),
                     ),
-                    const SizedBox(height: 14),
-
+                    const SizedBox(height: 16),
                     SizedBox(
                       height: 24,
                       child: _verifying
@@ -358,7 +357,7 @@ class _PinLockScreenState extends State<PinLockScreen>
                         color: Colors.white70,
                       ),
                       label: const Text(
-                        'Utiliser mon mot de passe / Changer de compte',
+                        'Changer de compte / Code PIN oublié',
                         style: TextStyle(
                           color: Colors.white70,
                           fontSize: 12.5,
@@ -520,37 +519,11 @@ class _PinSetupDialogState extends State<PinSetupDialog> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text(
-          'Code PIN rapide activé ! Déverrouillage en 1 seconde après inactivité.',
+          'Code PIN activé ! Vous n\'aurez plus besoin de saisir votre email ni votre mot de passe.',
         ),
         backgroundColor: QuantisColors.success,
       ),
     );
-  }
-
-  Future<void> _disablePin() async {
-    final email = ApiClient.userEmail;
-    if (email == null || email.isEmpty) return;
-    setState(() => _saving = true);
-    await PinService.instance.removePin(email);
-    await ApiClient.refreshQuickPinStatus();
-    if (!mounted) return;
-    Navigator.of(context).pop(false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Code PIN rapide désactivé.'),
-        backgroundColor: QuantisColors.royalBlue,
-      ),
-    );
-  }
-
-  Future<void> _dismissLater() async {
-    final email = ApiClient.userEmail;
-    if (email != null && email.isNotEmpty) {
-      await PinService.instance.markPinSetupPrompted(email);
-    }
-    if (mounted) {
-      Navigator.of(context).pop(false);
-    }
   }
 
   @override
@@ -558,195 +531,279 @@ class _PinSetupDialogState extends State<PinSetupDialog> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isMobile = screenWidth < 600;
 
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-      insetPadding: EdgeInsets.symmetric(
-        horizontal: isMobile ? 16 : 40,
-        vertical: 20,
-      ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 400),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(22),
-          child: _loading
-              ? const SizedBox(
-                  height: 160,
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              : Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: QuantisColors.royalBlue.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(
-                            Icons.pin_outlined,
-                            color: QuantisColors.royalBlue,
-                            size: 24,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                _hasExistingPin
-                                    ? 'Modifier le code PIN'
-                                    : 'Code PIN rapide (4 chiffres)',
-                                style: const TextStyle(
-                                  fontFamily: 'SpaceGrotesk',
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w700,
-                                  color: QuantisColors.textPrimary,
-                                ),
-                              ),
-                              const Text(
-                                'Déverrouillez en 1 seconde sans retaper vos identifiants',
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  color: QuantisColors.textSecondary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (!widget.isPostLoginPrompt)
-                          IconButton(
-                            icon: const Icon(Icons.close, size: 20),
-                            onPressed: () => Navigator.of(context).pop(),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: QuantisColors.royalBlue.withValues(alpha: 0.06),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        _isConfirmStep
-                            ? 'Étape 2/2 : Confirmez votre code PIN à 4 chiffres'
-                            : 'Étape 1/2 : Choisissez un code PIN à 4 chiffres',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                          color: QuantisColors.royalBlue,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // 4 points de saisie
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(PinService.pinLength, (index) {
-                        final filled = index < _activeValue.length;
-                        return AnimatedContainer(
-                          duration: const Duration(milliseconds: 140),
-                          margin: const EdgeInsets.symmetric(horizontal: 10),
-                          width: 18,
-                          height: 18,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: filled
-                                ? QuantisColors.royalBlue
-                                : Colors.transparent,
-                            border: Border.all(
-                              color: _error != null
-                                  ? QuantisColors.error
-                                  : (filled
-                                      ? QuantisColors.royalBlue
-                                      : QuantisColors.textMuted),
-                              width: 2,
+    return PopScope(
+      canPop: !widget.isPostLoginPrompt,
+      child: Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        insetPadding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 16 : 40,
+          vertical: 20,
+        ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 400),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(22),
+            child: _loading
+                ? const SizedBox(
+                    height: 160,
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: QuantisColors.royalBlue.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(
+                              Icons.pin_outlined,
+                              color: QuantisColors.royalBlue,
+                              size: 24,
                             ),
                           ),
-                        );
-                      }),
-                    ),
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      height: 22,
-                      child: _saving
-                          ? const Center(
-                              child: SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              ),
-                            )
-                          : _error != null
-                              ? Text(
-                                  _error!,
-                                  textAlign: TextAlign.center,
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _hasExistingPin
+                                      ? 'Modifier mon code PIN'
+                                      : 'Créez votre Code PIN (4 chiffres)',
                                   style: const TextStyle(
-                                    color: QuantisColors.error,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
+                                    fontFamily: 'SpaceGrotesk',
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w700,
+                                    color: QuantisColors.textPrimary,
                                   ),
-                                )
-                              : const SizedBox.shrink(),
-                    ),
-                    const SizedBox(height: 12),
-
-                    _PinKeypad(
-                      onDigit: _onDigit,
-                      onBackspace: _onBackspace,
-                      onClear: _onClear,
-                      darkSurface: false,
-                    ),
-                    const SizedBox(height: 14),
-
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        if (_hasExistingPin)
-                          TextButton.icon(
-                            onPressed: _saving ? null : _disablePin,
-                            icon: const Icon(
-                              Icons.delete_outline,
-                              size: 16,
-                              color: QuantisColors.error,
+                                ),
+                                Text(
+                                  widget.isPostLoginPrompt
+                                      ? 'Plus besoin d\'email ni de mot de passe — connectez-vous uniquement avec ce code PIN'
+                                      : 'Utilisé à chaque ouverture pour déverrouiller en 1 seconde',
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    color: QuantisColors.textSecondary,
+                                  ),
+                                ),
+                              ],
                             ),
-                            label: const Text(
-                              'Désactiver le PIN',
-                              style: TextStyle(
-                                color: QuantisColors.error,
-                                fontSize: 12,
+                          ),
+                          if (!widget.isPostLoginPrompt)
+                            IconButton(
+                              icon: const Icon(Icons.close, size: 20),
+                              onPressed: () => Navigator.of(context).pop(),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: QuantisColors.royalBlue.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          _isConfirmStep
+                              ? 'Étape 2/2 : Confirmez votre code PIN à 4 chiffres'
+                              : 'Étape 1/2 : Choisissez un code PIN à 4 chiffres',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: QuantisColors.royalBlue,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // 4 points de saisie
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(PinService.pinLength, (index) {
+                          final filled = index < _activeValue.length;
+                          return AnimatedContainer(
+                            duration: const Duration(milliseconds: 140),
+                            margin: const EdgeInsets.symmetric(horizontal: 10),
+                            width: 18,
+                            height: 18,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: filled
+                                  ? QuantisColors.royalBlue
+                                  : Colors.transparent,
+                              border: Border.all(
+                                color: _error != null
+                                    ? QuantisColors.error
+                                    : (filled
+                                        ? QuantisColors.royalBlue
+                                        : QuantisColors.textMuted),
+                                width: 2,
                               ),
                             ),
-                          )
-                        else
-                          const SizedBox.shrink(),
-                        TextButton(
-                          onPressed: _saving
-                              ? null
-                              : (widget.isPostLoginPrompt
-                                  ? _dismissLater
-                                  : () => Navigator.of(context).pop()),
-                          child: Text(
-                            widget.isPostLoginPrompt ? 'Plus tard' : 'Annuler',
-                            style: const TextStyle(
-                              color: QuantisColors.textSecondary,
+                          );
+                        }),
+                      ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        height: 22,
+                        child: _saving
+                            ? const Center(
+                                child: SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                              )
+                            : _error != null
+                                ? Text(
+                                    _error!,
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      color: QuantisColors.error,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  )
+                                : const SizedBox.shrink(),
+                      ),
+                      const SizedBox(height: 12),
+
+                      _PinKeypad(
+                        onDigit: _onDigit,
+                        onBackspace: _onBackspace,
+                        onClear: _onClear,
+                        darkSurface: false,
+                      ),
+                      if (!widget.isPostLoginPrompt) ...[
+                        const SizedBox(height: 14),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: _saving
+                                ? null
+                                : () => Navigator.of(context).pop(),
+                            child: const Text(
+                              'Annuler',
+                              style: TextStyle(
+                                color: QuantisColors.textSecondary,
+                              ),
                             ),
                           ),
                         ),
                       ],
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
+          ),
         ),
       ),
+    );
+  }
+}
+
+/// Dialogue intelligent au clic sur « Déconnexion » lorsque le code PIN est actif :
+/// propose en priorité de verrouiller par Code PIN (pour ne pas retaper email + mot de passe),
+/// tout en laissant l'option « Changer de compte » pour une déconnexion complète.
+class LockOrLogoutDialog extends StatelessWidget {
+  final VoidCallback onLockWithPin;
+  final VoidCallback onFullLogout;
+
+  const LockOrLogoutDialog({
+    super.key,
+    required this.onLockWithPin,
+    required this.onFullLogout,
+  });
+
+  static Future<void> show(
+    BuildContext context, {
+    required VoidCallback onLockWithPin,
+    required VoidCallback onFullLogout,
+  }) {
+    return showDialog<void>(
+      context: context,
+      builder: (_) => LockOrLogoutDialog(
+        onLockWithPin: onLockWithPin,
+        onFullLogout: onFullLogout,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      title: const Row(
+        children: [
+          Icon(Icons.lock_outline_rounded, color: QuantisColors.royalBlue),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Fermer la session ?',
+              style: TextStyle(
+                fontFamily: 'SpaceGrotesk',
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+      content: const Text(
+        'Verrouillez avec votre code PIN à 4 chiffres pour revenir en 1 seconde sans retaper votre email et mot de passe, ou changez complètement de compte.',
+        style: TextStyle(fontSize: 13, color: QuantisColors.textSecondary, height: 1.4),
+      ),
+      actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      actions: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.of(context).pop();
+                onLockWithPin();
+              },
+              icon: const Icon(Icons.pin_outlined, size: 18),
+              label: const Text('Verrouiller par Code PIN (Recommandé)'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: QuantisColors.royalBlue,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: () {
+                Navigator.of(context).pop();
+                onFullLogout();
+              },
+              icon: const Icon(Icons.swap_horiz_rounded, size: 18, color: QuantisColors.error),
+              label: const Text(
+                'Changer de compte (Déconnexion complète)',
+                style: TextStyle(color: QuantisColors.error, fontWeight: FontWeight.w600),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(color: QuantisColors.error.withValues(alpha: 0.45)),
+                padding: const EdgeInsets.symmetric(vertical: 11),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+            const SizedBox(height: 4),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Annuler'),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

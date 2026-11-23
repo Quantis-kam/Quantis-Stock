@@ -3,7 +3,6 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../../core/auth/pin_service.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/sync/sync_manager.dart';
@@ -108,17 +107,18 @@ class _LoginScreenState extends State<LoginScreen> {
           logoUrl: userMap['logoUrl'] as String?,
           entrepriseId: userMap['entrepriseId']?.toString(),
           isSuperAdmin: userMap['isSuperAdmin'] == true || userMap['role'] == 'SUPER_ADMIN',
+          notifyAuth: false,
         );
       } catch (e) {
         debugPrint('Notice setUserInfo: $e');
       }
 
-      // Mémoriser l'email pour les prochaines connexions et vérifier le code PIN rapide
+      // Mémoriser l'email et imposer la création du code PIN à 4 chiffres dès la 1re connexion
+      // pour ne plus jamais avoir à retaper email + mot de passe ensuite.
       final loggedEmail = (userMap['email'] as String?) ?? _emailCtrl.text.trim();
       await ApiClient.saveRememberedEmail(loggedEmail);
       await ApiClient.refreshQuickPinStatus();
-      if (!ApiClient.hasQuickPin &&
-          await PinService.instance.shouldPromptPinSetup(loggedEmail)) {
+      if (!ApiClient.hasQuickPin) {
         ApiClient.pendingPinSetupPrompt = true;
       }
 

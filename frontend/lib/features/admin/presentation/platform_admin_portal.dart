@@ -35,6 +35,18 @@ class _PlatformAdminPortalState extends State<PlatformAdminPortal> {
   ];
 
   Future<void> _logout() async {
+    if (ApiClient.hasQuickPin && mounted) {
+      await LockOrLogoutDialog.show(
+        context,
+        onLockWithPin: () => ApiClient.lockSession(reason: 'Session verrouillée'),
+        onFullLogout: _performFullLogout,
+      );
+      return;
+    }
+    await _performFullLogout();
+  }
+
+  Future<void> _performFullLogout() async {
     try {
       await ApiClient.instance.post('/auth/logout');
     } catch (_) {}

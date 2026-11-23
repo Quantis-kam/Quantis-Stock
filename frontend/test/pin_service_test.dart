@@ -90,7 +90,7 @@ void main() {
     expect(find.text('1'), findsOneWidget);
     expect(find.text('0'), findsOneWidget);
     expect(find.text('Effacer'), findsOneWidget);
-    expect(find.text('Utiliser mon mot de passe / Changer de compte'), findsOneWidget);
+    expect(find.text('Changer de compte / Code PIN oublié'), findsOneWidget);
   });
 }
 

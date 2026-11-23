@@ -79,6 +79,21 @@ class _QuantisStockAppState extends State<QuantisStockApp>
         );
       }
     };
+    // Si l'utilisateur déjà connecté n'a pas encore défini son code PIN (mise à jour app),
+    // ouvrir directement l'assistant obligatoire dès le premier rendu.
+    if (ApiClient.isAuthenticated &&
+        !ApiClient.isSessionLocked &&
+        ApiClient.pendingPinSetupPrompt) {
+      ApiClient.pendingPinSetupPrompt = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final navCtx = _navigatorKey.currentContext;
+        if (navCtx != null &&
+            ApiClient.isAuthenticated &&
+            !ApiClient.isSessionLocked) {
+          PinSetupDialog.show(navCtx, isPostLoginPrompt: true);
+        }
+      });
+    }
   }
 
   bool _handleKeyEvent(KeyEvent event) {
@@ -104,6 +119,9 @@ class _QuantisStockAppState extends State<QuantisStockApp>
   }
 
   void _onAuthChanged() {
+    // Revenir à la route racine du Navigator unique (sans recréer MaterialApp)
+    _navigatorKey.currentState?.popUntil((route) => route.isFirst);
+
     if (ApiClient.isAuthenticated && !ApiClient.isSessionLocked) {
       if (!SessionManager.instance.isActive) {
         SessionManager.instance.startSession();
@@ -151,7 +169,6 @@ class _QuantisStockAppState extends State<QuantisStockApp>
         }
       },
       child: MaterialApp(
-        key: ValueKey('${ApiClient.isAuthenticated}_${ApiClient.isSuperAdmin}'),
         navigatorKey: _navigatorKey,
         title: 'Quantis-Stock',
         debugShowCheckedModeBanner: false,
@@ -167,12 +184,58 @@ class _QuantisStockAppState extends State<QuantisStockApp>
             ],
           );
         },
-        home: ApiClient.isAuthenticated
-            ? (ApiClient.isSuperAdmin
-                ? const PlatformAdminPortal()
-                : const MainShell())
-            : const LoginScreen(),
+        home: const _AuthGate(),
       ),
+    );
+  }
+}
+
+/// Portail d'entrée réactif — bascule instantanément entre LoginScreen,
+/// PlatformAdminPortal et MainShell sans recréer MaterialApp ni reparenter le Navigator.
+/// Au démarrage à froid verrouillé par PIN, ne monte pas MainShell avant déverrouillage
+/// (évite toute requête API avec un access token expiré avant la saisie du PIN).
+/// En cours d'utilisation, conserve MainShell monté sous PinLockScreen pour préserver le panier.
+class _AuthGate extends StatefulWidget {
+  const _AuthGate();
+
+  @override
+  State<_AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<_AuthGate> {
+  bool _hasMountedShell = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: ApiClient.authStateNotifier,
+      builder: (_, isAuth, __) {
+        return ValueListenableBuilder<bool>(
+          valueListenable: ApiClient.sessionLockedNotifier,
+          builder: (_, isLocked, __) {
+            final authenticated = isAuth && ApiClient.isAuthenticated;
+            if (!authenticated) {
+              _hasMountedShell = false;
+              return const KeyedSubtree(
+                key: ValueKey('login'),
+                child: LoginScreen(),
+              );
+            }
+            if (!isLocked) {
+              _hasMountedShell = true;
+            }
+            if (!_hasMountedShell) {
+              // Démarrage à froid verrouillé : PinLockScreen couvre tout l'écran en surcouche
+              return const SizedBox.shrink();
+            }
+            final isSuper = ApiClient.isSuperAdmin;
+            return KeyedSubtree(
+              key: ValueKey('auth_$isSuper'),
+              child: isSuper ? const PlatformAdminPortal() : const MainShell(),
+            );
+          },
+        );
+      },
     );
   }
 }
@@ -537,10 +600,20 @@ class _MainShellState extends State<MainShell> {
             ),
             const Divider(),
           ],
+          if (ApiClient.hasQuickPin) ...[
+            ListTile(
+              leading: const Icon(Icons.lock_outline_rounded, color: QuantisColors.royalBlue),
+              title: const Text('Verrouiller maintenant (Code PIN)'),
+              subtitle: const Text('Revenir en 1 seconde sans retaper vos identifiants'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => ApiClient.lockSession(reason: 'Session verrouillée'),
+            ),
+            const Divider(),
+          ],
           ListTile(
             leading: const Icon(Icons.pin_outlined, color: QuantisColors.royalBlue),
-            title: const Text('Code PIN rapide (4 chiffres)'),
-            subtitle: const Text('Déverrouillage rapide sans retaper le mot de passe'),
+            title: const Text('Modifier mon code PIN (4 chiffres)'),
+            subtitle: const Text('Connexion rapide sans email ni mot de passe'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => PinSetupDialog.show(context),
           ),
@@ -558,15 +631,15 @@ class _MainShellState extends State<MainShell> {
           const Divider(),
           ListTile(
             leading: const Icon(Icons.logout, color: QuantisColors.error),
-            title: const Text('Déconnexion', style: TextStyle(color: QuantisColors.error, fontWeight: FontWeight.bold)),
-            subtitle: const Text('Quitter la session en cours'),
+            title: const Text('Verrouiller / Changer de compte', style: TextStyle(color: QuantisColors.error, fontWeight: FontWeight.bold)),
+            subtitle: const Text('Verrouiller par PIN ou déconnecter ce compte'),
             trailing: const Icon(Icons.chevron_right, color: QuantisColors.error),
             onTap: _logout,
           ),
           const SizedBox(height: 20),
           Center(
             child: Text(
-              'Quantis Stock • Version 1.1.0',
+              'Quantis Stock • Version 1.2.0',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
@@ -592,6 +665,18 @@ class _MainShellState extends State<MainShell> {
   }
 
   Future<void> _logout() async {
+    if (ApiClient.hasQuickPin && mounted) {
+      await LockOrLogoutDialog.show(
+        context,
+        onLockWithPin: () => ApiClient.lockSession(reason: 'Session verrouillée'),
+        onFullLogout: _performFullLogout,
+      );
+      return;
+    }
+    await _performFullLogout();
+  }
+
+  Future<void> _performFullLogout() async {
     try {
       await ApiClient.instance.post('/auth/logout');
     } catch (_) {}
@@ -832,8 +917,11 @@ class _MainShellState extends State<MainShell> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Row(
-                              children: [
+                            Flexible(
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: Row(
+                                  children: [
                                 // Bouton Recherche Universelle / Command Palette
                                 InkWell(
                                   onTap: () => CommandPaletteDialog.show(
@@ -921,6 +1009,9 @@ class _MainShellState extends State<MainShell> {
                                 ),
                               ],
                             ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
                             Row(
                               children: [
                                 const SyncIndicator(),
@@ -967,7 +1058,9 @@ class _MainShellState extends State<MainShell> {
                                     ),
                                   ),
                                   onSelected: (val) {
-                                    if (val == 'pin') {
+                                    if (val == 'lock') {
+                                      ApiClient.lockSession(reason: 'Session verrouillée');
+                                    } else if (val == 'pin') {
                                       PinSetupDialog.show(context);
                                     } else if (val == 'password') {
                                       showDialog(
@@ -1000,13 +1093,24 @@ class _MainShellState extends State<MainShell> {
                                       ),
                                     ),
                                     const PopupMenuDivider(),
+                                    if (ApiClient.hasQuickPin)
+                                      const PopupMenuItem(
+                                        value: 'lock',
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.lock_outline_rounded, size: 18, color: QuantisColors.royalBlue),
+                                            SizedBox(width: 10),
+                                            Text('Verrouiller (Code PIN)'),
+                                          ],
+                                        ),
+                                      ),
                                     const PopupMenuItem(
                                       value: 'pin',
                                       child: Row(
                                         children: [
                                           Icon(Icons.pin_outlined, size: 18, color: QuantisColors.royalBlue),
                                           SizedBox(width: 10),
-                                          Text('Code PIN rapide (4 chiffres)'),
+                                          Text('Modifier le code PIN'),
                                         ],
                                       ),
                                     ),
@@ -1027,7 +1131,7 @@ class _MainShellState extends State<MainShell> {
                                         children: [
                                           Icon(Icons.logout_rounded, size: 18, color: QuantisColors.error),
                                           SizedBox(width: 10),
-                                          Text('Déconnexion', style: TextStyle(color: QuantisColors.error, fontWeight: FontWeight.bold)),
+                                          Text('Verrouiller / Changer de compte', style: TextStyle(color: QuantisColors.error, fontWeight: FontWeight.bold)),
                                         ],
                                       ),
                                     ),
