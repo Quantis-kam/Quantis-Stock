@@ -82,9 +82,14 @@ class DocumentModel {
 
   double get soldeRestant => totalTtc - montantPaye;
 
-  bool get isPayeIntegral => soldeRestant <= 0;
+  bool get isPayeIntegral => soldeRestant <= 0.01;
   bool get canValidate => statut == 'BROUILLON';
-  bool get canPay => statut == 'VALIDE' && !isPayeIntegral;
+  bool get canPay => type == 'FACTURE' && statut == 'VALIDE' && !isPayeIntegral;
+  bool get isCommandeSoldee =>
+      type == 'COMMANDE_CLIENT' &&
+      ((notes?.contains('Soldée →') ?? false) || (notes?.contains('Facturée →') ?? false));
+  bool get canSolderCommande =>
+      type == 'COMMANDE_CLIENT' && statut != 'ANNULE' && !isCommandeSoldee;
 }
 
 class LigneDocumentModel {

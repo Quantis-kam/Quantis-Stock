@@ -3,6 +3,7 @@ import '../../../core/utils/permission_helper.dart';
 import '../../../core/theme/quantis_theme.dart';
 import '../data/tiers_models.dart';
 import '../data/tiers_service.dart';
+import 'debiteurs_screen.dart';
 import 'tiers_form_screen.dart';
 import 'tiers_details_screen.dart';
 
@@ -84,6 +85,32 @@ class _ClientsScreenState extends State<ClientsScreen> {
       appBar: AppBar(
         title: const Text('Clients'),
         actions: [
+          if (PermissionHelper.canAccessDebiteurs)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const DebiteursScreen()),
+                  );
+                  _loadClients();
+                },
+                icon: const Icon(Icons.account_balance_wallet, size: 16),
+                label: Text(
+                  _clients.where((c) => c.soldeCredit > 0).isNotEmpty
+                      ? 'Crédits (${_clients.where((c) => c.soldeCredit > 0).length})'
+                      : 'Crédits',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.amber.shade800,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                ),
+              ),
+            ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadClients,

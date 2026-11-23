@@ -4,8 +4,8 @@ import '../../../core/network/api_client.dart';
 import '../../../core/theme/quantis_theme.dart';
 import '../data/tiers_models.dart';
 import '../data/tiers_service.dart';
-import '../../documents/data/document_models.dart';
-import '../../documents/presentation/paiement_facture_dialog.dart';
+import 'reglement_creance_dialog.dart';
+import 'tiers_details_screen.dart';
 
 /// Écran dédié à la gestion des Débiteurs & Créances Clients
 class DebiteursScreen extends StatefulWidget {
@@ -42,8 +42,18 @@ class _DebiteursScreenState extends State<DebiteursScreen> {
   Future<void> _loadDebiteurs() async {
     setState(() => _loading = true);
     try {
-      final clients = await _tiersService.getClients();
-      final debiteurs = clients.where((c) => c.soldeCredit > 0).toList();
+      List<ClientModel> debiteurs;
+      try {
+        final res = await _api.get('/clients/debiteurs');
+        final raw = (res.data['data'] as List?) ?? [];
+        debiteurs = raw
+            .map((e) => ClientModel.fromJson(e as Map<String, dynamic>))
+            .where((c) => c.soldeCredit > 0)
+            .toList();
+      } catch (_) {
+        final clients = await _tiersService.getClients();
+        debiteurs = clients.where((c) => c.soldeCredit > 0).toList();
+      }
       debiteurs.sort((a, b) => b.soldeCredit.compareTo(a.soldeCredit));
 
       double total = 0.0;
@@ -66,35 +76,25 @@ class _DebiteursScreenState extends State<DebiteursScreen> {
   }
 
   Future<void> _encaisserClient(ClientModel client) async {
-    // Récupérer la première facture impayée du client ou afficher le dialogue
-    try {
-      final res = await _api.get('/documents?clientId=${client.id}&type=FACTURE&size=50');
-      final docs = (res.data['data']?['content'] as List?)
-              ?.map((e) => DocumentModel.fromJson(e))
-              .where((d) => d.statut == 'VALIDE' && !d.isPayeIntegral)
-              .toList() ?? [];
-
-      if (docs.isNotEmpty && mounted) {
-        final ok = await showDialog<bool>(
-          context: context,
-          builder: (_) => PaiementFactureDialog(document: docs.first),
-        );
-        if (ok == true) _loadDebiteurs();
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Aucune facture spécifique en attente pour ${client.nom}.'),
-            backgroundColor: QuantisColors.info,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e'), backgroundColor: QuantisColors.error),
-        );
-      }
+    final ok = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => ReglementCreanceDialog(client: client),
+    );
+    if (ok == true) {
+      _loadDebiteurs();
     }
+  }
+
+  Future<void> _ouvrirFicheClient(ClientModel client) async {
+    if (client.id == null) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TiersDetailsScreen(isClient: true, id: client.id!),
+      ),
+    );
+    _loadDebiteurs();
   }
 
   void _relancerClient(ClientModel client) {
@@ -126,7 +126,7 @@ class _DebiteursScreenState extends State<DebiteursScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text('Débiteurs & Créances', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Crédits & Créances Clients', style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -334,7 +334,7 @@ class _DebiteursScreenState extends State<DebiteursScreen> {
                                       child: ElevatedButton.icon(
                                         onPressed: () => _encaisserClient(d),
                                         icon: const Icon(Icons.payments, size: 16),
-                                        label: const Text('Encaisser'),
+                                        label: const Text('Régler'),
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: QuantisColors.success,
                                           foregroundColor: Colors.white,
@@ -342,17 +342,21 @@ class _DebiteursScreenState extends State<DebiteursScreen> {
                                         ),
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: OutlinedButton.icon(
-                                        onPressed: () => _relancerClient(d),
-                                        icon: const Icon(Icons.message, size: 16),
-                                        label: const Text('Relancer'),
-                                        style: OutlinedButton.styleFrom(
-                                          foregroundColor: QuantisColors.royalBlue,
-                                          padding: const EdgeInsets.symmetric(vertical: 10),
-                                        ),
+                                    const SizedBox(width: 6),
+                                    OutlinedButton.icon(
+                                      onPressed: () => _ouvrirFicheClient(d),
+                                      icon: const Icon(Icons.receipt_long, size: 16),
+                                      label: const Text('Détail'),
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: QuantisColors.royalBlue,
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                                       ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    IconButton(
+                                      onPressed: () => _relancerClient(d),
+                                      icon: const Icon(Icons.message, size: 18, color: Color(0xFF25D366)),
+                                      tooltip: 'Copier relance WhatsApp / SMS',
                                     ),
                                   ],
                                 ),
@@ -438,28 +442,34 @@ class _DebiteursScreenState extends State<DebiteursScreen> {
                                     ),
                                     Expanded(
                                       flex: 4,
-                                      child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
+                                      child: Wrap(
+                                        alignment: WrapAlignment.center,
+                                        spacing: 6,
+                                        runSpacing: 6,
                                         children: [
                                           ElevatedButton.icon(
                                             onPressed: () => _encaisserClient(d),
-                                            icon: const Icon(Icons.payments, size: 16),
-                                            label: const Text('Encaisser'),
+                                            icon: const Icon(Icons.payments, size: 15),
+                                            label: const Text('Régler'),
                                             style: ElevatedButton.styleFrom(
                                               backgroundColor: QuantisColors.success,
                                               foregroundColor: Colors.white,
-                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                             ),
                                           ),
-                                          const SizedBox(width: 8),
                                           OutlinedButton.icon(
-                                            onPressed: () => _relancerClient(d),
-                                            icon: const Icon(Icons.message, size: 16),
-                                            label: const Text('Relancer'),
+                                            onPressed: () => _ouvrirFicheClient(d),
+                                            icon: const Icon(Icons.visibility_outlined, size: 15),
+                                            label: const Text('Détail'),
                                             style: OutlinedButton.styleFrom(
                                               foregroundColor: QuantisColors.royalBlue,
-                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                             ),
+                                          ),
+                                          IconButton(
+                                            onPressed: () => _relancerClient(d),
+                                            icon: const Icon(Icons.message, size: 18, color: Color(0xFF25D366)),
+                                            tooltip: 'Relancer (WhatsApp / SMS)',
                                           ),
                                         ],
                                       ),

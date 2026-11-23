@@ -6,6 +6,7 @@ import '../../../core/theme/quantis_theme.dart';
 import '../data/document_models.dart';
 import '../data/document_service.dart';
 import 'paiement_facture_dialog.dart';
+import 'solder_commande_dialog.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../sales/presentation/ticket_receipt_dialog.dart';
 import 'whatsapp_share_dialog.dart';
@@ -147,6 +148,242 @@ class _DocumentDetailScreenState extends State<DocumentDetailScreen> {
     if (res == true) {
       _load();
     }
+  }
+
+  Future<void> _ouvrirSolderCommande() async {
+    if (_doc == null) return;
+    final res = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => SolderCommandeDialog(commande: _doc!),
+    );
+    if (res == true) {
+      _load();
+    }
+  }
+
+  Widget _buildWorkflowActionBanner(DocumentModel doc) {
+    final monnaie = _entreprise?['monnaie'] ?? ApiClient.entrepriseMonnaie;
+
+    if (doc.type == 'COMMANDE_CLIENT') {
+      if (doc.isCommandeSoldee) {
+        return Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(bottom: 14),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: QuantisColors.success.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: QuantisColors.success.withValues(alpha: 0.45)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.verified_rounded, color: QuantisColors.success, size: 24),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Commande validée & facturée',
+                        style: TextStyle(fontWeight: FontWeight.bold, color: QuantisColors.success, fontSize: 14)),
+                    if (doc.notes != null && doc.notes!.isNotEmpty)
+                      Text(doc.notes!, style: TextStyle(fontSize: 12, color: Colors.grey.shade800)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+      if (doc.statut != 'ANNULE') {
+        return Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(bottom: 14),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.indigo.shade50,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.indigo.shade300),
+          ),
+          child: Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 10,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.shopping_bag_rounded, color: Colors.indigo.shade700, size: 22),
+                  const SizedBox(width: 10),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        doc.statut == 'BROUILLON' ? 'Commande en attente de validation' : 'Commande confirmée — En attente de règlement',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Colors.indigo.shade900),
+                      ),
+                      const Text(
+                        'Le client a réglé ? Cliquez ci-dessous pour valider, déstocker et émettre sa facture soldée.',
+                        style: TextStyle(fontSize: 11.5, color: Colors.black87),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: _ouvrirSolderCommande,
+                    icon: const Icon(Icons.task_alt_rounded, size: 18),
+                    label: const Text('Valider & Solder la Commande', style: TextStyle(fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: QuantisColors.success,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    ),
+                  ),
+                  if (doc.canValidate)
+                    OutlinedButton.icon(
+                      onPressed: _valider,
+                      icon: const Icon(Icons.check, size: 16),
+                      label: const Text('Confirmer sans encaisser'),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        );
+      }
+    }
+
+    if (doc.type == 'FACTURE') {
+      if (doc.canValidate) {
+        return Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(bottom: 14),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.amber.shade50,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.amber.shade400),
+          ),
+          child: Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 8,
+            children: [
+              const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.edit_note, color: QuantisColors.warning, size: 22),
+                  SizedBox(width: 8),
+                  Text('Facture en brouillon — Validez-la pour pouvoir l\'encaisser.',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                ],
+              ),
+              ElevatedButton.icon(
+                onPressed: _valider,
+                icon: const Icon(Icons.check_circle, size: 18),
+                label: const Text('Valider la Facture'),
+                style: ElevatedButton.styleFrom(backgroundColor: QuantisColors.success, foregroundColor: Colors.white),
+              ),
+            ],
+          ),
+        );
+      }
+      if (doc.canPay) {
+        return Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(bottom: 14),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.orange.shade50,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.orange.shade400),
+          ),
+          child: Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 8,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.account_balance_wallet, color: Colors.orange.shade900, size: 22),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Facture à crédit — Reste à encaisser : ${doc.soldeRestant.toStringAsFixed(0)} $monnaie',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Colors.orange.shade900),
+                  ),
+                ],
+              ),
+              ElevatedButton.icon(
+                onPressed: _ouvrirPaiement,
+                icon: const Icon(Icons.payments, size: 18),
+                label: const Text('Encaisser un Règlement', style: TextStyle(fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(backgroundColor: QuantisColors.success, foregroundColor: Colors.white),
+              ),
+            ],
+          ),
+        );
+      }
+      if (doc.statut == 'VALIDE' && doc.isPayeIntegral) {
+        return Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(bottom: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: QuantisColors.success.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: QuantisColors.success.withValues(alpha: 0.4)),
+          ),
+          child: const Row(
+            children: [
+              Icon(Icons.check_circle, color: QuantisColors.success, size: 20),
+              SizedBox(width: 8),
+              Text('Facture intégralement soldée',
+                  style: TextStyle(fontWeight: FontWeight.bold, color: QuantisColors.success, fontSize: 13)),
+            ],
+          ),
+        );
+      }
+    }
+
+    if (doc.type == 'DEVIS' && doc.canValidate) {
+      return Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(bottom: 14),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.blue.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.blue.shade300),
+        ),
+        child: Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 12,
+          runSpacing: 8,
+          children: [
+            const Text('Devis en brouillon — Validez-le pour le transformer en commande ou facture.',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+            ElevatedButton.icon(
+              onPressed: _valider,
+              icon: const Icon(Icons.check_circle, size: 18),
+              label: const Text('Valider le Devis'),
+              style: ElevatedButton.styleFrom(backgroundColor: QuantisColors.success, foregroundColor: Colors.white),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return const SizedBox.shrink();
   }
 
   Future<void> _convertir(String targetType) async {
@@ -563,6 +800,9 @@ class _DocumentDetailScreenState extends State<DocumentDetailScreen> {
         ),
         child: Column(
           children: [
+            // BARRE D'ÉTAPE GUIDÉE (TOUJOURS VISIBLE SUR MOBILE ET DESKTOP)
+            _buildWorkflowActionBanner(doc),
+
             // BARRE DE CONFIGURATION DU FORMAT ET DES COULEURS
             Container(
               padding: EdgeInsets.all(isMobile ? 12 : 16),

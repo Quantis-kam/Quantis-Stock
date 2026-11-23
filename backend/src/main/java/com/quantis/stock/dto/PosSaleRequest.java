@@ -20,7 +20,10 @@ import java.util.List;
 @AllArgsConstructor
 public class PosSaleRequest {
 
-    private Long clientId; // Optionnel (défaut: Client Comptoir / Divers)
+    private Long clientId; // Optionnel pour vente comptant ; obligatoire (ou nouveauClientNom) pour vente à crédit
+    private String nouveauClientNom;       // Création rapide d'un client nominatif sur le POS (crédit)
+    private String nouveauClientTelephone; // Téléphone du client créé sur le POS
+    private String nouveauClientAdresse;   // Adresse / quartier (optionnel)
     private Long depotId;  // Optionnel (défaut: Dépôt assigné à l'utilisateur)
 
     @NotEmpty(message = "Le panier doit contenir au moins une ligne")

@@ -2,12 +2,14 @@ package com.quantis.stock.controller;
 
 import com.quantis.stock.dto.ApiResponse;
 import com.quantis.stock.dto.PagedResponse;
+import com.quantis.stock.dto.ReglementClientRequest;
 import com.quantis.stock.exception.ResourceNotFoundException;
 import com.quantis.stock.model.Client;
 import com.quantis.stock.repository.ClientRepository;
 import com.quantis.stock.repository.DocumentRepository;
 import com.quantis.stock.repository.PaiementRepository;
 import com.quantis.stock.service.AuditService;
+import com.quantis.stock.service.DocumentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -16,6 +18,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -27,6 +30,7 @@ public class ClientController {
     private final DocumentRepository documentRepository;
     private final PaiementRepository paiementRepository;
     private final AuditService auditService;
+    private final DocumentService documentService;
     private final com.quantis.stock.security.SecurityUtils securityUtils;
 
     @GetMapping
@@ -120,6 +124,39 @@ public class ClientController {
         clientRepository.save(client);
         auditService.logAction("DELETE", "Client", client.getId(), "Désactivation client " + client.getNom());
         return ResponseEntity.ok(ApiResponse.success("Client désactivé", null));
+    }
+
+    // =================== CRÉANCES & RÈGLEMENTS ===================
+
+    /**
+     * GET /clients/debiteurs — Liste des clients ayant une créance en cours (triée par montant dû).
+     */
+    @GetMapping("/debiteurs")
+    public ResponseEntity<ApiResponse<java.util.List<Client>>> findDebiteurs() {
+        java.util.List<Client> debiteurs;
+        if (securityUtils.isSuperAdmin()) {
+            debiteurs = clientRepository.findDebiteurs();
+        } else {
+            Long entId = securityUtils.getCurrentEntrepriseId();
+            debiteurs = entId != null
+                    ? clientRepository.findDebiteursByEntreprise(entId)
+                    : clientRepository.findDebiteurs();
+        }
+        return ResponseEntity.ok(ApiResponse.success(debiteurs));
+    }
+
+    /**
+     * POST /clients/{id}/reglements — Encaisser un règlement de créance client
+     * (facture précise ou règlement global / acompte imputé automatiquement FIFO).
+     */
+    @PostMapping("/{id}/reglements")
+    @PreAuthorize("hasAuthority('PAIEMENT_CLIENT')")
+    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> reglerCreance(
+            @PathVariable Long id,
+            @Valid @RequestBody ReglementClientRequest request,
+            Authentication auth) {
+        var result = documentService.reglerCreanceClient(id, request, auth.getName());
+        return new ResponseEntity<>(ApiResponse.success("Règlement de créance enregistré", result), HttpStatus.CREATED);
     }
 
     // =================== SOLDE DYNAMIQUE ===================

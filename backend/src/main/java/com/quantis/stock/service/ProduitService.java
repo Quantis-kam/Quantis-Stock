@@ -124,9 +124,9 @@ public class ProduitService {
         java.math.BigDecimal defaultTva = (entreprise != null)
                 ? entreprise.getTauxTvaDefautEffective()
                 : new java.math.BigDecimal("18.00");
-        java.math.BigDecimal effectiveTva = (entreprise != null && !entreprise.isTvaActiveEffective())
-                ? java.math.BigDecimal.ZERO
-                : (request.getTauxTva() != null ? request.getTauxTva() : defaultTva);
+        java.math.BigDecimal effectiveTva = request.getTauxTva() != null
+                ? request.getTauxTva()
+                : defaultTva;
 
         Produit produit = Produit.builder()
                 .entreprise(entreprise)

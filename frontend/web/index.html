@@ -32,23 +32,93 @@
   <title>Quantis-Stock — Gestion de Stock & Ventes</title>
   <link rel="manifest" href="manifest.json">
   <script>
-    // Purger immédiatement les anciens caches et Service Workers Flutter
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(function(regs) {
-        for (let reg of regs) {
-          reg.unregister();
-          console.log('[Quantis] Ancien Service Worker désactivé.');
+    // 1. Capture de l'événement natif d'installation PWA (Android Chrome, Edge, Samsung, PC)
+    window._quantisDeferredPrompt = null;
+    window._quantisInstalled = false;
+
+    window.addEventListener('beforeinstallprompt', function(e) {
+      e.preventDefault();
+      window._quantisDeferredPrompt = e;
+      window.dispatchEvent(new CustomEvent('quantis-pwa-state'));
+    });
+
+    window.addEventListener('appinstalled', function() {
+      window._quantisDeferredPrompt = null;
+      window._quantisInstalled = true;
+      window.dispatchEvent(new CustomEvent('quantis-pwa-state'));
+    });
+
+    window.quantisPwa = {
+      isStandalone: function() {
+        return window._quantisInstalled === true ||
+          window.matchMedia('(display-mode: standalone)').matches ||
+          window.matchMedia('(display-mode: fullscreen)').matches ||
+          window.navigator.standalone === true;
+      },
+      isIos: function() {
+        var ua = window.navigator.userAgent || '';
+        return /iPad|iPhone|iPod/.test(ua) ||
+          (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      },
+      canPrompt: function() {
+        return !!window._quantisDeferredPrompt;
+      },
+      triggerInstall: function() {
+        var promptEvent = window._quantisDeferredPrompt;
+        if (!promptEvent) {
+          return Promise.resolve('unavailable');
         }
-      });
-    }
-    if ('caches' in window) {
-      caches.keys().then(function(names) {
-        for (let name of names) caches.delete(name);
+        window._quantisDeferredPrompt = null;
+        return promptEvent.prompt().then(function() {
+          return promptEvent.userChoice;
+        }).then(function(choice) {
+          var outcome = (choice && choice.outcome === 'accepted') ? 'accepted' : 'dismissed';
+          if (outcome === 'accepted') {
+            window._quantisInstalled = true;
+          }
+          window.dispatchEvent(new CustomEvent('quantis-pwa-state'));
+          return outcome;
+        }).catch(function() {
+          window.dispatchEvent(new CustomEvent('quantis-pwa-state'));
+          return 'unavailable';
+        });
+      }
+    };
+
+    // 2. Nettoyer uniquement l'ancien flutter_service_worker.js (cache figé)
+    // puis enregistrer notre sw.js léger (zéro cache) pour activer le bouton "Installer".
+    if ('serviceWorker' in navigator) {
+      var hadOldFlutterSw = !!(navigator.serviceWorker.controller &&
+        navigator.serviceWorker.controller.scriptURL &&
+        navigator.serviceWorker.controller.scriptURL.indexOf('flutter_service_worker') !== -1);
+
+      navigator.serviceWorker.getRegistrations().then(async function(regs) {
+        var cleanedOld = false;
+        for (var i = 0; i < regs.length; i++) {
+          var reg = regs[i];
+          var url = (reg.active && reg.active.scriptURL) ||
+                    (reg.waiting && reg.waiting.scriptURL) ||
+                    (reg.installing && reg.installing.scriptURL) || '';
+          if (url.indexOf('flutter_service_worker') !== -1) {
+            await reg.unregister();
+            cleanedOld = true;
+          }
+        }
+        if (cleanedOld && 'caches' in window) {
+          var names = await caches.keys();
+          await Promise.all(names.map(function(name) { return caches.delete(name); }));
+        }
+        if (hadOldFlutterSw && !sessionStorage.getItem('quantis_sw_reloaded_v121')) {
+          sessionStorage.setItem('quantis_sw_reloaded_v121', '1');
+          window.location.reload();
+          return;
+        }
+        navigator.serviceWorker.register('/sw.js').catch(function() {});
       });
     }
   </script>
 </head>
 <body>
-  <script src="flutter_bootstrap.js?v=20261122_v11" async></script>
+  <script src="flutter_bootstrap.js?v=1.3.0" async></script>
 </body>
 </html>

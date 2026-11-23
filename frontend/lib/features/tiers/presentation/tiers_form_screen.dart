@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/quantis_theme.dart';
+import '../../../core/widgets/quantis_field_toggle.dart';
 import '../data/tiers_models.dart';
 import '../data/tiers_service.dart';
 
@@ -34,6 +35,7 @@ class _TiersFormScreenState extends State<TiersFormScreen> {
   late TextEditingController _soldeCtrl;
 
   bool _saving = false;
+  bool _hasSoldeInitial = false;
 
   @override
   void initState() {
@@ -46,6 +48,7 @@ class _TiersFormScreenState extends State<TiersFormScreen> {
       _adresseCtrl = TextEditingController(text: c.adresse ?? '');
       _notesCtrl = TextEditingController(text: c.notes ?? '');
       _soldeCtrl = TextEditingController(text: c.soldeCredit.toStringAsFixed(0));
+      _hasSoldeInitial = c.soldeCredit != 0;
     } else if (!widget.isClient && widget.fournisseur != null) {
       final f = widget.fournisseur!;
       _nomCtrl = TextEditingController(text: f.nom);
@@ -54,13 +57,15 @@ class _TiersFormScreenState extends State<TiersFormScreen> {
       _adresseCtrl = TextEditingController(text: f.adresse ?? '');
       _notesCtrl = TextEditingController(text: f.notes ?? '');
       _soldeCtrl = TextEditingController(text: f.soldeDette.toStringAsFixed(0));
+      _hasSoldeInitial = f.soldeDette != 0;
     } else {
       _nomCtrl = TextEditingController();
       _telCtrl = TextEditingController();
       _emailCtrl = TextEditingController();
       _adresseCtrl = TextEditingController();
       _notesCtrl = TextEditingController();
-      _soldeCtrl = TextEditingController(text: '0');
+      _soldeCtrl = TextEditingController(text: '');
+      _hasSoldeInitial = false;
     }
   }
 
@@ -79,7 +84,7 @@ class _TiersFormScreenState extends State<TiersFormScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
 
-    final soldeVal = double.tryParse(_soldeCtrl.text.trim()) ?? 0.0;
+    final soldeVal = _hasSoldeInitial ? (double.tryParse(_soldeCtrl.text.trim()) ?? 0.0) : 0.0;
 
     try {
       if (widget.isClient) {
@@ -212,14 +217,40 @@ class _TiersFormScreenState extends State<TiersFormScreen> {
                 ),
                 maxLines: 3,
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 20),
 
-              TextFormField(
-                controller: _soldeCtrl,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: widget.isClient ? 'Créance client (FCFA)' : 'Dette fournisseur (FCFA)',
-                  prefixIcon: const Icon(Icons.account_balance_wallet_outlined),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    QuantisFieldToggle(
+                      title: widget.isClient ? 'Créance initiale client' : 'Dette initiale fournisseur',
+                      value: _hasSoldeInitial,
+                      activeLabel: 'Solde renseigné',
+                      inactiveLabel: 'Aucun solde (0 FCFA)',
+                      activeIcon: Icons.account_balance_wallet_rounded,
+                      inactiveIcon: Icons.account_balance_wallet_outlined,
+                      activeIconColor: QuantisColors.warning,
+                      onChanged: (val) => setState(() => _hasSoldeInitial = val),
+                    ),
+                    if (_hasSoldeInitial) ...[
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _soldeCtrl,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: widget.isClient ? 'Montant créance client (FCFA)' : 'Montant dette fournisseur (FCFA)',
+                          prefixIcon: const Icon(Icons.account_balance_wallet_outlined),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
               const SizedBox(height: 32),

@@ -135,6 +135,21 @@ public class DocumentController {
                 ApiResponse.success("Document converti: " + doc.getNumero(), doc), HttpStatus.CREATED);
     }
 
+    /**
+     * POST /documents/{id}/solder-commande — Valider, déstocker, facturer et solder une commande client en 1 étape
+     */
+    @PostMapping("/{id}/solder-commande")
+    @PreAuthorize("hasAuthority('PAIEMENT_CLIENT') or hasAuthority('CONVERTIR_VENTE')")
+    public ResponseEntity<ApiResponse<PosSaleResponse>> solderCommande(
+            @PathVariable Long id,
+            @Valid @RequestBody SolderCommandeRequest request,
+            Authentication auth) {
+        PosSaleResponse response = documentService.solderCommandeClient(id, request, auth.getName());
+        return new ResponseEntity<>(
+                ApiResponse.success("Commande validée et soldée (" + response.getDocument().getNumero() + ")", response),
+                HttpStatus.CREATED);
+    }
+
     // =================== PAIEMENTS ===================
 
     /**

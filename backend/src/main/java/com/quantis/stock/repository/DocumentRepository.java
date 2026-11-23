@@ -74,4 +74,10 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
     long countGlobalVentes();
 
     java.util.List<Document> findTop5ByEntrepriseIdOrderByCreatedAtDesc(Long entrepriseId);
+
+    java.util.List<Document> findByClientIdAndTypeAndStatutOrderByDateDocumentAscIdAsc(
+            Long clientId, TypeDocument type, StatutDocument statut);
+
+    Optional<Document> findFirstByDocumentParentIdAndTypeOrderByIdDesc(
+            Long documentParentId, TypeDocument type);
 }

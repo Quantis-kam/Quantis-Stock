@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/theme/quantis_theme.dart';
 
-/// Dialogue d'encaissement rapide avec raccourcis de coupures et calcul de monnaie
+/// Dialogue d'encaissement rapide avec identification client OBLIGATOIRE en cas de crédit (total ou partiel).
 class EncaissementDialog extends StatefulWidget {
   final double totalTtc;
+  final int? selectedClientId;
   final String? clientNom;
+  final List<dynamic> clients;
 
   const EncaissementDialog({
     super.key,
     required this.totalTtc,
+    this.selectedClientId,
     this.clientNom,
+    this.clients = const [],
   });
 
   @override
@@ -20,9 +25,18 @@ class _EncaissementDialogState extends State<EncaissementDialog> {
   String _moyenPaiement = 'ESPECES';
   final _montantRecuCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
+
+  // Identification client obligatoire si vente à crédit ou paiement partiel
+  bool _useNewClient = true;
+  int? _pickedExistingClientId;
+  final _newClientNomCtrl = TextEditingController();
+  final _newClientTelCtrl = TextEditingController();
+  final _newClientAdresseCtrl = TextEditingController();
+  String? _validationError;
+
   double _montantRecu = 0;
 
-  final _moyens = [
+  final _moyens = const [
     {'code': 'ESPECES', 'label': 'Espèces', 'icon': Icons.payments},
     {'code': 'WAVE', 'label': 'Wave', 'icon': Icons.phone_android},
     {'code': 'ORANGE_MONEY', 'label': 'Orange Money', 'icon': Icons.account_balance_wallet},
@@ -31,17 +45,40 @@ class _EncaissementDialogState extends State<EncaissementDialog> {
     {'code': 'CREDIT', 'label': 'À Crédit', 'icon': Icons.access_time},
   ];
 
+  static bool _isAnonymousClientName(String? nom) {
+    if (nom == null || nom.trim().isEmpty) return true;
+    final lower = nom.toLowerCase();
+    return lower.contains('client divers') || lower.contains('comptoir') || lower == 'anonyme';
+  }
+
+  List<dynamic> get _namedClients => widget.clients
+      .where((c) => !_isAnonymousClientName(c['nom']?.toString()))
+      .toList();
+
+  bool get _hasPreselectedNamedClient =>
+      widget.selectedClientId != null && !_isAnonymousClientName(widget.clientNom);
+
   @override
   void initState() {
     super.initState();
     _montantRecu = widget.totalTtc;
     _montantRecuCtrl.text = widget.totalTtc.toStringAsFixed(0);
+    if (_hasPreselectedNamedClient) {
+      _pickedExistingClientId = widget.selectedClientId;
+      _useNewClient = false;
+    } else {
+      // S'il y a déjà des clients nominatifs, on permet de basculer facilement ; par défaut saisie rapide ou choix
+      _useNewClient = _namedClients.isEmpty;
+    }
   }
 
   @override
   void dispose() {
     _montantRecuCtrl.dispose();
     _notesCtrl.dispose();
+    _newClientNomCtrl.dispose();
+    _newClientTelCtrl.dispose();
+    _newClientAdresseCtrl.dispose();
     super.dispose();
   }
 
@@ -49,6 +86,7 @@ class _EncaissementDialogState extends State<EncaissementDialog> {
     setState(() {
       _montantRecu += montant;
       _montantRecuCtrl.text = _montantRecu.toStringAsFixed(0);
+      _validationError = null;
     });
   }
 
@@ -56,19 +94,78 @@ class _EncaissementDialogState extends State<EncaissementDialog> {
     setState(() {
       _montantRecu = widget.totalTtc;
       _montantRecuCtrl.text = _montantRecu.toStringAsFixed(0);
+      _validationError = null;
+    });
+  }
+
+  void _valider() {
+    final double montantPaye = _moyenPaiement == 'CREDIT'
+        ? 0.0
+        : (_montantRecu >= widget.totalTtc ? widget.totalTtc : _montantRecu);
+    final double resteAPayer = (widget.totalTtc - montantPaye).clamp(0.0, double.infinity);
+    final bool isCreditSale = _moyenPaiement == 'CREDIT' || resteAPayer > 0.01;
+
+    int? finalClientId = widget.selectedClientId;
+    String? newNom;
+    String? newTel;
+    String? newAdr;
+
+    if (isCreditSale && !_hasPreselectedNamedClient) {
+      if (_useNewClient) {
+        newNom = _newClientNomCtrl.text.trim();
+        newTel = _newClientTelCtrl.text.trim();
+        newAdr = _newClientAdresseCtrl.text.trim();
+        if (newNom.isEmpty || newTel.isEmpty) {
+          setState(() {
+            _validationError =
+                'Pour une vente à crédit, veuillez renseigner le Nom et le Téléphone du client.';
+          });
+          return;
+        }
+        finalClientId = null;
+      } else {
+        if (_pickedExistingClientId == null) {
+          setState(() {
+            _validationError =
+                'Veuillez sélectionner un client existant ou basculer sur « Nouveau client ».';
+          });
+          return;
+        }
+        finalClientId = _pickedExistingClientId;
+      }
+    }
+
+    Navigator.pop(context, {
+      'moyenPaiement': _moyenPaiement,
+      'montantPaye': montantPaye,
+      'montantRecu': _montantRecu,
+      'notes': _notesCtrl.text.trim(),
+      'clientId': finalClientId,
+      if (newNom != null && newNom.isNotEmpty) 'nouveauClientNom': newNom,
+      if (newTel != null && newTel.isNotEmpty) 'nouveauClientTelephone': newTel,
+      if (newAdr != null && newAdr.isNotEmpty) 'nouveauClientAdresse': newAdr,
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final monnaie = ApiClient.entrepriseMonnaie;
     final double monnaieRendue = _montantRecu > widget.totalTtc ? (_montantRecu - widget.totalTtc) : 0;
-    final double resteAPayer = _montantRecu < widget.totalTtc ? (widget.totalTtc - _montantRecu) : 0;
+    final double resteAPayer = _moyenPaiement == 'CREDIT'
+        ? widget.totalTtc
+        : (_montantRecu < widget.totalTtc ? (widget.totalTtc - _montantRecu) : 0);
+    final bool isCreditSale = _moyenPaiement == 'CREDIT' || resteAPayer > 0.01;
+    final bool needsDebtorForm = isCreditSale && !_hasPreselectedNamedClient;
+    final namedClients = _namedClients;
+    final isMobile = MediaQuery.of(context).size.width < 600;
 
     return Dialog(
+      insetPadding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 24, vertical: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
-        width: 500,
-        padding: const EdgeInsets.all(24),
+        width: isMobile ? double.infinity : 530,
+        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.92),
+        padding: EdgeInsets.all(isMobile ? 16 : 24),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -100,12 +197,12 @@ class _EncaissementDialogState extends State<EncaissementDialog> {
                   ),
                 ],
               ),
-              const Divider(height: 24),
+              const Divider(height: 20),
 
               // Total à Encaisser Banner
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   color: QuantisColors.royalBlue.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(12),
@@ -119,13 +216,13 @@ class _EncaissementDialogState extends State<EncaissementDialog> {
                       style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: QuantisColors.royalBlue),
                     ),
                     Text(
-                      '${widget.totalTtc.toStringAsFixed(0)} FCFA',
+                      '${widget.totalTtc.toStringAsFixed(0)} $monnaie',
                       style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 22, color: QuantisColors.royalBlue),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
 
               // Mode de Paiement Selector
               const Text('Mode de règlement', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
@@ -135,15 +232,18 @@ class _EncaissementDialogState extends State<EncaissementDialog> {
                 runSpacing: 8,
                 children: _moyens.map((m) {
                   final isSelected = _moyenPaiement == m['code'];
+                  final isCreditChip = m['code'] == 'CREDIT';
                   return ChoiceChip(
                     avatar: Icon(
                       m['icon'] as IconData,
                       size: 16,
-                      color: isSelected ? Colors.white : QuantisColors.royalBlue,
+                      color: isSelected
+                          ? Colors.white
+                          : (isCreditChip ? Colors.orange.shade800 : QuantisColors.royalBlue),
                     ),
                     label: Text(m['label'] as String),
                     selected: isSelected,
-                    selectedColor: QuantisColors.royalBlue,
+                    selectedColor: isCreditChip ? Colors.orange.shade800 : QuantisColors.royalBlue,
                     labelStyle: TextStyle(
                       color: isSelected ? Colors.white : Colors.black87,
                       fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
@@ -152,6 +252,7 @@ class _EncaissementDialogState extends State<EncaissementDialog> {
                     onSelected: (selected) {
                       if (selected) {
                         setState(() {
+                          _validationError = null;
                           _moyenPaiement = m['code'] as String;
                           if (_moyenPaiement == 'CREDIT') {
                             _montantRecu = 0;
@@ -165,9 +266,9 @@ class _EncaissementDialogState extends State<EncaissementDialog> {
                   );
                 }).toList(),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
 
-              // Montant Reçu (si espèces ou mobile money)
+              // Montant Reçu (si non crédit intégral)
               if (_moyenPaiement != 'CREDIT') ...[
                 Row(
                   children: [
@@ -176,14 +277,15 @@ class _EncaissementDialogState extends State<EncaissementDialog> {
                         controller: _montantRecuCtrl,
                         keyboardType: TextInputType.number,
                         style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'Montant Donné par le Client',
-                          suffixText: 'FCFA',
-                          prefixIcon: Icon(Icons.attach_money),
+                          suffixText: monnaie,
+                          prefixIcon: const Icon(Icons.attach_money),
                         ),
                         onChanged: (val) {
                           setState(() {
                             _montantRecu = double.tryParse(val) ?? 0;
+                            _validationError = null;
                           });
                         },
                       ),
@@ -191,7 +293,7 @@ class _EncaissementDialogState extends State<EncaissementDialog> {
                     const SizedBox(width: 8),
                     OutlinedButton(
                       onPressed: _setMontantExact,
-                      child: const Text('Compte Exact'),
+                      child: const Text('Exact'),
                     ),
                   ],
                 ),
@@ -209,12 +311,11 @@ class _EncaissementDialogState extends State<EncaissementDialog> {
                     ActionChip(label: const Text('+10 000'), onPressed: () => _ajouterCoupure(10000)),
                   ],
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
 
-                // Monnaie rendue ou solde restant
                 if (monnaieRendue > 0)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
                       color: QuantisColors.success.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
@@ -224,15 +325,15 @@ class _EncaissementDialogState extends State<EncaissementDialog> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text('Monnaie à rendre :', style: TextStyle(fontWeight: FontWeight.bold, color: QuantisColors.success)),
-                        Text('${monnaieRendue.toStringAsFixed(0)} FCFA',
+                        Text('${monnaieRendue.toStringAsFixed(0)} $monnaie',
                             style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: QuantisColors.success)),
                       ],
                     ),
                   ),
 
-                if (resteAPayer > 0 && _moyenPaiement != 'CREDIT')
+                if (resteAPayer > 0)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
                       color: QuantisColors.warning.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
@@ -241,30 +342,206 @@ class _EncaissementDialogState extends State<EncaissementDialog> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Reste à payer (passera en crédit) :', style: TextStyle(fontWeight: FontWeight.bold, color: QuantisColors.warning)),
-                        Text('${resteAPayer.toStringAsFixed(0)} FCFA',
+                        const Expanded(
+                          child: Text('Reste à payer (passera en crédit) :',
+                              style: TextStyle(fontWeight: FontWeight.bold, color: QuantisColors.warning, fontSize: 12.5)),
+                        ),
+                        Text('${resteAPayer.toStringAsFixed(0)} $monnaie',
                             style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: QuantisColors.warning)),
                       ],
                     ),
                   ),
-              ] else ...[
+              ],
+
+              // =================== IDENTIFICATION CLIENT OBLIGATOIRE POUR CRÉDIT ===================
+              if (isCreditSale) ...[
+                const SizedBox(height: 12),
+                if (_hasPreselectedNamedClient)
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: QuantisColors.success.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: QuantisColors.success.withValues(alpha: 0.4)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.verified_user, color: QuantisColors.success, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Crédit de ${resteAPayer.toStringAsFixed(0)} $monnaie enregistré sur le compte de ${widget.clientNom}.',
+                            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.orange.shade400, width: 1.5),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.person_search_rounded, color: Colors.orange.shade900, size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Qui doit ce crédit ? (Obligatoire)',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13.5,
+                                  color: Colors.orange.shade900,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Identifiez le client pour pouvoir suivre et encaisser sa créance plus tard.',
+                          style: TextStyle(fontSize: 11.5, color: Colors.orange.shade900.withValues(alpha: 0.85)),
+                        ),
+                        const SizedBox(height: 10),
+
+                        // Choix rapide : Client existant / Nouveau client
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ChoiceChip(
+                                label: const Center(child: Text('Nouveau client')),
+                                selected: _useNewClient,
+                                selectedColor: QuantisColors.royalBlue,
+                                labelStyle: TextStyle(
+                                  color: _useNewClient ? Colors.white : Colors.black87,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                                onSelected: (_) => setState(() {
+                                  _useNewClient = true;
+                                  _validationError = null;
+                                }),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ChoiceChip(
+                                label: Center(child: Text('Client existant (${namedClients.length})')),
+                                selected: !_useNewClient,
+                                selectedColor: QuantisColors.royalBlue,
+                                labelStyle: TextStyle(
+                                  color: !_useNewClient ? Colors.white : Colors.black87,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                                onSelected: namedClients.isEmpty
+                                    ? null
+                                    : (_) => setState(() {
+                                          _useNewClient = false;
+                                          _validationError = null;
+                                        }),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+
+                        if (_useNewClient) ...[
+                          TextField(
+                            controller: _newClientNomCtrl,
+                            textCapitalization: TextCapitalization.words,
+                            decoration: const InputDecoration(
+                              labelText: 'Nom complet du client *',
+                              hintText: 'Ex: Moussa Ouédraogo',
+                              prefixIcon: Icon(Icons.person_outline),
+                              filled: true,
+                              fillColor: Colors.white,
+                              isDense: true,
+                            ),
+                            onChanged: (_) => setState(() => _validationError = null),
+                          ),
+                          const SizedBox(height: 10),
+                          TextField(
+                            controller: _newClientTelCtrl,
+                            keyboardType: TextInputType.phone,
+                            decoration: const InputDecoration(
+                              labelText: 'Téléphone *',
+                              hintText: 'Ex: 70 12 34 56',
+                              prefixIcon: Icon(Icons.phone_outlined),
+                              filled: true,
+                              fillColor: Colors.white,
+                              isDense: true,
+                            ),
+                            onChanged: (_) => setState(() => _validationError = null),
+                          ),
+                          const SizedBox(height: 10),
+                          TextField(
+                            controller: _newClientAdresseCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Quartier / Adresse (optionnel)',
+                              hintText: 'Ex: Gounghin, Ouaga',
+                              prefixIcon: Icon(Icons.location_on_outlined),
+                              filled: true,
+                              fillColor: Colors.white,
+                              isDense: true,
+                            ),
+                          ),
+                        ] else ...[
+                          DropdownButtonFormField<int>(
+                            value: _pickedExistingClientId,
+                            isExpanded: true,
+                            decoration: const InputDecoration(
+                              labelText: 'Sélectionnez le client *',
+                              prefixIcon: Icon(Icons.people_outline),
+                              filled: true,
+                              fillColor: Colors.white,
+                              isDense: true,
+                            ),
+                            items: namedClients.map((c) {
+                              final tel = c['telephone']?.toString();
+                              final label = (tel != null && tel.isNotEmpty)
+                                  ? '${c['nom']} ($tel)'
+                                  : '${c['nom']}';
+                              return DropdownMenuItem<int>(
+                                value: c['id'] as int,
+                                child: Text(label, overflow: TextOverflow.ellipsis),
+                              );
+                            }).toList(),
+                            onChanged: (val) => setState(() {
+                              _pickedExistingClientId = val;
+                              _validationError = null;
+                            }),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+              ],
+
+              if (_validationError != null) ...[
+                const SizedBox(height: 10),
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: QuantisColors.warning.withValues(alpha: 0.1),
+                    color: QuantisColors.error.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: QuantisColors.warning),
+                    border: Border.all(color: QuantisColors.error),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.info, color: QuantisColors.warning, size: 20),
+                      const Icon(Icons.error_outline, color: QuantisColors.error, size: 18),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          widget.clientNom != null
-                              ? 'La totalité de la vente sera enregistrée à crédit sur le compte de ${widget.clientNom}.'
-                              : 'La totalité sera enregistrée à crédit. Conseil : sélectionnez un client nominatif dans la barre du POS pour un meilleur suivi de sa dette.',
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                          _validationError!,
+                          style: const TextStyle(color: QuantisColors.error, fontSize: 12, fontWeight: FontWeight.w600),
                         ),
                       ),
                     ],
@@ -272,7 +549,7 @@ class _EncaissementDialogState extends State<EncaissementDialog> {
                 ),
               ],
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
 
               // Notes
               TextField(
@@ -282,7 +559,7 @@ class _EncaissementDialogState extends State<EncaissementDialog> {
                   prefixIcon: Icon(Icons.note_alt_outlined),
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
 
               // Boutons d'action
               Row(
@@ -292,26 +569,20 @@ class _EncaissementDialogState extends State<EncaissementDialog> {
                     onPressed: () => Navigator.pop(context),
                     child: const Text('Annuler'),
                   ),
-                  const SizedBox(width: 12),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      final double montantPaye = _moyenPaiement == 'CREDIT'
-                          ? 0.0
-                          : (_montantRecu >= widget.totalTtc ? widget.totalTtc : _montantRecu);
-
-                      Navigator.pop(context, {
-                        'moyenPaiement': _moyenPaiement,
-                        'montantPaye': montantPaye,
-                        'montantRecu': _montantRecu,
-                        'notes': _notesCtrl.text.trim(),
-                      });
-                    },
-                    icon: const Icon(Icons.check, size: 18),
-                    label: const Text('Valider & Imprimer Reçu'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: QuantisColors.royalBlue,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: ElevatedButton.icon(
+                      onPressed: _valider,
+                      icon: Icon(needsDebtorForm ? Icons.assignment_ind : Icons.check, size: 18),
+                      label: Text(
+                        isCreditSale ? 'Enregistrer le Crédit' : 'Valider & Reçu',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isCreditSale ? Colors.orange.shade800 : QuantisColors.royalBlue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                      ),
                     ),
                   ),
                 ],

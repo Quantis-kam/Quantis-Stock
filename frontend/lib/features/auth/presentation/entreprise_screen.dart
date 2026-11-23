@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/quantis_theme.dart';
+import '../../../core/widgets/quantis_field_toggle.dart';
 
 /// Écran de gestion du profil d'entreprise et upload de logo (Phase 1).
 class EntrepriseScreen extends StatefulWidget {
@@ -672,76 +673,74 @@ class _EntrepriseScreenState extends State<EntrepriseScreen> {
                           ),
                         const SizedBox(height: 20),
 
-                        // Préférences TVA & Prix d'achat (adaptées à chaque commerce)
+                        // Préférences par défaut TVA & Prix d'achat (interrupteurs style Cloudflare)
                         Card(
                           elevation: 0,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                             side: BorderSide(color: Colors.grey.shade300),
                           ),
-                          child: Column(
-                            children: [
-                              SwitchListTile(
-                                secondary: Icon(
-                                  Icons.percent_rounded,
-                                  color: _tvaActive ? QuantisColors.royalBlue : Colors.grey.shade500,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                QuantisFieldToggle(
+                                  title: 'TVA par défaut sur les nouveaux produits & ventes',
+                                  value: _tvaActive,
+                                  activeLabel: 'Activée par défaut',
+                                  inactiveLabel: 'Désactivée (0% par défaut)',
+                                  activeIcon: Icons.percent_rounded,
+                                  inactiveIcon: Icons.block_outlined,
+                                  activeIconColor: const Color(0xFFF97316),
+                                  onChanged: (val) {
+                                    setState(() {
+                                      _tvaActive = val;
+                                      if (val && (double.tryParse(_tauxTvaDefautCtrl.text) ?? 0) <= 0) {
+                                        _tauxTvaDefautCtrl.text = '18';
+                                      }
+                                    });
+                                  },
                                 ),
-                                title: const Text(
-                                  'Assujetti à la TVA',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                ),
-                                subtitle: Text(
+                                const SizedBox(height: 6),
+                                Text(
                                   _tvaActive
-                                      ? 'La TVA est appliquée sur les produits et factures (modifiable produit par produit, y compris à 0%).'
-                                      : 'TVA désactivée : toutes vos ventes POS et factures sont à 0% (aucune ligne TVA affichée).',
-                                  style: const TextStyle(fontSize: 12),
+                                      ? 'Pré-active le bouton TVA lors de la création produit, au POS et sur les factures (toujours ajustable au cas par cas).'
+                                      : 'Désactive le bouton TVA par défaut partout (0%). Vous pouvez toujours l\'activer ponctuellement sur un produit ou une facture.',
+                                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                                 ),
-                                value: _tvaActive,
-                                activeColor: QuantisColors.royalBlue,
-                                onChanged: (val) {
-                                  setState(() {
-                                    _tvaActive = val;
-                                    if (val && (double.tryParse(_tauxTvaDefautCtrl.text) ?? 0) <= 0) {
-                                      _tauxTvaDefautCtrl.text = '18';
-                                    }
-                                  });
-                                },
-                              ),
-                              if (_tvaActive)
-                                Padding(
-                                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-                                  child: TextFormField(
+                                if (_tvaActive) ...[
+                                  const SizedBox(height: 12),
+                                  TextFormField(
                                     controller: _tauxTvaDefautCtrl,
                                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                     decoration: const InputDecoration(
                                       labelText: 'Taux de TVA par défaut (%)',
-                                      hintText: 'Ex: 18 (ou 0 pour exonéré par défaut)',
+                                      hintText: 'Ex: 18',
                                       prefixIcon: Icon(Icons.calculate_outlined),
                                       border: OutlineInputBorder(),
                                     ),
                                   ),
+                                ],
+                                const Divider(height: 28),
+                                QuantisFieldToggle(
+                                  title: 'Prix d\'achat par défaut sur les nouveaux produits',
+                                  value: _suiviPrixAchat,
+                                  activeLabel: 'Activé par défaut',
+                                  inactiveLabel: 'Masqué par défaut',
+                                  activeIcon: Icons.payments_rounded,
+                                  inactiveIcon: Icons.money_off_csred_outlined,
+                                  onChanged: (val) => setState(() => _suiviPrixAchat = val),
                                 ),
-                              const Divider(height: 1),
-                              SwitchListTile(
-                                secondary: Icon(
-                                  Icons.price_check_outlined,
-                                  color: _suiviPrixAchat ? QuantisColors.royalBlue : Colors.grey.shade500,
-                                ),
-                                title: const Text(
-                                  'Suivi des prix d\'achat & marges par produit',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                ),
-                                subtitle: Text(
+                                const SizedBox(height: 6),
+                                Text(
                                   _suiviPrixAchat
-                                      ? 'Affiche le champ Prix d\'achat (facultatif) et calcule les marges par produit.'
-                                      : 'Mode simplifié : masque les prix d\'achat lors de la création produit. Le bénéfice reste calculé via vos dépenses de caisse et achats fournisseurs.',
-                                  style: const TextStyle(fontSize: 12),
+                                      ? 'Ouvre le champ Prix d\'achat par défaut lors de la création produit (désactivable en 1 clic sur chaque fiche).'
+                                      : 'Masque le champ Prix d\'achat par défaut pour une saisie ultra-rapide (activable en 1 clic sur un produit si besoin).',
+                                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                                 ),
-                                value: _suiviPrixAchat,
-                                activeColor: QuantisColors.royalBlue,
-                                onChanged: (val) => setState(() => _suiviPrixAchat = val),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                         const SizedBox(height: 32),

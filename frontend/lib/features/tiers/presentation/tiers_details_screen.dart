@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/theme/quantis_theme.dart';
+import '../../../core/utils/permission_helper.dart';
 import '../../documents/data/document_models.dart';
+import '../../documents/presentation/document_detail_screen.dart';
+import '../../documents/presentation/solder_commande_dialog.dart';
 import '../../achats/data/achat_models.dart';
 import '../data/tiers_models.dart';
 import '../data/tiers_service.dart';
+import 'reglement_creance_dialog.dart';
 import 'tiers_form_screen.dart';
 
 class TiersDetailsScreen extends StatefulWidget {
@@ -468,7 +473,7 @@ class _TiersDetailsScreenState extends State<TiersDetailsScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            '${balance.toStringAsFixed(0)} FCFA',
+            '${balance.toStringAsFixed(0)} ${ApiClient.entrepriseMonnaie}',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 26,
@@ -478,7 +483,9 @@ class _TiersDetailsScreenState extends State<TiersDetailsScreen> {
           const SizedBox(height: 12),
           Text(
             isClient 
-                ? 'Cette valeur correspond à la somme totale des factures en attente de paiement.'
+                ? (balance > 0
+                    ? 'Montant total restant à encaisser sur les ventes à crédit de ce client.'
+                    : 'Compte à jour : aucune créance en attente.')
                 : 'Cette valeur correspond au total des réceptions de marchandises non payées.',
             style: const TextStyle(
               color: Colors.white70,
@@ -486,6 +493,30 @@ class _TiersDetailsScreenState extends State<TiersDetailsScreen> {
               height: 1.3,
             ),
           ),
+          if (isClient && balance > 0 && _client != null && PermissionHelper.hasPermission('PAIEMENT_CLIENT')) ...[
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  final ok = await showDialog<bool>(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (_) => ReglementCreanceDialog(client: _client!),
+                  );
+                  if (ok == true) _loadAll();
+                },
+                icon: const Icon(Icons.payments_rounded, size: 18),
+                label: const Text('Encaisser un règlement de crédit', style: TextStyle(fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: QuantisColors.royalBlue,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -523,64 +554,130 @@ class _TiersDetailsScreenState extends State<TiersDetailsScreen> {
 
         return Card(
           margin: const EdgeInsets.only(bottom: 10),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      doc.numero,
-                      style: const TextStyle(fontWeight: FontWeight.bold, color: QuantisColors.textPrimary),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: statusColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: doc.id == null
+                ? null
+                : () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => DocumentDetailScreen(documentId: doc.id!)),
+                    );
+                    _loadAll();
+                  },
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        doc.numero,
+                        style: const TextStyle(fontWeight: FontWeight.bold, color: QuantisColors.textPrimary),
                       ),
-                      child: Text(
-                        doc.statutLabel,
-                        style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.bold),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: statusColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          doc.isCommandeSoldee
+                              ? '✓ Soldée'
+                              : (doc.type == 'FACTURE' && doc.statut == 'VALIDE' && doc.isPayeIntegral
+                                  ? '✓ Soldée'
+                                  : doc.statutLabel),
+                          style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.bold),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Type: ${doc.typeLabel}',
-                      style: const TextStyle(fontSize: 12, color: QuantisColors.textSecondary),
-                    ),
-                    Text(
-                      _formatDate(doc.dateDocument),
-                      style: const TextStyle(fontSize: 12, color: QuantisColors.textMuted),
-                    ),
-                  ],
-                ),
-                const Divider(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Total TTC: ${doc.totalTtc.toStringAsFixed(0)} FCFA',
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: QuantisColors.textPrimary),
-                    ),
-                    Text(
-                      'Reste: ${doc.soldeRestant.toStringAsFixed(0)} FCFA',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: doc.soldeRestant > 0 ? QuantisColors.warning : QuantisColors.success,
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Type: ${doc.typeLabel}',
+                        style: const TextStyle(fontSize: 12, color: QuantisColors.textSecondary),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                      Text(
+                        _formatDate(doc.dateDocument),
+                        style: const TextStyle(fontSize: 12, color: QuantisColors.textMuted),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Total: ${doc.totalTtc.toStringAsFixed(0)} ${ApiClient.entrepriseMonnaie}',
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: QuantisColors.textPrimary),
+                      ),
+                      if (doc.type == 'FACTURE' && doc.statut == 'VALIDE')
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              doc.isPayeIntegral
+                                  ? 'Soldée'
+                                  : 'Reste: ${doc.soldeRestant.toStringAsFixed(0)} ${ApiClient.entrepriseMonnaie}',
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w700,
+                                color: doc.isPayeIntegral ? QuantisColors.success : QuantisColors.error,
+                              ),
+                            ),
+                            if (!doc.isPayeIntegral && _client != null && PermissionHelper.hasPermission('PAIEMENT_CLIENT')) ...[
+                              const SizedBox(width: 8),
+                              ElevatedButton(
+                                onPressed: () async {
+                                  final ok = await showDialog<bool>(
+                                    context: context,
+                                    barrierDismissible: false,
+                                    builder: (_) => ReglementCreanceDialog(
+                                      client: _client!,
+                                      preselectedDocumentId: doc.id,
+                                    ),
+                                  );
+                                  if (ok == true) _loadAll();
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: QuantisColors.success,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  minimumSize: Size.zero,
+                                ),
+                                child: const Text('Régler', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                              ),
+                            ],
+                          ],
+                        )
+                      else if (doc.canSolderCommande)
+                        ElevatedButton.icon(
+                          onPressed: () async {
+                            final ok = await showDialog<bool>(
+                              context: context,
+                              barrierDismissible: false,
+                              builder: (_) => SolderCommandeDialog(commande: doc),
+                            );
+                            if (ok == true) _loadAll();
+                          },
+                          icon: const Icon(Icons.task_alt_rounded, size: 14),
+                          label: const Text('Valider & Solder', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: QuantisColors.success,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            minimumSize: Size.zero,
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         );

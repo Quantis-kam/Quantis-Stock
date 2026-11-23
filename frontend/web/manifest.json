@@ -1,7 +1,9 @@
 {
+    "id": "/",
     "name": "Quantis Stock - Gestion de Stock & Ventes",
     "short_name": "Quantis Stock",
-    "start_url": ".",
+    "start_url": "/",
+    "scope": "/",
     "display": "standalone",
     "background_color": "#202978",
     "theme_color": "#202978",

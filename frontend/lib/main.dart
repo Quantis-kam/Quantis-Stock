@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme/quantis_theme.dart';
+import 'core/widgets/pwa_install_button.dart';
 import 'core/auth/session_manager.dart';
 import 'core/constants/app_constants.dart';
 import 'core/network/api_client.dart';
@@ -266,7 +267,9 @@ class _MainShellState extends State<MainShell> {
       if (PermissionHelper.canAccessPos)
         _NavItem(Icons.point_of_sale_outlined, Icons.point_of_sale, 'Caisse POS', const PosScreen()),
       if (PermissionHelper.canAccessDocuments)
-        _NavItem(Icons.receipt_long_outlined, Icons.receipt_long, 'Factures & Devis', const DocumentsScreen()),
+        _NavItem(Icons.receipt_long_outlined, Icons.receipt_long, 'Factures & Commandes', const DocumentsScreen()),
+      if (PermissionHelper.canAccessDebiteurs)
+        _NavItem(Icons.account_balance_wallet_outlined, Icons.account_balance_wallet, 'Crédits & Créances', const DebiteursScreen()),
       if (PermissionHelper.canAccessProduits)
         _NavItem(Icons.category_outlined, Icons.category, 'Articles & Produits', const ProduitsScreen()),
       if (PermissionHelper.canAccessClients)
@@ -303,14 +306,14 @@ class _MainShellState extends State<MainShell> {
     if (PermissionHelper.canAccessDocuments) {
       list.add(_NavItem(Icons.receipt_long_outlined, Icons.receipt_long, 'Factures', const DocumentsScreen()));
     }
+    if (PermissionHelper.canAccessDebiteurs) {
+      list.add(_NavItem(Icons.credit_score_outlined, Icons.credit_score, 'Crédits', const DebiteursScreen()));
+    }
     if (PermissionHelper.canAccessStock) {
       list.add(_NavItem(Icons.inventory_2_outlined, Icons.inventory_2, 'Stock', const StockScreen()));
     }
     if (PermissionHelper.canAccessComptabilite) {
       list.add(_NavItem(Icons.account_balance_wallet_outlined, Icons.account_balance_wallet, 'Caisse', const ComptabiliteScreen()));
-    }
-    if (PermissionHelper.canAccessExports) {
-      list.add(_NavItem(Icons.table_view_outlined, Icons.table_view, 'Exports', const ExportsScreen()));
     }
     // Menu Plus pour les fonctionnalités autorisées restantes et paramètres de compte
     list.add(_NavItem(Icons.more_horiz_outlined, Icons.more_horiz, 'Plus', _buildPlusMenu()));
@@ -870,6 +873,7 @@ class _MainShellState extends State<MainShell> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
+                            const PwaInstallRailButton(),
                             Tooltip(
                               message: 'Code PIN rapide (4 chiffres)',
                               child: IconButton(
@@ -1295,6 +1299,9 @@ class _MainShellState extends State<MainShell> {
                       },
                     ),
                   const Divider(),
+                  PwaInstallDrawerTile(
+                    onBeforeTap: () => Navigator.pop(context),
+                  ),
                   ListTile(
                     leading: const Icon(Icons.pin_outlined, color: QuantisColors.royalBlue),
                     title: const Text('Code PIN rapide (4 chiffres)'),

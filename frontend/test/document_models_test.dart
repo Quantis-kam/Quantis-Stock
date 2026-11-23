@@ -118,5 +118,25 @@ void main() {
       expect(DocumentModel(type: 'BON_LIVRAISON').typeLabel, 'Bon de livraison');
       expect(DocumentModel(type: 'AVOIR').typeLabel, 'Avoir');
     });
+
+    test('canPay uniquement sur FACTURE validée non soldée et canSolderCommande sur COMMANDE_CLIENT', () {
+      final cmdEnAttente = DocumentModel(
+        type: 'COMMANDE_CLIENT',
+        statut: 'BROUILLON',
+        totalTtc: 20000,
+      );
+      expect(cmdEnAttente.canSolderCommande, isTrue);
+      expect(cmdEnAttente.isCommandeSoldee, isFalse);
+      expect(cmdEnAttente.canPay, isFalse);
+
+      final cmdSoldee = DocumentModel(
+        type: 'COMMANDE_CLIENT',
+        statut: 'VALIDE',
+        totalTtc: 20000,
+        notes: 'Soldée → FAC-2026-00010',
+      );
+      expect(cmdSoldee.isCommandeSoldee, isTrue);
+      expect(cmdSoldee.canSolderCommande, isFalse);
+    });
   });
 }

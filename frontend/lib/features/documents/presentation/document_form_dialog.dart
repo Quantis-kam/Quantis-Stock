@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/quantis_theme.dart';
+import '../../../core/widgets/quantis_field_toggle.dart';
 
 /// Formulaire de création de document commercial (Devis, Facture, Bon de livraison, Avoir)
 class DocumentFormDialog extends StatefulWidget {
@@ -24,6 +25,9 @@ class _DocumentFormDialogState extends State<DocumentFormDialog> {
   int? _depotId;
   DateTime _dateDocument = DateTime.now();
   DateTime? _dateEcheance;
+  bool _hasEcheance = true;
+  bool _appliquerTva = ApiClient.tvaActive;
+  bool _tvaTouched = false;
   final _notesCtrl = TextEditingController();
 
   List<dynamic> _clients = [];
@@ -76,6 +80,9 @@ class _DocumentFormDialogState extends State<DocumentFormDialog> {
 
       if (mounted) {
         setState(() {
+          if (!_tvaTouched) {
+            _appliquerTva = ApiClient.tvaActive;
+          }
           _clients = resClients.data['data']?['content'] ?? [];
           _depots = resDepots.data['data'] ?? [];
           _produits = resProduits.data['data']?['content'] ?? [];
@@ -123,12 +130,19 @@ class _DocumentFormDialogState extends State<DocumentFormDialog> {
     return total;
   }
 
+  double _effectiveLineTva(Map<String, dynamic> l) {
+    if (!_appliquerTva) return 0.0;
+    final rate = (l['tauxTva'] as num?)?.toDouble() ?? 0.0;
+    if (rate > 0) return rate;
+    return _tvaTouched ? (ApiClient.tauxTvaDefaut > 0 ? ApiClient.tauxTvaDefaut : 18.0) : 0.0;
+  }
+
   double get _totalTva {
     double total = 0;
     for (final l in _lignes) {
       final qte = (l['quantite'] as num?)?.toDouble() ?? 0;
       final pu = (l['prixUnitaire'] as num?)?.toDouble() ?? 0;
-      final tva = (l['tauxTva'] as num?)?.toDouble() ?? 0;
+      final tva = _effectiveLineTva(l);
       total += (qte * pu * (tva / 100));
     }
     return total;
@@ -160,14 +174,14 @@ class _DocumentFormDialogState extends State<DocumentFormDialog> {
         'clientId': _clientId,
         'depotId': _depotId,
         'dateDocument': _dateDocument.toIso8601String().substring(0, 10),
-        'dateEcheance': _dateEcheance?.toIso8601String().substring(0, 10),
+        'dateEcheance': _hasEcheance ? _dateEcheance?.toIso8601String().substring(0, 10) : null,
         'notes': _notesCtrl.text.trim(),
         'lignes': validLignes.map((l) => {
           'produitId': l['produitId'],
           'designation': l['designation'],
           'quantite': l['quantite'],
           'prixUnitaire': l['prixUnitaire'],
-          'tauxTva': ApiClient.tvaActive ? l['tauxTva'] : 0.0,
+          'tauxTva': _effectiveLineTva(l),
         }).toList(),
       };
 
@@ -341,6 +355,54 @@ class _DocumentFormDialogState extends State<DocumentFormDialog> {
                             ],
                             const SizedBox(height: 16),
 
+                            // Options rapides : TVA & Échéance (style Cloudflare)
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade50,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: Colors.grey.shade200),
+                              ),
+                              child: Wrap(
+                                spacing: 24,
+                                runSpacing: 10,
+                                children: [
+                                  QuantisFieldToggle(
+                                    title: 'TVA sur ce document',
+                                    value: _appliquerTva,
+                                    compact: true,
+                                    activeLabel: 'TVA appliquée',
+                                    inactiveLabel: 'Sans TVA (0%)',
+                                    activeIcon: Icons.percent_rounded,
+                                    inactiveIcon: Icons.block_outlined,
+                                    activeIconColor: const Color(0xFFF97316),
+                                    onChanged: (val) => setState(() {
+                                      _appliquerTva = val;
+                                      _tvaTouched = true;
+                                    }),
+                                  ),
+                                  QuantisFieldToggle(
+                                    title: 'Date d\'échéance',
+                                    value: _hasEcheance,
+                                    compact: true,
+                                    activeLabel: 'Échéance définie',
+                                    inactiveLabel: 'Paiement comptant',
+                                    activeIcon: Icons.event_available_rounded,
+                                    inactiveIcon: Icons.event_busy_outlined,
+                                    activeIconColor: QuantisColors.warning,
+                                    onChanged: (val) => setState(() {
+                                      _hasEcheance = val;
+                                      if (val && _dateEcheance == null) {
+                                        _dateEcheance = DateTime.now().add(const Duration(days: 30));
+                                      }
+                                    }),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+
                             // Dates
                             if (isMobile) ...[
                               ListTile(
@@ -359,25 +421,26 @@ class _DocumentFormDialogState extends State<DocumentFormDialog> {
                                   if (d != null) setState(() => _dateDocument = d);
                                 },
                               ),
-                              ListTile(
-                                contentPadding: EdgeInsets.zero,
-                                leading: const Icon(Icons.event, color: QuantisColors.warning),
-                                title: const Text('Date d\'Échéance', style: TextStyle(fontSize: 12)),
-                                subtitle: Text(
-                                    _dateEcheance != null
-                                        ? _dateEcheance!.toIso8601String().substring(0, 10)
-                                        : 'Aucune',
-                                    style: const TextStyle(fontWeight: FontWeight.bold)),
-                                onTap: () async {
-                                  final d = await showDatePicker(
-                                    context: context,
-                                    initialDate: _dateEcheance ?? DateTime.now().add(const Duration(days: 30)),
-                                    firstDate: DateTime.now(),
-                                    lastDate: DateTime(2035),
-                                  );
-                                  if (d != null) setState(() => _dateEcheance = d);
-                                },
-                              ),
+                              if (_hasEcheance)
+                                ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  leading: const Icon(Icons.event, color: QuantisColors.warning),
+                                  title: const Text('Date d\'Échéance', style: TextStyle(fontSize: 12)),
+                                  subtitle: Text(
+                                      _dateEcheance != null
+                                          ? _dateEcheance!.toIso8601String().substring(0, 10)
+                                          : 'Aucune',
+                                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  onTap: () async {
+                                    final d = await showDatePicker(
+                                      context: context,
+                                      initialDate: _dateEcheance ?? DateTime.now().add(const Duration(days: 30)),
+                                      firstDate: DateTime.now(),
+                                      lastDate: DateTime(2035),
+                                    );
+                                    if (d != null) setState(() => _dateEcheance = d);
+                                  },
+                                ),
                             ] else ...[
                               Row(
                                 children: [
@@ -399,27 +462,28 @@ class _DocumentFormDialogState extends State<DocumentFormDialog> {
                                       },
                                     ),
                                   ),
-                                  Expanded(
-                                    child: ListTile(
-                                      contentPadding: EdgeInsets.zero,
-                                      leading: const Icon(Icons.event, color: QuantisColors.warning),
-                                      title: const Text('Date d\'Échéance', style: TextStyle(fontSize: 12)),
-                                      subtitle: Text(
-                                          _dateEcheance != null
-                                              ? _dateEcheance!.toIso8601String().substring(0, 10)
-                                              : 'Aucune',
-                                          style: const TextStyle(fontWeight: FontWeight.bold)),
-                                      onTap: () async {
-                                        final d = await showDatePicker(
-                                          context: context,
-                                          initialDate: _dateEcheance ?? DateTime.now().add(const Duration(days: 30)),
-                                          firstDate: DateTime.now(),
-                                          lastDate: DateTime(2035),
-                                        );
-                                        if (d != null) setState(() => _dateEcheance = d);
-                                      },
+                                  if (_hasEcheance)
+                                    Expanded(
+                                      child: ListTile(
+                                        contentPadding: EdgeInsets.zero,
+                                        leading: const Icon(Icons.event, color: QuantisColors.warning),
+                                        title: const Text('Date d\'Échéance', style: TextStyle(fontSize: 12)),
+                                        subtitle: Text(
+                                            _dateEcheance != null
+                                                ? _dateEcheance!.toIso8601String().substring(0, 10)
+                                                : 'Aucune',
+                                            style: const TextStyle(fontWeight: FontWeight.bold)),
+                                        onTap: () async {
+                                          final d = await showDatePicker(
+                                            context: context,
+                                            initialDate: _dateEcheance ?? DateTime.now().add(const Duration(days: 30)),
+                                            firstDate: DateTime.now(),
+                                            lastDate: DateTime(2035),
+                                          );
+                                          if (d != null) setState(() => _dateEcheance = d);
+                                        },
+                                      ),
                                     ),
-                                  ),
                                 ],
                               ),
                             ],
@@ -474,9 +538,7 @@ class _DocumentFormDialogState extends State<DocumentFormDialog> {
                                                 if (p != null) {
                                                   l['designation'] = p['nom'];
                                                   l['prixUnitaire'] = (p['prixVente'] as num).toDouble();
-                                                  l['tauxTva'] = ApiClient.tvaActive
-                                                      ? ((p['tauxTva'] as num?)?.toDouble() ?? 0.0)
-                                                      : 0.0;
+                                                  l['tauxTva'] = (p['tauxTva'] as num?)?.toDouble() ?? 0.0;
                                                 }
                                               });
                                             },
@@ -546,9 +608,7 @@ class _DocumentFormDialogState extends State<DocumentFormDialog> {
                                                   if (p != null) {
                                                     l['designation'] = p['nom'];
                                                     l['prixUnitaire'] = (p['prixVente'] as num).toDouble();
-                                                    l['tauxTva'] = ApiClient.tvaActive
-                                                        ? ((p['tauxTva'] as num?)?.toDouble() ?? 0.0)
-                                                        : 0.0;
+                                                    l['tauxTva'] = (p['tauxTva'] as num?)?.toDouble() ?? 0.0;
                                                   }
                                                 });
                                               },

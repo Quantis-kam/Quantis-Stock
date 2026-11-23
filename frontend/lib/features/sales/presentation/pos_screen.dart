@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/quantis_theme.dart';
+import '../../../core/widgets/quantis_field_toggle.dart';
 import 'encaissement_dialog.dart';
 import 'ticket_receipt_dialog.dart';
 
@@ -31,6 +32,8 @@ class _PosScreenState extends State<PosScreen> {
   // Panier
   final List<Map<String, dynamic>> _panier = [];
   final double _remiseGlobale = 0;
+  bool _appliquerTvaPos = ApiClient.tvaActive;
+  bool _tvaPosTouched = false;
   bool _isDesktopCartCollapsed = false;
 
   @override
@@ -57,6 +60,9 @@ class _PosScreenState extends State<PosScreen> {
 
       if (mounted) {
         setState(() {
+          if (!_tvaPosTouched) {
+            _appliquerTvaPos = ApiClient.tvaActive;
+          }
           _produits = resProduits.data['data']?['content'] ?? [];
           _categories = resCats.data['data'] ?? [];
           _depots = resDepots.data['data'] ?? [];
@@ -89,9 +95,7 @@ class _PosScreenState extends State<PosScreen> {
           'sku': produit['sku'],
           'prixUnitaire': (produit['prixVente'] as num).toDouble(),
           'quantite': 1.0,
-          'tauxTva': ApiClient.tvaActive
-              ? ((produit['tauxTva'] as num?)?.toDouble() ?? 0.0)
-              : 0.0,
+          'tauxTva': (produit['tauxTva'] as num?)?.toDouble() ?? 0.0,
           'stock': produit['stockCourant'] ?? 0,
         });
       }
@@ -122,8 +126,11 @@ class _PosScreenState extends State<PosScreen> {
   }
 
   double _effectiveItemTva(Map<String, dynamic> item) {
-    if (!ApiClient.tvaActive) return 0.0;
-    return (item['tauxTva'] as num?)?.toDouble() ?? 0.0;
+    if (!_appliquerTvaPos) return 0.0;
+    final prodTva = (item['tauxTva'] as num?)?.toDouble() ?? 0.0;
+    if (prodTva > 0) return prodTva;
+    // Si l'utilisateur active manuellement la TVA sur cette vente, appliquer le taux par défaut
+    return _tvaPosTouched ? (ApiClient.tauxTvaDefaut > 0 ? ApiClient.tauxTvaDefaut : 18.0) : 0.0;
   }
 
   double get _totalHtPanier {
@@ -173,7 +180,9 @@ class _PosScreenState extends State<PosScreen> {
       barrierDismissible: false,
       builder: (_) => EncaissementDialog(
         totalTtc: _totalPanier,
+        selectedClientId: _selectedClientId,
         clientNom: clientNom,
+        clients: _clients,
       ),
     );
 
@@ -181,7 +190,10 @@ class _PosScreenState extends State<PosScreen> {
 
     try {
       final payload = {
-        'clientId': _selectedClientId,
+        'clientId': result.containsKey('clientId') ? result['clientId'] : _selectedClientId,
+        if (result['nouveauClientNom'] != null) 'nouveauClientNom': result['nouveauClientNom'],
+        if (result['nouveauClientTelephone'] != null) 'nouveauClientTelephone': result['nouveauClientTelephone'],
+        if (result['nouveauClientAdresse'] != null) 'nouveauClientAdresse': result['nouveauClientAdresse'],
         'depotId': _selectedDepotId,
         'lignes': _panier.map((item) => {
           'produitId': item['produitId'],
@@ -1031,6 +1043,31 @@ class _PosScreenState extends State<PosScreen> {
             ),
             child: Column(
               children: [
+                // Toggle TVA rapide directement sur le panier POS
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      QuantisFieldToggle(
+                        value: _appliquerTvaPos,
+                        compact: true,
+                        activeLabel: 'TVA appliquée',
+                        inactiveLabel: 'Sans TVA (0%)',
+                        activeIcon: Icons.percent_rounded,
+                        inactiveIcon: Icons.block_outlined,
+                        activeIconColor: const Color(0xFFF97316),
+                        onChanged: (val) {
+                          setState(() {
+                            _appliquerTvaPos = val;
+                            _tvaPosTouched = true;
+                          });
+                          onCartChanged?.call();
+                        },
+                      ),
+                    ],
+                  ),
+                ),
                 if (_totalTvaPanier > 0) ...[
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,

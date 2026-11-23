@@ -1,4 +1,6 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:quantis_stock/core/widgets/quantis_field_toggle.dart';
 import 'package:quantis_stock/features/produits/data/produit_service.dart';
 
 void main() {
@@ -41,6 +43,32 @@ void main() {
       expect(avecPa.hasPrixAchat, isTrue);
       expect(avecPa.marge, 1000);
       expect(avecPa.margePercent, 25.0);
+    });
+
+    testWidgets('QuantisFieldToggle bascule ON/OFF proprement au clic', (tester) async {
+      bool enabled = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (context, setState) => QuantisFieldToggle(
+                title: 'TVA',
+                value: enabled,
+                activeLabel: 'TVA appliquée',
+                inactiveLabel: 'Sans TVA (0%)',
+                activeIcon: Icons.percent_rounded,
+                onChanged: (v) => setState(() => enabled = v),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Sans TVA (0%)'), findsOneWidget);
+      await tester.tap(find.text('Sans TVA (0%)'));
+      await tester.pumpAndSettle();
+      expect(enabled, isTrue);
+      expect(find.text('TVA appliquée'), findsOneWidget);
     });
   });
 }

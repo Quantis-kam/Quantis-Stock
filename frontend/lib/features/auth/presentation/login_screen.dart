@@ -7,6 +7,7 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/sync/sync_manager.dart';
 import '../../../core/theme/quantis_theme.dart';
+import '../../../core/widgets/pwa_install_button.dart';
 
 /// Écran de connexion — Phase 2 Flutter (Auth JWT).
 class LoginScreen extends StatefulWidget {
@@ -354,6 +355,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           : const Text('Se connecter'),
                     ),
                   ),
+                  const PwaInstallCard(),
                 ],
               ),
             ),

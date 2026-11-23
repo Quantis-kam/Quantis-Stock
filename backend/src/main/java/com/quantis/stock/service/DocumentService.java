@@ -5,6 +5,8 @@ import com.quantis.stock.dto.MouvementRequest;
 import com.quantis.stock.dto.PaiementRequest;
 import com.quantis.stock.dto.PosSaleRequest;
 import com.quantis.stock.dto.PosSaleResponse;
+import com.quantis.stock.dto.ReglementClientRequest;
+import com.quantis.stock.dto.SolderCommandeRequest;
 import com.quantis.stock.exception.BusinessException;
 import com.quantis.stock.exception.ResourceNotFoundException;
 import com.quantis.stock.model.*;
@@ -99,10 +101,10 @@ public class DocumentService {
                         .orElseThrow(() -> new ResourceNotFoundException("Variante", "id", lr.getVarianteId()));
             }
 
-            BigDecimal tauxTvaLigne = !tvaActive
-                    ? BigDecimal.ZERO
-                    : (lr.getTauxTva() != null
-                        ? lr.getTauxTva()
+            BigDecimal tauxTvaLigne = lr.getTauxTva() != null
+                    ? lr.getTauxTva()
+                    : (!tvaActive
+                        ? BigDecimal.ZERO
                         : (produit.getTauxTva() != null ? produit.getTauxTva() : BigDecimal.ZERO));
 
             LigneDocument ligne = LigneDocument.builder()
@@ -393,11 +395,25 @@ public class DocumentService {
                 ? utilisateur.getEntreprise()
                 : securityUtils.getCurrentEntreprise().orElse(null);
 
-        // Résolution du client (fourni ou Client Comptoir / Divers)
+        // Résolution du client (fourni, créé à la volée pour un crédit, ou Client Comptoir / Divers)
         Client client = null;
         if (request.getClientId() != null) {
             client = clientRepository.findById(request.getClientId())
                     .orElseThrow(() -> new ResourceNotFoundException("Client", "id", request.getClientId()));
+        } else if (request.getNouveauClientNom() != null && !request.getNouveauClientNom().isBlank()) {
+            String nomPropre = request.getNouveauClientNom().trim();
+            String telPropre = request.getNouveauClientTelephone() != null ? request.getNouveauClientTelephone().trim() : null;
+            String adrPropre = request.getNouveauClientAdresse() != null ? request.getNouveauClientAdresse().trim() : null;
+            client = clientRepository.save(Client.builder()
+                    .nom(nomPropre)
+                    .telephone(telPropre != null && !telPropre.isEmpty() ? telPropre : null)
+                    .adresse(adrPropre != null && !adrPropre.isEmpty() ? adrPropre : null)
+                    .soldeCredit(BigDecimal.ZERO)
+                    .actif(true)
+                    .entreprise(entrepriseCourante)
+                    .build());
+            auditService.logAction("CREATE", "Client", client.getId(),
+                    "Création rapide client POS (crédit) : " + client.getNom());
         } else {
             Long entId = entrepriseCourante != null ? entrepriseCourante.getId() : null;
             java.util.List<Client> matches = entId != null
@@ -457,10 +473,10 @@ public class DocumentService {
             }
 
             BigDecimal prix = lr.getPrixUnitaire() != null ? lr.getPrixUnitaire() : produit.getPrixVente();
-            BigDecimal tva = !tvaActivePos
-                    ? BigDecimal.ZERO
-                    : (lr.getTauxTva() != null
-                        ? lr.getTauxTva()
+            BigDecimal tva = lr.getTauxTva() != null
+                    ? lr.getTauxTva()
+                    : (!tvaActivePos
+                        ? BigDecimal.ZERO
                         : (produit.getTauxTva() != null ? produit.getTauxTva() : BigDecimal.ZERO));
 
             LigneDocument ligne = LigneDocument.builder()
@@ -503,6 +519,13 @@ public class DocumentService {
         BigDecimal montantPaye = request.getMoyenPaiement() == com.quantis.stock.model.enums.MoyenPaiement.CREDIT
                 ? BigDecimal.ZERO
                 : (request.getMontantPaye() != null ? request.getMontantPaye() : BigDecimal.ZERO);
+
+        // Interdire tout crédit anonyme (total ou partiel) sur "Client Divers / Comptoir"
+        BigDecimal soldeRestantAvantValidation = document.getTotalTtc().subtract(montantPaye);
+        if (soldeRestantAvantValidation.compareTo(BigDecimal.ZERO) > 0 && isClientAnonyme(client)) {
+            throw new BusinessException(
+                    "Un client nominatif (nom et téléphone) est obligatoire pour toute vente à crédit ou paiement partiel.");
+        }
 
         if (montantPaye.compareTo(BigDecimal.ZERO) > 0) {
             paiement = Paiement.builder()
@@ -572,6 +595,370 @@ public class DocumentService {
                 .entrepriseLogoUrl(ent != null ? ent.getLogoUrl() : null)
                 .entrepriseMonnaie(ent != null ? ent.getMonnaie() : "FCFA")
                 .build();
+    }
+
+    // =================== RÈGLEMENT DES CRÉANCES CLIENT ===================
+
+    /**
+     * Enregistre un règlement de crédit pour un client :
+     * - soit sur une facture précise (documentId),
+     * - soit en imputation FIFO automatique sur toutes ses factures impayées + reliquat de dette directe.
+     */
+    @Transactional
+    public java.util.Map<String, Object> reglerCreanceClient(Long clientId, ReglementClientRequest request, String userEmail) {
+        if (request.getMoyen() == com.quantis.stock.model.enums.MoyenPaiement.CREDIT) {
+            throw new BusinessException("Veuillez choisir un moyen d'encaissement réel (Espèces, Wave, Orange Money, etc.).");
+        }
+
+        Client client = clientRepository.findById(clientId)
+                .orElseThrow(() -> new ResourceNotFoundException("Client", "id", clientId));
+        if (!securityUtils.isSuperAdmin()) {
+            Long entId = securityUtils.getCurrentEntrepriseId();
+            if (client.getEntreprise() != null && !client.getEntreprise().getId().equals(entId)) {
+                throw new BusinessException("Accès refusé : ce client n'appartient pas à votre entreprise");
+            }
+        }
+
+        Utilisateur utilisateur = utilisateurRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "email", userEmail));
+
+        BigDecimal ancienSolde = client.getSoldeCredit() != null ? client.getSoldeCredit() : BigDecimal.ZERO;
+        BigDecimal montant = request.getMontant();
+        LocalDate datePaiement = request.getDatePaiement() != null ? request.getDatePaiement() : LocalDate.now();
+        java.util.List<String> facturesReglees = new java.util.ArrayList<>();
+
+        if (request.getDocumentId() != null) {
+            PaiementRequest pReq = new PaiementRequest();
+            pReq.setDocumentId(request.getDocumentId());
+            pReq.setMontant(montant);
+            pReq.setMoyen(request.getMoyen());
+            pReq.setDatePaiement(datePaiement);
+            pReq.setReference(request.getReference());
+            Paiement p = enregistrerPaiement(pReq, userEmail);
+            facturesReglees.add(p.getDocument().getNumero());
+        } else {
+            BigDecimal resteAImputer = montant;
+
+            // 1. Imputer par ordre chronologique (FIFO) sur les factures validées non soldées
+            List<Document> factures = documentRepository
+                    .findByClientIdAndTypeAndStatutOrderByDateDocumentAscIdAsc(
+                            clientId, TypeDocument.FACTURE, StatutDocument.VALIDE);
+
+            for (Document f : factures) {
+                if (resteAImputer.compareTo(BigDecimal.ZERO) <= 0) break;
+                BigDecimal soldeFacture = f.getSoldeRestant();
+                if (soldeFacture.compareTo(BigDecimal.ZERO) <= 0) continue;
+
+                BigDecimal aPayer = resteAImputer.min(soldeFacture);
+                PaiementRequest pReq = new PaiementRequest();
+                pReq.setDocumentId(f.getId());
+                pReq.setMontant(aPayer);
+                pReq.setMoyen(request.getMoyen());
+                pReq.setDatePaiement(datePaiement);
+                pReq.setReference(request.getReference() != null && !request.getReference().isBlank()
+                        ? request.getReference()
+                        : "REG-" + f.getNumero());
+                enregistrerPaiement(pReq, userEmail);
+                facturesReglees.add(f.getNumero());
+                resteAImputer = resteAImputer.subtract(aPayer);
+            }
+
+            // 2. Reliquat éventuel sur créance initiale (hors facture)
+            if (resteAImputer.compareTo(BigDecimal.ZERO) > 0) {
+                Client freshClient = clientRepository.findById(clientId).orElse(client);
+                BigDecimal soldeCourant = freshClient.getSoldeCredit() != null ? freshClient.getSoldeCredit() : BigDecimal.ZERO;
+                if (resteAImputer.compareTo(soldeCourant) > 0) {
+                    throw new BusinessException(String.format(
+                            "Le montant (%s FCFA) dépasse le solde restant dû par %s (%s FCFA).",
+                            montant, freshClient.getNom(), ancienSolde));
+                }
+                freshClient.setSoldeCredit(soldeCourant.subtract(resteAImputer));
+                clientRepository.save(freshClient);
+
+                // Comptabiliser cette entrée en caisse
+                try {
+                    com.quantis.stock.model.MouvementCaisse mvt = com.quantis.stock.model.MouvementCaisse.builder()
+                            .type(com.quantis.stock.model.enums.TypeCaisse.ENTREE)
+                            .montant(resteAImputer)
+                            .libelle("Règlement créance " + freshClient.getNom() + " (" + request.getMoyen().getLibelle() + ")")
+                            .dateMouvement(datePaiement)
+                            .categorie("REGLEMENT_CREDIT")
+                            .reference(request.getReference() != null && !request.getReference().isBlank()
+                                    ? request.getReference()
+                                    : "CREANCE-" + freshClient.getId())
+                            .utilisateur(utilisateur)
+                            .build();
+                    comptabiliteService.enregistrerMouvement(mvt, userEmail);
+                } catch (Exception e) {
+                    log.warn("Impossible d'imputer le mouvement de caisse pour règlement créance client {}: {}", clientId, e.getMessage());
+                }
+
+                auditService.logAction("CREDIT_SETTLEMENT", "Client", freshClient.getId(),
+                        "Règlement créance directe de " + resteAImputer + " FCFA par " + freshClient.getNom());
+            }
+        }
+
+        Client updatedClient = clientRepository.findById(clientId).orElse(client);
+        BigDecimal nouveauSolde = updatedClient.getSoldeCredit() != null
+                ? updatedClient.getSoldeCredit().max(BigDecimal.ZERO)
+                : BigDecimal.ZERO;
+        if (updatedClient.getSoldeCredit() != null && updatedClient.getSoldeCredit().compareTo(BigDecimal.ZERO) < 0) {
+            updatedClient.setSoldeCredit(BigDecimal.ZERO);
+            clientRepository.save(updatedClient);
+        }
+
+        java.util.Map<String, Object> result = new java.util.LinkedHashMap<>();
+        result.put("clientId", updatedClient.getId());
+        result.put("clientNom", updatedClient.getNom());
+        result.put("montantEncaisse", montant);
+        result.put("moyen", request.getMoyen().name());
+        result.put("moyenLibelle", request.getMoyen().getLibelle());
+        result.put("ancienSolde", ancienSolde);
+        result.put("nouveauSolde", nouveauSolde);
+        result.put("facturesReglees", facturesReglees);
+        return result;
+    }
+
+    // =================== VALIDER & SOLDER UNE COMMANDE CLIENT ===================
+
+    /**
+     * Valide une commande client, déstocke les articles, génère la facture validée liée,
+     * enregistre le règlement en caisse et retourne un reçu complet prêt à imprimer / partager.
+     */
+    @Transactional
+    public PosSaleResponse solderCommandeClient(Long commandeId, SolderCommandeRequest request, String userEmail) {
+        Document commande = findById(commandeId);
+        if (commande.getType() != TypeDocument.COMMANDE_CLIENT) {
+            throw new BusinessException("Cette action s'applique uniquement à une commande client.");
+        }
+        if (commande.getStatut() == StatutDocument.ANNULE) {
+            throw new BusinessException("Impossible de solder une commande annulée.");
+        }
+
+        Utilisateur utilisateur = utilisateurRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "email", userEmail));
+
+        Entreprise ent = commande.getEntreprise() != null
+                ? commande.getEntreprise()
+                : utilisateur.getEntreprise();
+
+        // Si une facture enfant existe déjà pour cette commande, éviter tout doublon
+        var existingFactureOpt = documentRepository
+                .findFirstByDocumentParentIdAndTypeOrderByIdDesc(commande.getId(), TypeDocument.FACTURE);
+        if (existingFactureOpt.isPresent()) {
+            Document existing = existingFactureOpt.get();
+            if (existing.getSoldeRestant().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new BusinessException("Cette commande est déjà facturée et soldée (" + existing.getNumero() + ").");
+            }
+            if (existing.getStatut() == StatutDocument.BROUILLON) {
+                existing = validerDocument(existing.getId());
+            }
+            BigDecimal solde = existing.getSoldeRestant();
+            BigDecimal montantPaye = request.getMoyenPaiement() == com.quantis.stock.model.enums.MoyenPaiement.CREDIT
+                    ? BigDecimal.ZERO
+                    : (request.getMontantPaye() != null ? request.getMontantPaye().min(solde) : solde);
+            Paiement paiement = null;
+            if (montantPaye.compareTo(BigDecimal.ZERO) > 0) {
+                PaiementRequest pReq = new PaiementRequest();
+                pReq.setDocumentId(existing.getId());
+                pReq.setMontant(montantPaye);
+                pReq.setMoyen(request.getMoyenPaiement());
+                pReq.setDatePaiement(LocalDate.now());
+                pReq.setReference(request.getReference() != null && !request.getReference().isBlank()
+                        ? request.getReference()
+                        : existing.getNumero());
+                paiement = enregistrerPaiement(pReq, userEmail);
+            }
+            BigDecimal reste = existing.getTotalTtc().subtract(existing.getMontantPaye()).subtract(montantPaye).max(BigDecimal.ZERO);
+            BigDecimal montantRecu = request.getMontantRecu() != null ? request.getMontantRecu() : montantPaye;
+            BigDecimal monnaieRendue = montantRecu.compareTo(montantPaye) > 0 ? montantRecu.subtract(montantPaye) : BigDecimal.ZERO;
+
+            return PosSaleResponse.builder()
+                    .document(existing)
+                    .paiement(paiement)
+                    .montantTotal(existing.getTotalTtc())
+                    .montantPaye(montantPaye)
+                    .montantRecu(montantRecu)
+                    .monnaieRendue(monnaieRendue)
+                    .soldeRestant(reste)
+                    .caissierNom(utilisateur.getPrenom() + " " + utilisateur.getNom())
+                    .clientNom(existing.getClient() != null ? existing.getClient().getNom() : "Client")
+                    .entrepriseNom(ent != null ? ent.getNom() : "Quantis SARL")
+                    .entrepriseNif(ent != null ? ent.getNif() : null)
+                    .entrepriseRccm(ent != null ? ent.getRccm() : null)
+                    .entrepriseTelephone(ent != null ? ent.getTelephone() : null)
+                    .entrepriseEmail(ent != null ? ent.getEmail() : null)
+                    .entrepriseAdresse(ent != null ? ent.getAdresse() : null)
+                    .entrepriseLogoUrl(ent != null ? ent.getLogoUrl() : null)
+                    .entrepriseMonnaie(ent != null ? ent.getMonnaie() : "FCFA")
+                    .build();
+        }
+
+        // 1. Valider la commande si elle était encore en brouillon
+        if (commande.getStatut() == StatutDocument.BROUILLON) {
+            commande.setStatut(StatutDocument.VALIDE);
+        }
+
+        // 2. Déterminer le dépôt de sortie
+        Depot depot = commande.getDepot() != null ? commande.getDepot() : utilisateur.getDepot();
+        if (depot == null) {
+            Long entId = ent != null ? ent.getId() : null;
+            depot = (entId != null ? depotRepository.findByEntrepriseIdAndEstActifTrue(entId) : depotRepository.findByEstActifTrue())
+                    .stream().findFirst().orElse(null);
+        }
+
+        // 3. Créer la Facture directement VALIDÉE depuis la commande
+        String numeroFacture = genererNumero(TypeDocument.FACTURE);
+        Document facture = Document.builder()
+                .entreprise(ent)
+                .type(TypeDocument.FACTURE)
+                .numero(numeroFacture)
+                .statut(StatutDocument.VALIDE)
+                .client(commande.getClient())
+                .depot(depot)
+                .dateDocument(LocalDate.now())
+                .dateEcheance(commande.getDateEcheance())
+                .notes(request.getNotes() != null && !request.getNotes().isBlank()
+                        ? request.getNotes()
+                        : "Facture issue de la commande " + commande.getNumero())
+                .utilisateur(utilisateur)
+                .documentParent(commande)
+                .build();
+
+        for (LigneDocument src : commande.getLignes()) {
+            LigneDocument ligne = LigneDocument.builder()
+                    .document(facture)
+                    .produit(src.getProduit())
+                    .variante(src.getVariante())
+                    .designation(src.getDesignation())
+                    .quantite(src.getQuantite())
+                    .prixUnitaire(src.getPrixUnitaire())
+                    .tauxTva(src.getTauxTva() != null ? src.getTauxTva() : BigDecimal.ZERO)
+                    .build();
+            ligne.calculerMontants();
+            facture.getLignes().add(ligne);
+
+            // Déstockage automatique des articles commandés
+            if (depot != null && src.getProduit() != null) {
+                try {
+                    MouvementRequest mvtReq = MouvementRequest.builder()
+                            .produitId(src.getProduit().getId())
+                            .varianteId(src.getVariante() != null ? src.getVariante().getId() : null)
+                            .depotSourceId(depot.getId())
+                            .type(com.quantis.stock.model.enums.TypeMouvement.SORTIE)
+                            .motif(com.quantis.stock.model.enums.MotifMouvement.VENTE)
+                            .quantite(src.getQuantite())
+                            .reference(numeroFacture)
+                            .commentaire("Livraison commande " + commande.getNumero() + " / " + numeroFacture)
+                            .forcerSortie(true)
+                            .build();
+                    stockService.enregistrerMouvement(mvtReq, userEmail);
+                } catch (Exception e) {
+                    log.warn("Déstockage avertissement commande {}: {}", commande.getNumero(), e.getMessage());
+                }
+            }
+        }
+
+        facture.recalculerTotaux();
+
+        // 4. Montant payé et contrôle crédit nominatif
+        BigDecimal montantPaye = request.getMoyenPaiement() == com.quantis.stock.model.enums.MoyenPaiement.CREDIT
+                ? BigDecimal.ZERO
+                : (request.getMontantPaye() != null ? request.getMontantPaye() : facture.getTotalTtc());
+        if (montantPaye.compareTo(facture.getTotalTtc()) > 0) {
+            montantPaye = facture.getTotalTtc();
+        }
+
+        BigDecimal soldeRestant = facture.getTotalTtc().subtract(montantPaye);
+        if (soldeRestant.compareTo(BigDecimal.ZERO) > 0 && isClientAnonyme(commande.getClient())) {
+            throw new BusinessException("Un client nominatif est obligatoire si la commande n'est pas soldée intégralement.");
+        }
+
+        facture = documentRepository.save(facture);
+
+        // 5. Enregistrer le paiement + mouvement de caisse
+        Paiement paiement = null;
+        if (montantPaye.compareTo(BigDecimal.ZERO) > 0) {
+            paiement = Paiement.builder()
+                    .document(facture)
+                    .montant(montantPaye)
+                    .moyen(request.getMoyenPaiement())
+                    .datePaiement(LocalDate.now())
+                    .reference(request.getReference() != null && !request.getReference().isBlank()
+                            ? request.getReference()
+                            : numeroFacture)
+                    .utilisateur(utilisateur)
+                    .build();
+            paiement = paiementRepository.save(paiement);
+
+            try {
+                com.quantis.stock.model.MouvementCaisse mouvementCaisse = com.quantis.stock.model.MouvementCaisse.builder()
+                        .type(com.quantis.stock.model.enums.TypeCaisse.ENTREE)
+                        .montant(montantPaye)
+                        .libelle("Commande " + commande.getNumero() + " → " + numeroFacture + " (" + request.getMoyenPaiement().getLibelle() + ")")
+                        .dateMouvement(LocalDate.now())
+                        .categorie("VENTE")
+                        .reference(numeroFacture)
+                        .document(facture)
+                        .utilisateur(utilisateur)
+                        .build();
+                comptabiliteService.enregistrerMouvement(mouvementCaisse, userEmail);
+            } catch (Exception e) {
+                log.warn("Impossible d'enregistrer le mouvement de caisse pour commande {}: {}", commande.getNumero(), e.getMessage());
+            }
+        }
+
+        // 6. Mettre à jour la créance client uniquement s'il reste un solde impayé
+        if (soldeRestant.compareTo(BigDecimal.ZERO) > 0 && commande.getClient() != null) {
+            Client c = commande.getClient();
+            BigDecimal currentCredit = c.getSoldeCredit() != null ? c.getSoldeCredit() : BigDecimal.ZERO;
+            c.setSoldeCredit(currentCredit.add(soldeRestant));
+            clientRepository.save(c);
+        }
+
+        // 7. Marquer clairement la commande d'origine comme soldée/facturée
+        String tag = soldeRestant.compareTo(BigDecimal.ZERO) <= 0
+                ? "Soldée → " + numeroFacture
+                : "Facturée → " + numeroFacture;
+        String existingNotes = commande.getNotes() != null ? commande.getNotes().trim() : "";
+        commande.setNotes(existingNotes.isEmpty() ? tag : existingNotes + " • " + tag);
+        documentRepository.save(commande);
+
+        BigDecimal montantRecu = request.getMontantRecu() != null ? request.getMontantRecu() : montantPaye;
+        BigDecimal monnaieRendue = montantRecu.compareTo(montantPaye) > 0
+                ? montantRecu.subtract(montantPaye)
+                : BigDecimal.ZERO;
+
+        auditService.logAction("SETTLE_ORDER", "Document", facture.getId(),
+                "Commande " + commande.getNumero() + " validée et " + tag + " (" + montantPaye + " FCFA via " + request.getMoyenPaiement().getLibelle() + ")");
+
+        return PosSaleResponse.builder()
+                .document(facture)
+                .paiement(paiement)
+                .montantTotal(facture.getTotalTtc())
+                .montantPaye(montantPaye)
+                .montantRecu(montantRecu)
+                .monnaieRendue(monnaieRendue)
+                .soldeRestant(soldeRestant.max(BigDecimal.ZERO))
+                .caissierNom(utilisateur.getPrenom() + " " + utilisateur.getNom())
+                .clientNom(commande.getClient() != null ? commande.getClient().getNom() : "Client")
+                .entrepriseNom(ent != null ? ent.getNom() : "Quantis SARL")
+                .entrepriseNif(ent != null ? ent.getNif() : null)
+                .entrepriseRccm(ent != null ? ent.getRccm() : null)
+                .entrepriseTelephone(ent != null ? ent.getTelephone() : null)
+                .entrepriseEmail(ent != null ? ent.getEmail() : null)
+                .entrepriseAdresse(ent != null ? ent.getAdresse() : null)
+                .entrepriseLogoUrl(ent != null ? ent.getLogoUrl() : null)
+                .entrepriseMonnaie(ent != null ? ent.getMonnaie() : "FCFA")
+                .build();
+    }
+
+    private boolean isClientAnonyme(Client client) {
+        if (client == null || client.getNom() == null || client.getNom().isBlank()) {
+            return true;
+        }
+        String lower = client.getNom().toLowerCase();
+        return lower.contains("client divers") || lower.contains("comptoir") || lower.equals("anonyme");
     }
 
     // =================== NUMÉROTATION ===================
