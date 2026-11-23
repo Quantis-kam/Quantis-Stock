@@ -12,7 +12,7 @@ import 'core/widgets/sync_indicator.dart';
 import 'core/widgets/command_palette_dialog.dart';
 import 'features/auth/presentation/login_screen.dart';
 import 'features/dashboard/presentation/action_dashboard_screen.dart';
-import 'features/sales/presentation/debiteurs_screen.dart';
+import 'features/tiers/presentation/debiteurs_screen.dart';
 import 'features/stock/presentation/arret_stock_screen.dart';
 import 'features/tiers/presentation/clients_screen.dart';
 import 'features/tiers/presentation/fournisseurs_screen.dart';

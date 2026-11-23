@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/quantis_theme.dart';
 import '../data/tiers_models.dart';
@@ -26,6 +27,11 @@ class _DebiteursScreenState extends State<DebiteursScreen> {
 
   double _totalCreances = 0.0;
   int _nbDebiteurs = 0;
+
+  String _formatAmount(double amount) {
+    final formatted = NumberFormat('#,##0', 'fr_FR').format(amount.round()).replaceAll('\u202F', ' ').replaceAll('\u00A0', ' ');
+    return '$formatted ${ApiClient.entrepriseMonnaie}';
+  }
 
   @override
   void initState() {
@@ -98,7 +104,7 @@ class _DebiteursScreenState extends State<DebiteursScreen> {
   }
 
   void _relancerClient(ClientModel client) {
-    final msg = "Bonjour ${client.nom}, sauf erreur de notre part, votre compte présente un solde restant dû de ${client.soldeCredit.toStringAsFixed(0)} ${ApiClient.entrepriseMonnaie} auprès de ${ApiClient.entrepriseNom}. Merci de bien vouloir régulariser votre situation.";
+    final msg = "Bonjour ${client.nom}, sauf erreur de notre part, votre compte présente un solde restant dû de ${_formatAmount(client.soldeCredit)} auprès de ${ApiClient.entrepriseNom}. Merci de bien vouloir régulariser votre situation.";
     Clipboard.setData(ClipboardData(text: msg));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -137,8 +143,11 @@ class _DebiteursScreenState extends State<DebiteursScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: EdgeInsets.all(isMobile ? 12.0 : 24.0),
+          : RefreshIndicator(
+              onRefresh: _loadDebiteurs,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.all(isMobile ? 12.0 : 24.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -148,36 +157,41 @@ class _DebiteursScreenState extends State<DebiteursScreen> {
                       children: [
                         _buildSummaryCard(
                           'Total Créances à Recouvrer',
-                          '${_totalCreances.toStringAsFixed(0)} ${ApiClient.entrepriseMonnaie}',
+                          _formatAmount(_totalCreances),
                           Icons.account_balance_wallet,
                           QuantisColors.error,
                           'Montant global dû par les clients',
                         ),
                         const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildSummaryCard(
-                                'Clients Débiteurs',
-                                '$_nbDebiteurs clients',
-                                Icons.people_alt,
-                                Colors.amber.shade900,
-                                'Comptes débiteurs',
+                        IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Expanded(
+                                child: _buildSummaryCard(
+                                  'Clients Débiteurs',
+                                  '$_nbDebiteurs ${_nbDebiteurs > 1 ? 'clients' : 'client'}',
+                                  Icons.people_alt,
+                                  Colors.amber.shade900,
+                                  'Comptes débiteurs',
+                                  compact: true,
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: _buildSummaryCard(
-                                'Créance Moyenne',
-                                _nbDebiteurs > 0
-                                    ? '${(_totalCreances / _nbDebiteurs).toStringAsFixed(0)} ${ApiClient.entrepriseMonnaie}'
-                                    : '0 ${ApiClient.entrepriseMonnaie}',
-                                Icons.analytics,
-                                QuantisColors.royalBlue,
-                                'Par client',
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: _buildSummaryCard(
+                                  'Créance Moyenne',
+                                  _nbDebiteurs > 0
+                                      ? _formatAmount(_totalCreances / _nbDebiteurs)
+                                      : _formatAmount(0),
+                                  Icons.analytics,
+                                  QuantisColors.royalBlue,
+                                  'Par client',
+                                  compact: true,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ],
                     )
@@ -187,7 +201,7 @@ class _DebiteursScreenState extends State<DebiteursScreen> {
                         Expanded(
                           child: _buildSummaryCard(
                             'Total Créances à Recouvrer',
-                            '${_totalCreances.toStringAsFixed(0)} ${ApiClient.entrepriseMonnaie}',
+                            _formatAmount(_totalCreances),
                             Icons.account_balance_wallet,
                             QuantisColors.error,
                             'Montant global dû par les clients',
@@ -197,7 +211,7 @@ class _DebiteursScreenState extends State<DebiteursScreen> {
                         Expanded(
                           child: _buildSummaryCard(
                             'Clients Débiteurs',
-                            '$_nbDebiteurs clients',
+                            '$_nbDebiteurs ${_nbDebiteurs > 1 ? 'clients' : 'client'}',
                             Icons.people_alt,
                             Colors.amber.shade900,
                             'Comptes clients à solde débiteur',
@@ -208,8 +222,8 @@ class _DebiteursScreenState extends State<DebiteursScreen> {
                           child: _buildSummaryCard(
                             'Créance Moyenne',
                             _nbDebiteurs > 0
-                                ? '${(_totalCreances / _nbDebiteurs).toStringAsFixed(0)} ${ApiClient.entrepriseMonnaie}'
-                                : '0 ${ApiClient.entrepriseMonnaie}',
+                                ? _formatAmount(_totalCreances / _nbDebiteurs)
+                                : _formatAmount(0),
                             Icons.analytics,
                             QuantisColors.royalBlue,
                             'Moyenne par client débiteur',
@@ -319,7 +333,7 @@ class _DebiteursScreenState extends State<DebiteursScreen> {
                                       crossAxisAlignment: CrossAxisAlignment.end,
                                       children: [
                                         Text(
-                                          '${d.soldeCredit.toStringAsFixed(0)} ${ApiClient.entrepriseMonnaie}',
+                                          _formatAmount(d.soldeCredit),
                                           style: const TextStyle(fontWeight: FontWeight.w900, color: QuantisColors.error, fontSize: 15),
                                         ),
                                         const Text('Dû', style: TextStyle(fontSize: 10, color: QuantisColors.textMuted)),
@@ -435,7 +449,7 @@ class _DebiteursScreenState extends State<DebiteursScreen> {
                                     Expanded(
                                       flex: 3,
                                       child: Text(
-                                        '${d.soldeCredit.toStringAsFixed(0)} ${ApiClient.entrepriseMonnaie}',
+                                        _formatAmount(d.soldeCredit),
                                         textAlign: TextAlign.right,
                                         style: const TextStyle(fontWeight: FontWeight.w900, color: QuantisColors.error, fontSize: 15),
                                       ),
@@ -485,12 +499,13 @@ class _DebiteursScreenState extends State<DebiteursScreen> {
                 ],
               ),
             ),
+          ),
     );
   }
 
-  Widget _buildSummaryCard(String title, String value, IconData icon, Color color, String subtitle) {
+  Widget _buildSummaryCard(String title, String value, IconData icon, Color color, String subtitle, {bool compact = false}) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(compact ? 14 : 20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -499,20 +514,36 @@ class _DebiteursScreenState extends State<DebiteursScreen> {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(title, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.grey.shade700)),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(fontSize: compact ? 12 : 13, fontWeight: FontWeight.w600, color: Colors.grey.shade700),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 6),
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: EdgeInsets.all(compact ? 6 : 8),
                 decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                child: Icon(icon, color: color, size: 20),
+                child: Icon(icon, color: color, size: compact ? 17 : 20),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: color)),
+          const SizedBox(height: 10),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              style: TextStyle(fontSize: compact ? 18 : 22, fontWeight: FontWeight.w900, color: color),
+            ),
+          ),
           const SizedBox(height: 4),
           Text(subtitle, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
         ],

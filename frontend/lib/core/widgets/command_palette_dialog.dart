@@ -8,7 +8,7 @@ import '../../features/stock/presentation/stock_screen.dart';
 import '../../features/documents/presentation/document_detail_screen.dart';
 import '../../features/documents/presentation/documents_screen.dart';
 import '../../features/sales/presentation/pos_screen.dart';
-import '../../features/sales/presentation/debiteurs_screen.dart';
+import '../../features/tiers/presentation/debiteurs_screen.dart';
 import '../../features/produits/presentation/produits_screen.dart';
 import '../../features/reports/presentation/exports_screen.dart';
 
