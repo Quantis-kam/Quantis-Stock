@@ -59,6 +59,12 @@ public class PlatformAdminDto {
         private String adminEmail;
         @NotBlank(message = "Le mot de passe administrateur est obligatoire")
         private String adminMotDePasse;
+
+        /** Optionnel (YYYY-MM-DD) : si absent, initialise automatiquement à Aujourd'hui + 1 mois. */
+        private String dateExpirationLicence;
+
+        /** Optionnel : tarif mensuel personnalisé (défaut 10 100 FCFA). */
+        private Double montantAbonnement;
     }
 
     @Data
@@ -171,6 +177,7 @@ public class PlatformAdminDto {
     public static class LicenceRenewalRequest {
         private Integer nbMois; // par défaut 1
         private String nouvelleDateExpiration; // optionnel (YYYY-MM-DD)
+        private Double montantAbonnement; // optionnel : personnalise le tarif mensuel
         private String referencePaiement; // ex: Orange Money ID
         private String notes;
     }

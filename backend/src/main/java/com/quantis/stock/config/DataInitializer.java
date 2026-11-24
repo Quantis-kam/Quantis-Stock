@@ -610,18 +610,18 @@ public class DataInitializer implements CommandLineRunner {
                     }
                 });
 
-        // Initialisation / mise à jour des licences & abonnements mensuels
+        // Initialisation / mise à jour des licences & abonnements mensuels (10 100 FCFA / mois)
         defaultEntreprise.setDateExpirationLicence(java.time.LocalDate.now().plusMonths(2));
         defaultEntreprise.setStatutLicence("ACTIVE");
-        defaultEntreprise.setMontantAbonnement(20200.0);
-        defaultEntreprise.setCodeUssdRenouvellement("*144*2*1*65189261*20200#");
+        defaultEntreprise.setMontantAbonnement(com.quantis.stock.model.Entreprise.DEFAULT_MONTANT_ABONNEMENT);
+        defaultEntreprise.setCodeUssdRenouvellement(com.quantis.stock.model.Entreprise.DEFAULT_CODE_USSD);
         entrepriseRepository.save(defaultEntreprise);
 
         if (fasoDist != null) {
             fasoDist.setDateExpirationLicence(java.time.LocalDate.now().plusDays(25));
             fasoDist.setStatutLicence("ACTIVE");
-            fasoDist.setMontantAbonnement(20200.0);
-            fasoDist.setCodeUssdRenouvellement("*144*2*1*65189261*20200#");
+            fasoDist.setMontantAbonnement(com.quantis.stock.model.Entreprise.DEFAULT_MONTANT_ABONNEMENT);
+            fasoDist.setCodeUssdRenouvellement(com.quantis.stock.model.Entreprise.DEFAULT_CODE_USSD);
             entrepriseRepository.save(fasoDist);
         }
 
@@ -632,10 +632,10 @@ public class DataInitializer implements CommandLineRunner {
                     // Configuré avec licence expirée pour validation du modal de réabonnement
                     tc.setDateExpirationLicence(java.time.LocalDate.now().minusDays(5));
                     tc.setStatutLicence("EXPIREE");
-                    tc.setMontantAbonnement(20200.0);
-                    tc.setCodeUssdRenouvellement("*144*2*1*65189261*20200#");
+                    tc.setMontantAbonnement(com.quantis.stock.model.Entreprise.DEFAULT_MONTANT_ABONNEMENT);
+                    tc.setCodeUssdRenouvellement(com.quantis.stock.model.Entreprise.DEFAULT_CODE_USSD);
                     entrepriseRepository.save(tc);
-                    log.info("🔑 Licence TechCorp configurée: EXPIREE (Test réabonnement Orange Money *144*2*1*65189261*20200#)");
+                    log.info("🔑 Licence TechCorp configurée: EXPIREE (Test réabonnement Orange Money *144*2*1*65189261*10100#)");
                 });
     }
 }

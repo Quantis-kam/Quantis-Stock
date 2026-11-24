@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../../core/theme/quantis_theme.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/widgets/keyboard_safe_dialog.dart';
 
 class SuperAdminScreen extends StatefulWidget {
   const SuperAdminScreen({super.key});
@@ -893,20 +895,34 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
                         : Colors.blue.shade800,
               ),
               const SizedBox(width: 4),
-              Text(
-                ent['isLicenceValide'] == false
-                    ? 'LICENCE EXPIRÉE (${ent['dateExpirationLicence'] ?? 'Fin de mois'})'
-                    : (ent['joursRestantsLicence'] != null && (ent['joursRestantsLicence'] as num) <= 5)
-                        ? 'EXPIRE DANS ${ent['joursRestantsLicence']}J'
-                        : 'LICENCE ACTIVE (${ent['dateExpirationLicence'] ?? 'Fin de mois'})',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: ent['isLicenceValide'] == false
-                    ? Colors.red.shade900
-                    : (ent['joursRestantsLicence'] != null && (ent['joursRestantsLicence'] as num) <= 5)
-                        ? Colors.amber.shade900
-                        : Colors.blue.shade900,
+              Flexible(
+                child: Text(
+                  () {
+                    final exp = ent['dateExpirationLicence']?.toString();
+                    final jours = (ent['joursRestantsLicence'] as num?)?.toInt();
+                    if (ent['isLicenceValide'] == false) {
+                      return exp != null ? 'EXPIRÉE ($exp)' : 'LICENCE EXPIRÉE';
+                    }
+                    if (jours != null && jours <= 5) {
+                      return jours <= 0
+                          ? 'EXPIRE AUJOURD\'HUI ($exp)'
+                          : 'EXPIRE DANS ${jours}J (${exp ?? ""})';
+                    }
+                    if (jours != null && exp != null) {
+                      return 'ACTIVE • ${jours}j restants ($exp)';
+                    }
+                    return 'LICENCE ACTIVE (${exp ?? 'Auto'})';
+                  }(),
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: ent['isLicenceValide'] == false
+                        ? Colors.red.shade900
+                        : (ent['joursRestantsLicence'] != null && (ent['joursRestantsLicence'] as num) <= 5)
+                            ? Colors.amber.shade900
+                            : Colors.blue.shade900,
+                  ),
                 ),
               ),
             ],
@@ -1254,7 +1270,7 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
                           ),
                           icon: const Icon(Icons.vpn_key_rounded, size: 14),
                           label: Text(
-                            ent['isLicenceValide'] == false ? 'Réactiver Licence' : 'Prolonger (+1M)',
+                            ent['isLicenceValide'] == false ? 'Réactiver Licence' : 'Gérer Licence',
                             style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
                           ),
                           onPressed: () => _showRenewLicenceDialog(ent),
@@ -1343,7 +1359,7 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
                       ),
                       icon: const Icon(Icons.vpn_key_rounded, size: 15),
                       label: Text(
-                        ent['isLicenceValide'] == false ? 'Réactiver Licence' : 'Prolonger (+1M)',
+                        ent['isLicenceValide'] == false ? 'Réactiver Licence' : 'Gérer Licence / Date',
                         style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                       ),
                       onPressed: () => _showRenewLicenceDialog(ent),
@@ -1492,6 +1508,30 @@ class _CreateEntrepriseDialogState extends State<_CreateEntrepriseDialog> {
   final _adminEmailController = TextEditingController();
   final _adminMotDePasseController = TextEditingController(text: 'Admin@2026');
 
+  // Abonnement (décompte auto dès aujourd'hui +1 mois, personnalisable)
+  DateTime? _customExpirationDate;
+
+  DateTime get _defaultAutoExpiration {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month + 1, now.day);
+  }
+
+  String _isoDate(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
+
+  Future<void> _pickCustomExpiration() async {
+    final initial = _customExpirationDate ?? _defaultAutoExpiration;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(2024),
+      lastDate: DateTime(2035),
+      helpText: 'Date d\'expiration de l\'abonnement',
+    );
+    if (picked != null && mounted) {
+      setState(() => _customExpirationDate = picked);
+    }
+  }
+
   @override
   void dispose() {
     _nomController.dispose();
@@ -1529,6 +1569,8 @@ class _CreateEntrepriseDialogState extends State<_CreateEntrepriseDialog> {
         'adminPrenom': _adminPrenomController.text.trim(),
         'adminEmail': _adminEmailController.text.trim(),
         'adminMotDePasse': _adminMotDePasseController.text.trim(),
+        if (_customExpirationDate != null)
+          'dateExpirationLicence': _isoDate(_customExpirationDate!),
       };
 
       await ApiClient.instance.post('/platform/entreprises', data: payload);
@@ -1876,6 +1918,71 @@ class _CreateEntrepriseDialogState extends State<_CreateEntrepriseDialog> {
                           border: OutlineInputBorder(),
                         ),
                         validator: (v) => (v == null || v.length < 6) ? 'Min 6 caractères' : null,
+                      ),
+                      const SizedBox(height: 20),
+                      const Text(
+                        '3. Abonnement & Échéance',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: QuantisColors.royalBlue),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.blue.shade200),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.calendar_month_rounded, size: 18, color: QuantisColors.royalBlue),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _customExpirationDate == null
+                                        ? 'Automatique dès aujourd\'hui (+1 mois → ${_isoDate(_defaultAutoExpiration)})'
+                                        : 'Date personnalisée : ${_isoDate(_customExpirationDate!)}',
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.blue.shade900,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Tarif standard : 10 100 FCFA / mois (*144*2*1*65189261*10100#)',
+                              style: TextStyle(fontSize: 11, color: Colors.blue.shade800),
+                            ),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 6,
+                              children: [
+                                OutlinedButton.icon(
+                                  onPressed: _pickCustomExpiration,
+                                  icon: const Icon(Icons.edit_calendar_rounded, size: 15),
+                                  label: const Text('Personnaliser la date', style: TextStyle(fontSize: 12)),
+                                  style: OutlinedButton.styleFrom(
+                                    backgroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  ),
+                                ),
+                                if (_customExpirationDate != null)
+                                  TextButton.icon(
+                                    onPressed: () => setState(() => _customExpirationDate = null),
+                                    icon: const Icon(Icons.restore, size: 15),
+                                    label: const Text('Revenir à +1 mois auto', style: TextStyle(fontSize: 12)),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -2830,17 +2937,76 @@ class _RenewLicenceDialog extends StatefulWidget {
 }
 
 class _RenewLicenceDialogState extends State<_RenewLicenceDialog> {
+  static const int _defaultTarifMensuel = 10100;
+  static const String _defaultUssd = '*144*2*1*65189261*10100#';
+
+  bool _useCustomDate = false;
   int _nbMois = 1;
+  late DateTime _customDate;
   final _refController = TextEditingController();
   final _notesController = TextEditingController();
   bool _isSaving = false;
   String? _error;
+
+  int get _tarifMensuel {
+    final raw = (widget.entreprise['montantAbonnement'] as num?)?.round();
+    return (raw != null && raw > 0) ? raw : _defaultTarifMensuel;
+  }
+
+  String get _ussdCode {
+    final raw = widget.entreprise['codeUssdRenouvellement']?.toString();
+    return (raw != null && raw.trim().isNotEmpty) ? raw.trim() : _defaultUssd;
+  }
+
+  String _formatFcfa(num amount) {
+    return NumberFormat('#,##0', 'fr_FR')
+        .format(amount.round())
+        .replaceAll('\u202F', ' ')
+        .replaceAll('\u00A0', ' ');
+  }
+
+  String _isoDate(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
+
+  DateTime? _parseCurrentExpiration() {
+    final raw = widget.entreprise['dateExpirationLicence']?.toString();
+    if (raw == null || raw.isEmpty) return null;
+    return DateTime.tryParse(raw);
+  }
+
+  DateTime get _previewProlongationDate {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final cur = _parseCurrentExpiration();
+    final base = (cur == null || cur.isBefore(today)) ? today : cur;
+    return DateTime(base.year, base.month + _nbMois, base.day);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final cur = _parseCurrentExpiration();
+    final now = DateTime.now();
+    _customDate = cur ?? DateTime(now.year, now.month + 1, now.day);
+  }
 
   @override
   void dispose() {
     _refController.dispose();
     _notesController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _customDate,
+      firstDate: DateTime(2024),
+      lastDate: DateTime(2035),
+      helpText: 'Choisir la date d\'expiration exacte',
+    );
+    if (picked != null && mounted) {
+      setState(() => _customDate = picked);
+    }
   }
 
   Future<void> _submit() async {
@@ -2850,30 +3016,39 @@ class _RenewLicenceDialogState extends State<_RenewLicenceDialog> {
     });
 
     try {
+      final Map<String, dynamic> payload = {
+        if (_useCustomDate)
+          'nouvelleDateExpiration': _isoDate(_customDate)
+        else
+          'nbMois': _nbMois,
+        'referencePaiement': _refController.text.trim().isNotEmpty
+            ? _refController.text.trim()
+            : (_useCustomDate
+                ? 'Ajustement manuel Super-Admin (échéance ${_isoDate(_customDate)})'
+                : 'Paiement USSD $_ussdCode ($_nbMois mois)'),
+        'notes': _notesController.text.trim(),
+      };
+
       final res = await ApiClient.instance.post(
         '/platform/entreprises/${widget.entreprise['id']}/renew-licence',
-        data: {
-          'nbMois': _nbMois,
-          'referencePaiement': _refController.text.trim().isNotEmpty
-              ? _refController.text.trim()
-              : 'Paiement USSD *144*2*1*65189261*20200# ($_nbMois mois)',
-          'notes': _notesController.text.trim(),
-        },
+        data: payload,
       );
 
       if (mounted) {
         Navigator.pop(context);
         widget.onSuccess();
         final String newDate = res.data is Map && res.data['data'] != null
-            ? (res.data['data']['dateExpirationLicence'] ?? 'fin de mois')
-            : 'prochain mois';
+            ? (res.data['data']['dateExpirationLicence'] ?? _isoDate(_customDate))
+            : _isoDate(_useCustomDate ? _customDate : _previewProlongationDate);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
               children: [
                 const Icon(Icons.verified, color: Colors.white),
                 const SizedBox(width: 8),
-                Text('Licence de ${widget.entreprise['nom']} renouvelée jusqu\'au $newDate !'),
+                Expanded(
+                  child: Text('Licence de ${widget.entreprise['nom']} réglée jusqu\'au $newDate !'),
+                ),
               ],
             ),
             backgroundColor: Colors.green.shade800,
@@ -2883,7 +3058,7 @@ class _RenewLicenceDialogState extends State<_RenewLicenceDialog> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = 'Erreur: $e';
+          _error = ApiClient.formatErrorMessage(e, fallback: 'Erreur lors de la mise à jour de la licence.');
           _isSaving = false;
         });
       }
@@ -2893,140 +3068,318 @@ class _RenewLicenceDialogState extends State<_RenewLicenceDialog> {
   @override
   Widget build(BuildContext context) {
     final ent = widget.entreprise;
-    final String currentExp = ent['dateExpirationLicence'] ?? 'Expirée';
-    final int tarifTotal = _nbMois * 20200;
+    final String currentExp = ent['dateExpirationLicence']?.toString() ?? 'Non définie';
+    final int? joursRestants = (ent['joursRestantsLicence'] as num?)?.toInt();
+    final int tarifTotal = _nbMois * _tarifMensuel;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final bool customIsExpired = _customDate.isBefore(today);
 
-    return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: Row(
+    return KeyboardSafeDialog(
+      desktopWidth: 500,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: QuantisColors.luxuryGold.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(Icons.vpn_key_rounded, color: QuantisColors.royalBlue, size: 24),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Renouveler la Licence / Abonnement', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-                Text(ent['nom'] ?? 'Entreprise', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-              ],
-            ),
-          ),
-        ],
-      ),
-      content: SizedBox(
-        width: 480,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
+                  color: QuantisColors.luxuryGold.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.blue.shade200),
                 ),
-                child: Row(
+                child: const Icon(Icons.vpn_key_rounded, color: QuantisColors.royalBlue, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.info_outline, color: QuantisColors.royalBlue, size: 20),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'Échéance actuelle : $currentExp\nTarif standard : 20 200 FCFA / mois (*144*2*1*65189261*20200#)',
-                        style: TextStyle(fontSize: 12, color: Colors.blue.shade900),
-                      ),
-                    ),
+                    const Text('Licence & Échéance Abonnement', style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.bold)),
+                    Text(ent['nom'] ?? 'Entreprise', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
-              if (_error != null) ...[
-                Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 12)),
-                const SizedBox(height: 8),
+              IconButton(
+                icon: const Icon(Icons.close, size: 20),
+                onPressed: _isSaving ? null : () => Navigator.pop(context),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.blue.shade200),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.info_outline, color: QuantisColors.royalBlue, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Échéance actuelle : $currentExp${joursRestants != null ? (joursRestants >= 0 ? " ($joursRestants jour${joursRestants > 1 ? 's' : ''} restant${joursRestants > 1 ? 's' : ''})" : " (expirée depuis ${joursRestants.abs()} j)") : ""}\n'
+                    'Tarif mensuel : ${_formatFcfa(_tarifMensuel)} FCFA / mois ($_ussdCode)',
+                    style: TextStyle(fontSize: 12, color: Colors.blue.shade900),
+                  ),
+                ),
               ],
-              const Text('Durée du renouvellement :', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-              const SizedBox(height: 6),
-              DropdownButtonFormField<int>(
-                value: _nbMois,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                ),
-                items: const [
-                  DropdownMenuItem(value: 1, child: Text('1 Mois (20 200 FCFA)')),
-                  DropdownMenuItem(value: 2, child: Text('2 Mois (40 400 FCFA)')),
-                  DropdownMenuItem(value: 3, child: Text('1 Trimestre / 3 Mois (60 600 FCFA)')),
-                  DropdownMenuItem(value: 6, child: Text('Semestre / 6 Mois (121 200 FCFA)')),
-                  DropdownMenuItem(value: 12, child: Text('Année complète / 12 Mois (242 400 FCFA)')),
-                ],
-                onChanged: (v) => setState(() => _nbMois = v ?? 1),
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          if (_error != null) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.shade300),
               ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: _refController,
-                decoration: const InputDecoration(
-                  labelText: 'Réf. Paiement Orange Money / N° Téléphone',
-                  hintText: 'Ex: OM-2026-987654 ou +226 70 00 00 00',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.receipt_outlined),
-                ),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: _notesController,
-                decoration: const InputDecoration(
-                  labelText: 'Commentaire Super-Admin (Optionnel)',
-                  hintText: 'Ex: Paiement validé par Orange Money',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.note_alt_outlined),
+              child: Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 12)),
+            ),
+            const SizedBox(height: 10),
+          ],
+
+          // Sélecteur de mode : Prolonger par mois OU Date exacte personnalisée
+          Row(
+            children: [
+              Expanded(
+                child: ChoiceChip(
+                  label: const Center(child: Text('Prolonger (+mois)')),
+                  selected: !_useCustomDate,
+                  selectedColor: QuantisColors.royalBlue,
+                  labelStyle: TextStyle(
+                    color: !_useCustomDate ? Colors.white : Colors.black87,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                  onSelected: (_) => setState(() => _useCustomDate = false),
                 ),
               ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('Montant total confirmé :', style: TextStyle(fontWeight: FontWeight.w600)),
-                    Text(
-                      '$tarifTotal FCFA',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF059669)),
-                    ),
-                  ],
+              const SizedBox(width: 8),
+              Expanded(
+                child: ChoiceChip(
+                  label: const Center(child: Text('Date personnalisée')),
+                  selected: _useCustomDate,
+                  selectedColor: QuantisColors.royalBlue,
+                  labelStyle: TextStyle(
+                    color: _useCustomDate ? Colors.white : Colors.black87,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                  onSelected: (_) => setState(() => _useCustomDate = true),
                 ),
               ),
             ],
           ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: _isSaving ? null : () => Navigator.pop(context),
-          child: const Text('Annuler'),
-        ),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF059669),
-            foregroundColor: Colors.white,
+          const SizedBox(height: 14),
+
+          if (!_useCustomDate) ...[
+            const Text('Durée du renouvellement :', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+            const SizedBox(height: 6),
+            DropdownButtonFormField<int>(
+              value: _nbMois,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              ),
+              items: [1, 2, 3, 6, 12].map((m) {
+                final labelMois = switch (m) {
+                  1 => '1 Mois',
+                  3 => '1 Trimestre (3 Mois)',
+                  6 => 'Semestre (6 Mois)',
+                  12 => 'Année complète (12 Mois)',
+                  _ => '$m Mois',
+                };
+                return DropdownMenuItem(
+                  value: m,
+                  child: Text('$labelMois (${_formatFcfa(m * _tarifMensuel)} FCFA)'),
+                );
+              }).toList(),
+              onChanged: (v) => setState(() => _nbMois = v ?? 1),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.green.shade200),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Nouvelle échéance :', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5)),
+                  Text(
+                    _isoDate(_previewProlongationDate),
+                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Colors.green.shade900),
+                  ),
+                ],
+              ),
+            ),
+          ] else ...[
+            const Text('Régler la date d\'expiration exacte :', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+            const SizedBox(height: 8),
+            InkWell(
+              onTap: _pickDate,
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: customIsExpired ? Colors.red.shade50 : Colors.indigo.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: customIsExpired ? Colors.red.shade300 : Colors.indigo.shade300),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.edit_calendar_rounded,
+                      color: customIsExpired ? Colors.red.shade700 : QuantisColors.royalBlue,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _isoDate(_customDate),
+                            style: TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 16,
+                              color: customIsExpired ? Colors.red.shade900 : QuantisColors.royalBlue,
+                            ),
+                          ),
+                          Text(
+                            customIsExpired
+                                ? 'Date passée : la licence sera marquée EXPIRÉE'
+                                : 'Active (${_customDate.difference(today).inDays} jour(s) à partir d\'aujourd\'hui)',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: customIsExpired ? Colors.red.shade700 : Colors.indigo.shade800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.arrow_drop_down),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                ActionChip(
+                  label: const Text('+7 jours', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
+                  onPressed: () => setState(() => _customDate = today.add(const Duration(days: 7))),
+                ),
+                ActionChip(
+                  label: const Text('+15 jours', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
+                  onPressed: () => setState(() => _customDate = today.add(const Duration(days: 15))),
+                ),
+                ActionChip(
+                  label: const Text('+1 mois', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
+                  onPressed: () => setState(() => _customDate = DateTime(today.year, today.month + 1, today.day)),
+                ),
+                ActionChip(
+                  avatar: const Icon(Icons.block, size: 14, color: Colors.red),
+                  label: const Text('Expirer (Hier)', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Colors.red)),
+                  onPressed: () => setState(() => _customDate = today.subtract(const Duration(days: 1))),
+                ),
+              ],
+            ),
+          ],
+
+          const SizedBox(height: 14),
+          EnsureVisibleWhenFocused(
+            child: TextField(
+              controller: _refController,
+              scrollPadding: const EdgeInsets.only(top: 24, bottom: 160),
+              decoration: const InputDecoration(
+                labelText: 'Réf. Paiement Orange Money / Motif (Optionnel)',
+                hintText: 'Ex: OM-2026-987654 ou Geste commercial',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.receipt_outlined),
+              ),
+            ),
           ),
-          onPressed: _isSaving ? null : _submit,
-          child: _isSaving
-              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-              : const Text('Valider & Réactiver la Licence'),
-        ),
-      ],
+          const SizedBox(height: 12),
+          EnsureVisibleWhenFocused(
+            child: TextField(
+              controller: _notesController,
+              scrollPadding: const EdgeInsets.only(top: 24, bottom: 160),
+              decoration: const InputDecoration(
+                labelText: 'Commentaire Super-Admin (Optionnel)',
+                hintText: 'Ex: Paiement validé / Date ajustée suite incident',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.note_alt_outlined),
+              ),
+            ),
+          ),
+
+          if (!_useCustomDate) ...[
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Montant total confirmé :', style: TextStyle(fontWeight: FontWeight.w600)),
+                  Text(
+                    '${_formatFcfa(tarifTotal)} FCFA',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF059669)),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 18),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: _isSaving ? null : () => Navigator.pop(context),
+                child: const Text('Annuler'),
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: (_useCustomDate && customIsExpired) ? Colors.red.shade700 : const Color(0xFF059669),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  ),
+                  onPressed: _isSaving ? null : _submit,
+                  icon: _isSaving
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : Icon(_useCustomDate ? Icons.event_available_rounded : Icons.verified_rounded, size: 18),
+                  label: Text(
+                    _useCustomDate ? 'Enregistrer cette date' : 'Valider & Réactiver',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

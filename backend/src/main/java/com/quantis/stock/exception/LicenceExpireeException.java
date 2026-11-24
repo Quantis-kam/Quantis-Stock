@@ -20,7 +20,7 @@ public class LicenceExpireeException extends RuntimeException {
         super("L'abonnement de l'entreprise " + entrepriseNom + " a expiré le " + (dateExpiration != null ? dateExpiration.toString() : "fin de mois") + ".");
         this.entrepriseNom = entrepriseNom;
         this.dateExpiration = dateExpiration;
-        this.codeUssd = codeUssd != null ? codeUssd : "*144*2*1*65189261*20200#";
-        this.montant = montant != null ? montant : 20200.0;
+        this.codeUssd = codeUssd != null ? codeUssd : com.quantis.stock.model.Entreprise.DEFAULT_CODE_USSD;
+        this.montant = montant != null ? montant : com.quantis.stock.model.Entreprise.DEFAULT_MONTANT_ABONNEMENT;
     }
 }

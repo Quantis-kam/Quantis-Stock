@@ -75,6 +75,9 @@ public class Entreprise {
     @Column(name = "est_actif", nullable = false)
     private Boolean estActif = true;
 
+    public static final double DEFAULT_MONTANT_ABONNEMENT = 10100.0;
+    public static final String DEFAULT_CODE_USSD = "*144*2*1*65189261*10100#";
+
     // --- Système de Licence & Abonnement Mensuel ---
     @Column(name = "date_expiration_licence")
     private java.time.LocalDate dateExpirationLicence;
@@ -85,11 +88,27 @@ public class Entreprise {
 
     @Builder.Default
     @Column(name = "montant_abonnement")
-    private Double montantAbonnement = 20200.0;
+    private Double montantAbonnement = DEFAULT_MONTANT_ABONNEMENT;
 
     @Builder.Default
     @Column(name = "code_ussd_renouvellement", length = 50)
-    private String codeUssdRenouvellement = "*144*2*1*65189261*20200#";
+    private String codeUssdRenouvellement = DEFAULT_CODE_USSD;
+
+    @PrePersist
+    protected void initDefaultLicenceOnCreate() {
+        if (dateExpirationLicence == null) {
+            dateExpirationLicence = java.time.LocalDate.now().plusMonths(1);
+        }
+        if (statutLicence == null || statutLicence.isBlank()) {
+            statutLicence = dateExpirationLicence.isBefore(java.time.LocalDate.now()) ? "EXPIREE" : "ACTIVE";
+        }
+        if (montantAbonnement == null || montantAbonnement <= 0) {
+            montantAbonnement = DEFAULT_MONTANT_ABONNEMENT;
+        }
+        if (codeUssdRenouvellement == null || codeUssdRenouvellement.isBlank()) {
+            codeUssdRenouvellement = DEFAULT_CODE_USSD;
+        }
+    }
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)

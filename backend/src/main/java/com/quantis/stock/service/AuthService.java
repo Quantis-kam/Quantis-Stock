@@ -252,7 +252,7 @@ public class AuthService {
                         .permissions(permissions)
                         .dateExpirationLicence(entreprise != null && entreprise.getDateExpirationLicence() != null ? entreprise.getDateExpirationLicence().toString() : null)
                         .statutLicence(entreprise != null ? entreprise.getStatutLicence() : "ACTIVE")
-                        .codeUssdRenouvellement(entreprise != null ? entreprise.getCodeUssdRenouvellement() : "*144*2*1*65189261*20200#")
+                        .codeUssdRenouvellement(entreprise != null ? entreprise.getCodeUssdRenouvellement() : com.quantis.stock.model.Entreprise.DEFAULT_CODE_USSD)
                         .build())
                 .build();
     }

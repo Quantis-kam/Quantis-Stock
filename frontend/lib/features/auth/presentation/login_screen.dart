@@ -411,11 +411,21 @@ class _LicenceRenewalDialogState extends State<_LicenceRenewalDialog> {
     final isMobile = screenWidth < 600;
 
     final nom = widget.data['entrepriseNom'] ?? 'Votre Entreprise';
-    final codeUssd = widget.data['codeUssd'] ?? '*144*2*1*65189261*20200#';
-    final dateExp = widget.data['dateExpiration'] ?? 'Fin de mois';
+    final codeUssd = widget.data['codeUssd'] ?? '*144*2*1*65189261*10100#';
+    final dateExp = widget.data['dateExpiration'] ?? 'Fin de période';
+    String formatFcfa(num v) {
+      final s = v.round().toString();
+      final buf = StringBuffer();
+      for (var i = 0; i < s.length; i++) {
+        final pos = s.length - i;
+        buf.write(s[i]);
+        if (pos > 1 && pos % 3 == 1) buf.write(' ');
+      }
+      return '${buf.toString()} FCFA';
+    }
     final montant = widget.data['montant'] != null
-        ? '${(widget.data['montant'] as num).toStringAsFixed(0)} FCFA'
-        : '20 200 FCFA';
+        ? formatFcfa(widget.data['montant'] as num)
+        : '10 100 FCFA';
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),

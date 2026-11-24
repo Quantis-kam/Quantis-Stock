@@ -85,7 +85,18 @@ public class PlatformAdminService {
             throw new BusinessException("Un utilisateur avec l'email '" + request.getAdminEmail() + "' existe déjà.");
         }
 
-        // 1. Création de l'entreprise
+        // 1. Création de l'entreprise avec décompte d'abonnement automatique dès le jour de création (+1 mois)
+        // ou date personnalisée par le Super-Admin
+        java.time.LocalDate today = java.time.LocalDate.now();
+        java.time.LocalDate dateExpiration = (request.getDateExpirationLicence() != null && !request.getDateExpirationLicence().isBlank())
+                ? java.time.LocalDate.parse(request.getDateExpirationLicence().trim())
+                : today.plusMonths(1);
+        double montantAbonnement = (request.getMontantAbonnement() != null && request.getMontantAbonnement() > 0)
+                ? request.getMontantAbonnement()
+                : Entreprise.DEFAULT_MONTANT_ABONNEMENT;
+        String codeUssd = "*144*2*1*65189261*" + Math.round(montantAbonnement) + "#";
+        String statutLicence = dateExpiration.isBefore(today) ? "EXPIREE" : "ACTIVE";
+
         Entreprise entreprise = Entreprise.builder()
                 .nom(request.getNom())
                 .nif(request.getNif())
@@ -96,6 +107,10 @@ public class PlatformAdminService {
                 .monnaie(request.getMonnaie() != null && !request.getMonnaie().isBlank() ? request.getMonnaie() : "FCFA")
                 .formatFacture(request.getFormatFacture() != null && !request.getFormatFacture().isBlank() ? request.getFormatFacture() : "FAC-{YYYY}-{NNNNN}")
                 .estActif(true)
+                .dateExpirationLicence(dateExpiration)
+                .statutLicence(statutLicence)
+                .montantAbonnement(montantAbonnement)
+                .codeUssdRenouvellement(codeUssd)
                 .build();
         entreprise = entrepriseRepository.save(entreprise);
 
@@ -272,30 +287,44 @@ public class PlatformAdminService {
                 .orElseThrow(() -> new ResourceNotFoundException("Entreprise", "id", id));
 
         int nbMois = (request != null && request.getNbMois() != null && request.getNbMois() > 0) ? request.getNbMois() : 1;
+        java.time.LocalDate today = java.time.LocalDate.now();
         java.time.LocalDate nouvelleDate;
 
         if (request != null && request.getNouvelleDateExpiration() != null && !request.getNouvelleDateExpiration().isBlank()) {
-            nouvelleDate = java.time.LocalDate.parse(request.getNouvelleDateExpiration());
+            nouvelleDate = java.time.LocalDate.parse(request.getNouvelleDateExpiration().trim());
         } else {
             java.time.LocalDate baseDate = entreprise.getDateExpirationLicence();
-            if (baseDate == null || baseDate.isBefore(java.time.LocalDate.now())) {
-                baseDate = java.time.LocalDate.now();
+            if (baseDate == null || baseDate.isBefore(today)) {
+                baseDate = today;
             }
             nouvelleDate = baseDate.plusMonths(nbMois);
-            nouvelleDate = nouvelleDate.withDayOfMonth(nouvelleDate.lengthOfMonth());
         }
 
+        if (request != null && request.getMontantAbonnement() != null && request.getMontantAbonnement() > 0) {
+            entreprise.setMontantAbonnement(request.getMontantAbonnement());
+            entreprise.setCodeUssdRenouvellement("*144*2*1*65189261*" + Math.round(request.getMontantAbonnement()) + "#");
+        }
+
+        boolean expiree = nouvelleDate.isBefore(today);
         entreprise.setDateExpirationLicence(nouvelleDate);
-        entreprise.setStatutLicence("ACTIVE");
-        entreprise.setEstActif(true);
+        entreprise.setStatutLicence(expiree ? "EXPIREE" : "ACTIVE");
+        if (!expiree) {
+            entreprise.setEstActif(true);
+        }
         entreprise = entrepriseRepository.save(entreprise);
 
+        long tarifMensuel = Math.round(entreprise.getMontantAbonnement() != null
+                ? entreprise.getMontantAbonnement()
+                : Entreprise.DEFAULT_MONTANT_ABONNEMENT);
+        String ussd = entreprise.getCodeUssdRenouvellement() != null
+                ? entreprise.getCodeUssdRenouvellement()
+                : Entreprise.DEFAULT_CODE_USSD;
         String ref = (request != null && request.getReferencePaiement() != null && !request.getReferencePaiement().isBlank())
                 ? request.getReferencePaiement()
-                : "Paiement USSD *144*2*1*65189261*20200# (20 200 FCFA)";
+                : "Paiement USSD " + ussd + " (" + tarifMensuel + " FCFA)";
 
         auditService.logAction("LICENCE_RENEWAL", "Entreprise", entreprise.getId(),
-                "Renouvellement licence de l'entreprise " + entreprise.getNom() + " jusqu'au " + nouvelleDate + " (Ref: " + ref + ")");
+                "Mise à jour licence de l'entreprise " + entreprise.getNom() + " jusqu'au " + nouvelleDate + " (Ref: " + ref + ")");
 
         log.info("Licence de l'entreprise {} (ID: {}) renouvelée jusqu'au {} par Super Admin",
                 entreprise.getNom(), entreprise.getId(), nouvelleDate);
