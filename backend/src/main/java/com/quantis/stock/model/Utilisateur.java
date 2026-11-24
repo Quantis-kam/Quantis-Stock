@@ -46,6 +46,15 @@ public class Utilisateur {
     @Column(name = "mot_de_passe_hash", nullable = false)
     private String motDePasseHash;
 
+    /** Code PIN rapide à 4 chiffres rattaché au compte (hashé BCrypt, jamais exposé). */
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @Column(name = "pin_hash", length = 255)
+    private String pinHash;
+
+    public boolean hasPinConfigured() {
+        return pinHash != null && !pinHash.isBlank();
+    }
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private Role role;

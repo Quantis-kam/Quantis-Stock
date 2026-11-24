@@ -68,4 +68,26 @@ public class AuthController {
         }
         return ResponseEntity.ok(ApiResponse.success("Déconnexion réussie", null));
     }
+
+    /**
+     * POST /auth/pin — Créer ou modifier le code PIN à 4 chiffres rattaché au compte
+     */
+    @PostMapping("/pin")
+    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> setPin(
+            @Valid @RequestBody PinRequest request,
+            org.springframework.security.core.Authentication auth) {
+        java.util.Map<String, Object> res = authService.setUserPin(auth.getName(), request.getPin());
+        return ResponseEntity.ok(ApiResponse.success("Code PIN enregistré sur votre compte", res));
+    }
+
+    /**
+     * POST /auth/pin/verify — Vérifier le code PIN à 4 chiffres rattaché au compte
+     */
+    @PostMapping("/pin/verify")
+    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> verifyPin(
+            @Valid @RequestBody PinRequest request,
+            org.springframework.security.core.Authentication auth) {
+        java.util.Map<String, Object> res = authService.verifyUserPin(auth.getName(), request.getPin());
+        return ResponseEntity.ok(ApiResponse.success(res));
+    }
 }

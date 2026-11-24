@@ -185,4 +185,56 @@ void main() {
     ApiClient.clearToken();
     await tester.pump();
   });
+
+  testWidgets('Compte ayant déjà un PIN côté serveur : ne redemande PAS de créer un PIN sur un nouvel appareil', (tester) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    const validJwt =
+        'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJzYWxpZkBib3V0aXF1ZS5iZiIsImV4cCI6NDcwMDAwMDAwMH0.sig';
+
+    // Simule une connexion par email + mot de passe sur un nouvel appareil (aucun PIN en cache local),
+    // mais le backend retourne hasPin = true car le PIN est déjà rattaché au compte.
+    ApiClient.clearToken();
+    await tester.pumpWidget(const ProviderScope(child: QuantisStockApp()));
+    await tester.pump();
+
+    await ApiClient.saveTokens(validJwt, validJwt);
+    await ApiClient.setUserInfo(
+      'ADMIN',
+      'Salif Ouédraogo',
+      'salif@boutique.bf',
+      [],
+      isSuperAdmin: false,
+      hasPin: true,
+      notifyAuth: false,
+    );
+    await ApiClient.refreshQuickPinStatus();
+    if (!ApiClient.hasQuickPin) {
+      ApiClient.pendingPinSetupPrompt = true;
+    }
+    ApiClient.authStateNotifier.value = true;
+
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+
+    // Doit entrer directement sur MainShell sans JAMAIS redemander de créer un PIN
+    expect(ApiClient.hasQuickPin, isTrue);
+    expect(ApiClient.accountHasPin, isTrue);
+    expect(find.byType(MainShell), findsOneWidget);
+    expect(find.byType(PinSetupDialog), findsNothing);
+
+    // À la réouverture suivante sur ce nouvel appareil -> demande uniquement le code PIN
+    await ApiClient.initialize();
+    await tester.pump();
+    expect(find.byType(PinLockScreen), findsOneWidget);
+    expect(find.byType(LoginScreen), findsNothing);
+
+    ApiClient.clearToken();
+    await tester.pump();
+  });
 }

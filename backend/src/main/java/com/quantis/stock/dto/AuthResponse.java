@@ -36,6 +36,7 @@ public class AuthResponse {
         private java.math.BigDecimal tauxTvaDefaut;
         private Boolean suiviPrixAchat;
         private Boolean isSuperAdmin;
+        private Boolean hasPin;
         private java.util.List<String> permissions;
         private String dateExpirationLicence;
         private String statutLicence;

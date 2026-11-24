@@ -39,6 +39,7 @@ class ApiClient {
   static bool _suiviPrixAchat = true;
   static bool _isSuperAdmin = false;
   static bool _hasQuickPin = false;
+  static bool _accountHasPin = false;
   static List<String> _userPermissions = [];
   static List<String> _recentServerUrls = [];
   static Future<bool>? _activeRefreshFuture;
@@ -96,7 +97,74 @@ class ApiClient {
   }
 
   static Future<void> refreshQuickPinStatus() async {
-    _hasQuickPin = await PinService.instance.hasPin(_userEmail);
+    final hasLocal = await PinService.instance.hasPin(_userEmail);
+    _hasQuickPin = _accountHasPin || hasLocal;
+  }
+
+  /// Enregistre le code PIN (4 chiffres) sur le compte utilisateur côté serveur (BCrypt).
+  /// Retourne `true` si la synchronisation serveur a réussi, `false` en mode hors-ligne.
+  static Future<bool> saveAccountPin(String pin) async {
+    if (!isAuthenticated || !PinService.isValidPinFormat(pin)) return false;
+    try {
+      await refreshSessionIfNeeded();
+      final res = await instance.post(
+        '/auth/pin',
+        data: {'pin': pin},
+        options: Options(
+          sendTimeout: const Duration(seconds: 10),
+          receiveTimeout: const Duration(seconds: 10),
+        ),
+      );
+      if (res.statusCode == 200 && res.data is Map && (res.data as Map)['success'] == true) {
+        _accountHasPin = true;
+        _hasQuickPin = true;
+        await _writeStorage('account_has_pin', 'true');
+        return true;
+      }
+    } catch (e) {
+      debugPrint('Notice saveAccountPin (mode hors-ligne ou indisponible): $e');
+    }
+    return false;
+  }
+
+  /// Vérifie le code PIN côté serveur (source de vérité multi-appareils).
+  /// Retourne `true` (valide), `false` (incorrect), ou `null` si serveur hors-ligne
+  /// ou compte pas encore migré (dans ce cas le client retombe sur le cache local).
+  static Future<bool?> verifyAccountPin(String pin) async {
+    if (!isAuthenticated || !PinService.isValidPinFormat(pin)) return null;
+    try {
+      await refreshSessionIfNeeded();
+      if (!isAuthenticated) return null;
+      final res = await instance.post(
+        '/auth/pin/verify',
+        data: {'pin': pin},
+        options: Options(
+          sendTimeout: const Duration(seconds: 8),
+          receiveTimeout: const Duration(seconds: 8),
+        ),
+      );
+      if (res.statusCode == 200 && res.data is Map) {
+        final data = (res.data as Map)['data'];
+        if (data is Map && data['valid'] is bool) {
+          final serverHasPin = data['hasPin'] == true;
+          _accountHasPin = serverHasPin;
+          await _writeStorage('account_has_pin', serverHasPin ? 'true' : 'false');
+          if (!serverHasPin) {
+            return null;
+          }
+          return data['valid'] as bool;
+        }
+      }
+    } catch (e) {
+      debugPrint('Notice verifyAccountPin (fallback local): $e');
+    }
+    return null;
+  }
+
+  /// Migre silencieusement un ancien PIN purement local vers le compte serveur.
+  static Future<void> syncLocalPinToAccountIfNeeded(String pin) async {
+    if (_accountHasPin || !isAuthenticated || !PinService.isValidPinFormat(pin)) return;
+    await saveAccountPin(pin);
   }
 
   /// Verrouille l'application avec le code PIN rapide sans perdre la session ni l'écran courant.
@@ -231,7 +299,8 @@ class ApiClient {
 
       // Contrôle strict de l'expiration / verrouillage PIN au démarrage (app fermée / rouverte)
       if (_accessToken != null || _refreshToken != null) {
-        _hasQuickPin = await PinService.instance.hasPin(_userEmail);
+        _accountHasPin = (await _readStorage('account_has_pin')) == 'true';
+        _hasQuickPin = _accountHasPin || await PinService.instance.hasPin(_userEmail);
         final lastActivity = await readLastActivity();
         final isInactiveTooLong = lastActivity == null ||
             DateTime.now().difference(lastActivity) >=
@@ -339,6 +408,11 @@ class ApiClient {
             tauxTvaDefaut: (refreshedUser['tauxTvaDefaut'] as num?)?.toDouble(),
             suiviPrixAchat: refreshedUser['suiviPrixAchat'] as bool?,
           );
+          if (refreshedUser['hasPin'] is bool) {
+            _accountHasPin = refreshedUser['hasPin'] as bool;
+            if (_accountHasPin) _hasQuickPin = true;
+            await _writeStorage('account_has_pin', _accountHasPin ? 'true' : 'false');
+          }
         }
         completer.complete(newAccessToken != null && newAccessToken.isNotEmpty);
       } on DioException catch (e) {
@@ -559,7 +633,8 @@ class ApiClient {
         if (isAuthFailure &&
             !alreadyRetried &&
             _refreshToken != null &&
-            !path.contains('/auth/')) {
+            !path.contains('/auth/login') &&
+            !path.contains('/auth/refresh')) {
           final refreshSucceeded = await _performRefresh(force: true);
           if (refreshSucceeded && _accessToken != null) {
             try {
@@ -612,6 +687,7 @@ class ApiClient {
     bool? tvaActive,
     double? tauxTvaDefaut,
     bool? suiviPrixAchat,
+    bool? hasPin,
     bool notifyAuth = true,
   }) async {
     _userRole = role;
@@ -627,6 +703,10 @@ class ApiClient {
     _tvaActive = tvaActive ?? true;
     _tauxTvaDefaut = tauxTvaDefaut ?? (_tvaActive ? 18.0 : 0.0);
     _suiviPrixAchat = suiviPrixAchat ?? true;
+    if (hasPin != null) {
+      _accountHasPin = hasPin;
+      if (hasPin) _hasQuickPin = true;
+    }
     if (notifyAuth) {
       authStateNotifier.value = true;
     }
@@ -643,6 +723,7 @@ class ApiClient {
       await _writeStorage('tva_active', _tvaActive ? 'true' : 'false');
       await _writeStorage('taux_tva_defaut', _tauxTvaDefaut.toString());
       await _writeStorage('suivi_prix_achat', _suiviPrixAchat ? 'true' : 'false');
+      await _writeStorage('account_has_pin', _accountHasPin ? 'true' : 'false');
       if (_entrepriseId != null) {
         await _writeStorage('entreprise_id', _entrepriseId!);
       } else {
@@ -731,6 +812,7 @@ class ApiClient {
     _entrepriseId = null;
     _isSuperAdmin = false;
     _hasQuickPin = false;
+    _accountHasPin = false;
     _entrepriseNom = null;
     _entrepriseMonnaie = null;
     _formatFacture = null;
@@ -762,6 +844,7 @@ class ApiClient {
       _deleteStorage('tva_active');
       _deleteStorage('taux_tva_defaut');
       _deleteStorage('suivi_prix_achat');
+      _deleteStorage('account_has_pin');
       _deleteStorage('user_permissions');
     } catch (_) {}
   }
@@ -790,6 +873,7 @@ class ApiClient {
   static bool get isAuthenticated => _accessToken != null || _refreshToken != null;
   static bool get isSessionLocked => sessionLockedNotifier.value;
   static bool get hasQuickPin => _hasQuickPin;
+  static bool get accountHasPin => _accountHasPin;
   static bool get hasValidRefreshToken =>
       _refreshToken != null && !JwtTokenUtils.isExpired(_refreshToken);
   static bool get isSuperAdmin => _isSuperAdmin || _userRole == 'SUPER_ADMIN' || _userRole == 'ROLE_SUPER_ADMIN';

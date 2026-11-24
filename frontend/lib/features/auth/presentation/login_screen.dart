@@ -111,14 +111,15 @@ class _LoginScreenState extends State<LoginScreen> {
           tvaActive: userMap['tvaActive'] as bool?,
           tauxTvaDefaut: (userMap['tauxTvaDefaut'] as num?)?.toDouble(),
           suiviPrixAchat: userMap['suiviPrixAchat'] as bool?,
+          hasPin: userMap['hasPin'] as bool?,
           notifyAuth: false,
         );
       } catch (e) {
         debugPrint('Notice setUserInfo: $e');
       }
 
-      // Mémoriser l'email et imposer la création du code PIN à 4 chiffres dès la 1re connexion
-      // pour ne plus jamais avoir à retaper email + mot de passe ensuite.
+      // Mémoriser l'email ; si le compte n'a pas encore de PIN (ni serveur ni appareil),
+      // proposer sa création unique (une fois créé, il reste rattaché au compte).
       final loggedEmail = (userMap['email'] as String?) ?? _emailCtrl.text.trim();
       await ApiClient.saveRememberedEmail(loggedEmail);
       await ApiClient.refreshQuickPinStatus();

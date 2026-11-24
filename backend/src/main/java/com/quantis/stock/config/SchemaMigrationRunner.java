@@ -36,6 +36,9 @@ public class SchemaMigrationRunner implements CommandLineRunner {
         execIgnore("UPDATE entreprise SET tva_active = TRUE WHERE tva_active IS NULL");
         execIgnore("UPDATE entreprise SET taux_tva_defaut = 18.00 WHERE taux_tva_defaut IS NULL");
         execIgnore("UPDATE entreprise SET suivi_prix_achat = TRUE WHERE suivi_prix_achat IS NULL");
+
+        // 4. Colonne pin_hash sur utilisateur pour rattacher le code PIN au compte
+        execIgnore("ALTER TABLE utilisateur ADD COLUMN IF NOT EXISTS pin_hash VARCHAR(255)");
     }
 
     private void execIgnore(String sql) {

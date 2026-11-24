@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -102,14 +103,69 @@ class _PinLockScreenState extends State<PinLockScreen>
     }
 
     setState(() => _verifying = true);
-    final result = await PinService.instance.verifyPin(email, _enteredPin);
 
+    // 1. Vérification prioritaire contre le compte serveur (source de vérité multi-appareils)
+    final serverValid = await ApiClient.verifyAccountPin(_enteredPin);
+    if (!mounted) return;
+
+    if (serverValid == true) {
+      // Mettre à jour le cache local pour que le déverrouillage hors-ligne fonctionne aussi
+      await PinService.instance.setPin(email, _enteredPin);
+      await ApiClient.refreshQuickPinStatus();
+      final unlocked = await ApiClient.unlockSessionWithPin();
+      if (!unlocked && mounted) {
+        setState(() {
+          _verifying = false;
+          _enteredPin = '';
+        });
+      }
+      return;
+    }
+
+    if (serverValid == false) {
+      final fail = await PinService.instance.recordFailedAttempt(email);
+      if (!mounted) return;
+      if (fail.isLockedOut) {
+        ApiClient.clearToken(
+          expiredMessage:
+              'Trop de tentatives de code PIN. Veuillez vous reconnecter avec votre mot de passe.',
+        );
+        return;
+      }
+      _shakeController.forward(from: 0);
+      setState(() {
+        _verifying = false;
+        _enteredPin = '';
+        _errorText =
+            'Code PIN incorrect (${fail.remainingAttempts} essai${fail.remainingAttempts > 1 ? 's' : ''} restant${fail.remainingAttempts > 1 ? 's' : ''})';
+      });
+      return;
+    }
+
+    // 2. Fallback local (mode hors-ligne ou ancien compte pas encore migré côté serveur)
+    final hasLocalPin = await PinService.instance.hasPin(email);
+    if (!mounted) return;
+
+    if (!hasLocalPin) {
+      _shakeController.forward(from: 0);
+      setState(() {
+        _verifying = false;
+        _enteredPin = '';
+        _errorText = 'Connexion Internet requise pour vérifier votre code PIN sur cet appareil.';
+      });
+      return;
+    }
+
+    final result = await PinService.instance.verifyPin(email, _enteredPin);
     if (!mounted) return;
 
     if (result.isValid) {
+      final validPin = _enteredPin;
       final unlocked = await ApiClient.unlockSessionWithPin();
-      if (!unlocked && mounted) {
-        // unlockSessionWithPin a déjà basculé vers LoginScreen si le refresh a expiré
+      if (unlocked) {
+        // Migrer silencieusement l'ancien PIN local vers le compte serveur
+        unawaited(ApiClient.syncLocalPinToAccountIfNeeded(validPin));
+      } else if (mounted) {
         setState(() {
           _verifying = false;
           _enteredPin = '';
@@ -423,10 +479,10 @@ class _PinSetupDialogState extends State<PinSetupDialog> {
   }
 
   Future<void> _loadStatus() async {
-    final hasPin = await PinService.instance.hasPin(ApiClient.userEmail);
+    final hasLocal = await PinService.instance.hasPin(ApiClient.userEmail);
     if (mounted) {
       setState(() {
-        _hasExistingPin = hasPin;
+        _hasExistingPin = ApiClient.hasQuickPin || hasLocal;
         _loading = false;
       });
     }
@@ -512,14 +568,17 @@ class _PinSetupDialogState extends State<PinSetupDialog> {
 
     setState(() => _saving = true);
     await PinService.instance.setPin(email, _firstPin);
+    final syncedToAccount = await ApiClient.saveAccountPin(_firstPin);
     await ApiClient.refreshQuickPinStatus();
 
     if (!mounted) return;
     Navigator.of(context).pop(true);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
+      SnackBar(
         content: Text(
-          'Code PIN activé ! Vous n\'aurez plus besoin de saisir votre email ni votre mot de passe.',
+          syncedToAccount
+              ? 'Code PIN enregistré sur votre compte ! Vous n\'aurez plus à le recréer.'
+              : 'Code PIN activé ! Il sera synchronisé avec votre compte dès la prochaine connexion.',
         ),
         backgroundColor: QuantisColors.success,
       ),
@@ -583,8 +642,8 @@ class _PinSetupDialogState extends State<PinSetupDialog> {
                                 ),
                                 Text(
                                   widget.isPostLoginPrompt
-                                      ? 'Plus besoin d\'email ni de mot de passe — connectez-vous uniquement avec ce code PIN'
-                                      : 'Utilisé à chaque ouverture pour déverrouiller en 1 seconde',
+                                      ? 'Créé une seule fois et rattaché à votre compte — plus besoin de le recréer'
+                                      : 'Rattaché à votre compte pour déverrouiller tous vos appareils en 1 seconde',
                                   style: const TextStyle(
                                     fontSize: 11.5,
                                     color: QuantisColors.textSecondary,

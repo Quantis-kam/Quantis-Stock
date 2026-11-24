@@ -170,6 +170,11 @@ class PinService {
       }
     }
 
+    return recordFailedAttempt(email);
+  }
+
+  /// Enregistre un échec de saisie de code PIN et retourne le nombre d'essais restants.
+  Future<PinVerifyResult> recordFailedAttempt(String email) async {
     final currentFailed = int.tryParse(await _store.read(_attemptsKey(email)) ?? '0') ?? 0;
     final nextFailed = currentFailed + 1;
     final remaining = (maxFailedAttempts - nextFailed).clamp(0, maxFailedAttempts);

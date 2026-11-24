@@ -169,6 +169,47 @@ public class AuthService {
     }
 
     /**
+     * Enregistre ou met à jour le code PIN à 4 chiffres rattaché au compte utilisateur (hashé BCrypt).
+     */
+    @Transactional
+    public java.util.Map<String, Object> setUserPin(String email, String pin) {
+        if (pin == null || !pin.matches("^\\d{4}$")) {
+            throw new BusinessException("Le code PIN doit contenir exactement 4 chiffres.");
+        }
+        Utilisateur user = utilisateurRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "email", email));
+
+        user.setPinHash(passwordEncoder.encode(pin));
+        utilisateurRepository.save(user);
+        auditService.logAction("UPDATE_PIN", "Utilisateur", user.getId(),
+                "Configuration du code PIN rapide pour " + user.getEmail());
+
+        java.util.Map<String, Object> result = new java.util.LinkedHashMap<>();
+        result.put("hasPin", true);
+        return result;
+    }
+
+    /**
+     * Vérifie un code PIN à 4 chiffres par rapport au hash rattaché au compte utilisateur.
+     */
+    @Transactional(readOnly = true)
+    public java.util.Map<String, Object> verifyUserPin(String email, String pin) {
+        Utilisateur user = utilisateurRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur", "email", email));
+
+        boolean hasPin = user.hasPinConfigured();
+        boolean valid = hasPin
+                && pin != null
+                && pin.matches("^\\d{4}$")
+                && passwordEncoder.matches(pin, user.getPinHash());
+
+        java.util.Map<String, Object> result = new java.util.LinkedHashMap<>();
+        result.put("valid", valid);
+        result.put("hasPin", hasPin);
+        return result;
+    }
+
+    /**
      * Construit la réponse d'authentification avec tokens et métadonnées d'entreprise.
      */
     private AuthResponse buildAuthResponse(Utilisateur user) {
@@ -198,6 +239,7 @@ public class AuthService {
                         .email(user.getEmail())
                         .role(user.getRole().name())
                         .isSuperAdmin(isSuperAdmin)
+                        .hasPin(user.hasPinConfigured())
                         .depot(user.getDepot() != null ? user.getDepot().getNom() : null)
                         .entrepriseId(entreprise != null ? entreprise.getId() : null)
                         .entrepriseNom(entreprise != null ? entreprise.getNom() : (isSuperAdmin ? "Quantis-Stock Platform" : "Quantis SARL"))
