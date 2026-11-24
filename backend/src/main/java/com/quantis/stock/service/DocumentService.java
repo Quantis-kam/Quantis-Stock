@@ -395,12 +395,9 @@ public class DocumentService {
                 ? utilisateur.getEntreprise()
                 : securityUtils.getCurrentEntreprise().orElse(null);
 
-        // Résolution du client (fourni, créé à la volée pour un crédit, ou Client Comptoir / Divers)
+        // Résolution du client (nouveau client à la volée, client existant fourni, ou Client Comptoir / Divers)
         Client client = null;
-        if (request.getClientId() != null) {
-            client = clientRepository.findById(request.getClientId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Client", "id", request.getClientId()));
-        } else if (request.getNouveauClientNom() != null && !request.getNouveauClientNom().isBlank()) {
+        if (request.getNouveauClientNom() != null && !request.getNouveauClientNom().isBlank()) {
             String nomPropre = request.getNouveauClientNom().trim();
             String telPropre = request.getNouveauClientTelephone() != null ? request.getNouveauClientTelephone().trim() : null;
             String adrPropre = request.getNouveauClientAdresse() != null ? request.getNouveauClientAdresse().trim() : null;
@@ -414,6 +411,9 @@ public class DocumentService {
                     .build());
             auditService.logAction("CREATE", "Client", client.getId(),
                     "Création rapide client POS (crédit) : " + client.getNom());
+        } else if (request.getClientId() != null) {
+            client = clientRepository.findById(request.getClientId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Client", "id", request.getClientId()));
         } else {
             Long entId = entrepriseCourante != null ? entrepriseCourante.getId() : null;
             java.util.List<Client> matches = entId != null
@@ -742,6 +742,34 @@ public class DocumentService {
                 ? commande.getEntreprise()
                 : utilisateur.getEntreprise();
 
+        // Résolution optionnelle d'un client nominatif (existant ou créé à la volée) pour éviter tout rejet sur crédit
+        Client resolvedClient = commande.getClient();
+        if (request.getNouveauClientNom() != null && !request.getNouveauClientNom().isBlank()) {
+            String nomPropre = request.getNouveauClientNom().trim();
+            String telPropre = request.getNouveauClientTelephone() != null ? request.getNouveauClientTelephone().trim() : null;
+            String adrPropre = request.getNouveauClientAdresse() != null ? request.getNouveauClientAdresse().trim() : null;
+            resolvedClient = clientRepository.save(Client.builder()
+                    .nom(nomPropre)
+                    .telephone(telPropre != null && !telPropre.isEmpty() ? telPropre : null)
+                    .adresse(adrPropre != null && !adrPropre.isEmpty() ? adrPropre : null)
+                    .soldeCredit(BigDecimal.ZERO)
+                    .actif(true)
+                    .entreprise(ent)
+                    .build());
+            commande.setClient(resolvedClient);
+            auditService.logAction("CREATE", "Client", resolvedClient.getId(),
+                    "Création rapide client (règlement commande " + commande.getNumero() + ") : " + resolvedClient.getNom());
+        } else if (request.getClientId() != null) {
+            Client picked = clientRepository.findById(request.getClientId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Client", "id", request.getClientId()));
+            if (!securityUtils.isSuperAdmin() && ent != null && picked.getEntreprise() != null
+                    && !picked.getEntreprise().getId().equals(ent.getId())) {
+                throw new BusinessException("Accès refusé : ce client n'appartient pas à votre entreprise.");
+            }
+            resolvedClient = picked;
+            commande.setClient(resolvedClient);
+        }
+
         // Si une facture enfant existe déjà pour cette commande, éviter tout doublon
         var existingFactureOpt = documentRepository
                 .findFirstByDocumentParentIdAndTypeOrderByIdDesc(commande.getId(), TypeDocument.FACTURE);
@@ -750,6 +778,11 @@ public class DocumentService {
             if (existing.getSoldeRestant().compareTo(BigDecimal.ZERO) <= 0) {
                 throw new BusinessException("Cette commande est déjà facturée et soldée (" + existing.getNumero() + ").");
             }
+            if (resolvedClient != null && isClientAnonyme(existing.getClient()) && !isClientAnonyme(resolvedClient)) {
+                existing.setClient(resolvedClient);
+                documentRepository.save(existing);
+                documentRepository.save(commande);
+            }
             if (existing.getStatut() == StatutDocument.BROUILLON) {
                 existing = validerDocument(existing.getId());
             }
@@ -757,6 +790,10 @@ public class DocumentService {
             BigDecimal montantPaye = request.getMoyenPaiement() == com.quantis.stock.model.enums.MoyenPaiement.CREDIT
                     ? BigDecimal.ZERO
                     : (request.getMontantPaye() != null ? request.getMontantPaye().min(solde) : solde);
+            BigDecimal resteApres = solde.subtract(montantPaye).max(BigDecimal.ZERO);
+            if (resteApres.compareTo(BigDecimal.ZERO) > 0 && isClientAnonyme(existing.getClient())) {
+                throw new BusinessException("Un client nominatif (nom et téléphone) est obligatoire si la commande n'est pas soldée intégralement.");
+            }
             Paiement paiement = null;
             if (montantPaye.compareTo(BigDecimal.ZERO) > 0) {
                 PaiementRequest pReq = new PaiementRequest();
@@ -814,7 +851,7 @@ public class DocumentService {
                 .type(TypeDocument.FACTURE)
                 .numero(numeroFacture)
                 .statut(StatutDocument.VALIDE)
-                .client(commande.getClient())
+                .client(resolvedClient)
                 .depot(depot)
                 .dateDocument(LocalDate.now())
                 .dateEcheance(commande.getDateEcheance())

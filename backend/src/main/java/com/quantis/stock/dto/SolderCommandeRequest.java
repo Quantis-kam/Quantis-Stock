@@ -28,5 +28,13 @@ public class SolderCommandeRequest {
     private BigDecimal montantRecu;
     private String reference;
     private String notes;
+
+    /** Optionnel : réaffecte la commande à un client nominatif existant (utile si crédit sur Client Divers). */
+    private Long clientId;
+
+    /** Optionnel : création rapide d'un client nominatif à la volée si la commande passe en crédit partiel ou total. */
+    private String nouveauClientNom;
+    private String nouveauClientTelephone;
+    private String nouveauClientAdresse;
 }
 

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/quantis_theme.dart';
 import '../../../core/widgets/quantis_field_toggle.dart';
+import '../../../core/widgets/keyboard_safe_dialog.dart';
 import 'encaissement_dialog.dart';
 import 'ticket_receipt_dialog.dart';
 
@@ -1347,17 +1348,11 @@ class _PosQuantityDialogState extends State<_PosQuantityDialog> {
     final double totalLigne = qty * widget.prixUnitaire;
     final bool depasseStock = widget.stockDispo > 0 && qty > widget.stockDispo;
 
-    return Dialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 380),
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return KeyboardSafeDialog(
+      desktopWidth: 380,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
@@ -1404,25 +1399,28 @@ class _PosQuantityDialogState extends State<_PosQuantityDialog> {
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: TextField(
-                        controller: _ctrl,
-                        autofocus: true,
-                        textAlign: TextAlign.center,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w900,
-                          color: QuantisColors.royalBlue,
+                      child: EnsureVisibleWhenFocused(
+                        child: TextField(
+                          controller: _ctrl,
+                          autofocus: true,
+                          textAlign: TextAlign.center,
+                          keyboardType: TextInputType.number,
+                          scrollPadding: const EdgeInsets.only(top: 24, bottom: 160),
+                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w900,
+                            color: QuantisColors.royalBlue,
+                          ),
+                          decoration: InputDecoration(
+                            labelText: 'Quantité',
+                            hintText: 'Ex: 50',
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          onChanged: (_) => setState(() {}),
+                          onSubmitted: (_) => _confirm(),
                         ),
-                        decoration: InputDecoration(
-                          labelText: 'Quantité',
-                          hintText: 'Ex: 50',
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                        onChanged: (_) => setState(() {}),
-                        onSubmitted: (_) => _confirm(),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -1552,9 +1550,6 @@ class _PosQuantityDialogState extends State<_PosQuantityDialog> {
                 ),
               ],
             ),
-          ),
-        ),
-      ),
     );
   }
 }

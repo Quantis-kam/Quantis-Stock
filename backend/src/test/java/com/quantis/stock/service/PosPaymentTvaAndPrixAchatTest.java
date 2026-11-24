@@ -316,5 +316,79 @@ class PosPaymentTvaAndPrixAchatTest {
         assertThat(res.getPaiement().getMoyen()).isEqualTo(MoyenPaiement.WAVE);
         assertThat(client.getSoldeCredit()).isEqualByComparingTo("0");
     }
+
+    @Test
+    @DisplayName("Solder partiellement une commande Client Divers crée le client nominatif à la volée et impute le reste")
+    void solderCommandeAnonymeACreditCreeClientNominatifInline() {
+        Entreprise ent = Entreprise.builder().id(1L).nom("Boutique Test").tvaActive(false).build();
+        Depot depot = Depot.builder().id(10L).nom("Principal").entreprise(ent).build();
+        Utilisateur user = Utilisateur.builder()
+                .id(5L).nom("Diallo").prenom("Ali").email("ali@test.com")
+                .entreprise(ent).depot(depot).build();
+        Client divers = Client.builder().id(20L).nom("Client Divers / Comptoir")
+                .soldeCredit(BigDecimal.ZERO).entreprise(ent).build();
+        Produit produit = Produit.builder()
+                .id(104L).nom("Lot Marchandise").sku("LOT-1")
+                .prixVente(new BigDecimal("1512000")).tauxTva(BigDecimal.ZERO).entreprise(ent).build();
+
+        Document commande = Document.builder()
+                .id(705L)
+                .entreprise(ent)
+                .type(TypeDocument.COMMANDE_CLIENT)
+                .numero("CMD-2026-00002")
+                .statut(StatutDocument.VALIDE)
+                .client(divers)
+                .depot(depot)
+                .utilisateur(user)
+                .build();
+        LigneDocument ligneCmd = LigneDocument.builder()
+                .document(commande)
+                .produit(produit)
+                .designation("Lot Marchandise")
+                .quantite(BigDecimal.ONE)
+                .prixUnitaire(new BigDecimal("1512000"))
+                .tauxTva(BigDecimal.ZERO)
+                .build();
+        ligneCmd.calculerMontants();
+        commande.getLignes().add(ligneCmd);
+        commande.recalculerTotaux();
+
+        when(documentRepository.findById(705L)).thenReturn(Optional.of(commande));
+        when(securityUtils.isSuperAdmin()).thenReturn(true);
+        when(securityUtils.getCurrentEntreprise()).thenReturn(Optional.of(ent));
+        when(utilisateurRepository.findByEmail("ali@test.com")).thenReturn(Optional.of(user));
+        when(clientRepository.save(any(Client.class))).thenAnswer(inv -> {
+            Client c = inv.getArgument(0);
+            if (c.getId() == null) c.setId(88L);
+            return c;
+        });
+        when(documentRepository.findFirstByDocumentParentIdAndTypeOrderByIdDesc(705L, TypeDocument.FACTURE))
+                .thenReturn(Optional.empty());
+        when(documentRepository.findMaxNumero(anyString())).thenReturn(10);
+        when(documentRepository.save(any(Document.class))).thenAnswer(inv -> {
+            Document d = inv.getArgument(0);
+            if (d.getId() == null) d.setId(706L);
+            return d;
+        });
+        when(paiementRepository.save(any(Paiement.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        SolderCommandeRequest req = SolderCommandeRequest.builder()
+                .moyenPaiement(MoyenPaiement.ESPECES)
+                .montantPaye(new BigDecimal("512000"))
+                .nouveauClientNom("Kaboré Boukary")
+                .nouveauClientTelephone("70445566")
+                .nouveauClientAdresse("Ouaga 2000")
+                .build();
+
+        PosSaleResponse res = documentService.solderCommandeClient(705L, req, "ali@test.com");
+
+        assertThat(res.getClientNom()).isEqualTo("Kaboré Boukary");
+        assertThat(commande.getClient().getNom()).isEqualTo("Kaboré Boukary");
+        assertThat(res.getDocument().getClient().getTelephone()).isEqualTo("70445566");
+        assertThat(res.getMontantPaye()).isEqualByComparingTo("512000");
+        assertThat(res.getSoldeRestant()).isEqualByComparingTo("1000000.00");
+        assertThat(res.getDocument().getClient().getSoldeCredit()).isEqualByComparingTo("1000000.00");
+        assertThat(divers.getSoldeCredit()).isEqualByComparingTo("0");
+    }
 }
 

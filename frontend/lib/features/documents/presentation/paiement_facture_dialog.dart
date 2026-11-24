@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/quantis_theme.dart';
+import '../../../core/widgets/keyboard_safe_dialog.dart';
 import '../data/document_models.dart';
 
 /// Modal d'encaissement de reliquat sur facture
@@ -97,19 +98,10 @@ class _PaiementFactureDialogState extends State<PaiementFactureDialog> {
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 600;
-    final screenWidth = MediaQuery.of(context).size.width;
 
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      insetPadding: EdgeInsets.symmetric(
-        horizontal: isMobile ? 12 : 40,
-        vertical: isMobile ? 16 : 24,
-      ),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: isMobile ? screenWidth * 0.95 : 460),
-        child: SingleChildScrollView(
-          padding: EdgeInsets.all(isMobile ? 16 : 24),
-          child: Column(
+    return KeyboardSafeDialog(
+      desktopWidth: 460,
+      child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -160,13 +152,16 @@ class _PaiementFactureDialogState extends State<PaiementFactureDialog> {
               const SizedBox(height: 16),
 
               // Montant à régler
-              TextField(
-                controller: _montantCtrl,
-                keyboardType: TextInputType.number,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                decoration: const InputDecoration(
-                  labelText: 'Montant du Paiement (FCFA) *',
-                  prefixIcon: Icon(Icons.money),
+              EnsureVisibleWhenFocused(
+                child: TextField(
+                  controller: _montantCtrl,
+                  keyboardType: TextInputType.number,
+                  scrollPadding: const EdgeInsets.only(top: 24, bottom: 160),
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  decoration: const InputDecoration(
+                    labelText: 'Montant du Paiement (FCFA) *',
+                    prefixIcon: Icon(Icons.money),
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -191,11 +186,14 @@ class _PaiementFactureDialogState extends State<PaiementFactureDialog> {
               const SizedBox(height: 16),
 
               // Référence
-              TextField(
-                controller: _refCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Référence / Reçu (optionnel)',
-                  prefixIcon: Icon(Icons.receipt_outlined),
+              EnsureVisibleWhenFocused(
+                child: TextField(
+                  controller: _refCtrl,
+                  scrollPadding: const EdgeInsets.only(top: 24, bottom: 160),
+                  decoration: const InputDecoration(
+                    labelText: 'Référence / Reçu (optionnel)',
+                    prefixIcon: Icon(Icons.receipt_outlined),
+                  ),
                 ),
               ),
               const SizedBox(height: 24),
@@ -246,8 +244,6 @@ class _PaiementFactureDialogState extends State<PaiementFactureDialog> {
                 ),
             ],
           ),
-        ),
-      ),
     );
   }
 }

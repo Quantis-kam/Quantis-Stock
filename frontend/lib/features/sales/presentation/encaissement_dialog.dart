@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/quantis_theme.dart';
+import '../../../core/widgets/keyboard_safe_dialog.dart';
 
 /// Dialogue d'encaissement rapide avec identification client OBLIGATOIRE en cas de crédit (total ou partiel).
 class EncaissementDialog extends StatefulWidget {
@@ -27,6 +28,9 @@ class _EncaissementDialogState extends State<EncaissementDialog> {
   final _notesCtrl = TextEditingController();
 
   // Identification client obligatoire si vente à crédit ou paiement partiel
+  final _scrollCtrl = ScrollController();
+  final _debtorSectionKey = GlobalKey();
+  bool _wasNeedsDebtorForm = false;
   bool _useNewClient = true;
   int? _pickedExistingClientId;
   final _newClientNomCtrl = TextEditingController();
@@ -67,13 +71,28 @@ class _EncaissementDialogState extends State<EncaissementDialog> {
       _pickedExistingClientId = widget.selectedClientId;
       _useNewClient = false;
     } else {
-      // S'il y a déjà des clients nominatifs, on permet de basculer facilement ; par défaut saisie rapide ou choix
-      _useNewClient = _namedClients.isEmpty;
+      // Affiche directement les champs Nom & Contact (avec onglet Client existant à côté)
+      _useNewClient = true;
     }
+  }
+
+  void _scrollToDebtorSection() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = _debtorSectionKey.currentContext;
+      if (ctx != null && mounted) {
+        Scrollable.ensureVisible(
+          ctx,
+          alignment: 0.15,
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   @override
   void dispose() {
+    _scrollCtrl.dispose();
     _montantRecuCtrl.dispose();
     _notesCtrl.dispose();
     _newClientNomCtrl.dispose();
@@ -120,6 +139,7 @@ class _EncaissementDialogState extends State<EncaissementDialog> {
             _validationError =
                 'Pour une vente à crédit, veuillez renseigner le Nom et le Téléphone du client.';
           });
+          _scrollToDebtorSection();
           return;
         }
         finalClientId = null;
@@ -129,6 +149,7 @@ class _EncaissementDialogState extends State<EncaissementDialog> {
             _validationError =
                 'Veuillez sélectionner un client existant ou basculer sur « Nouveau client ».';
           });
+          _scrollToDebtorSection();
           return;
         }
         finalClientId = _pickedExistingClientId;
@@ -157,17 +178,18 @@ class _EncaissementDialogState extends State<EncaissementDialog> {
     final bool isCreditSale = _moyenPaiement == 'CREDIT' || resteAPayer > 0.01;
     final bool needsDebtorForm = isCreditSale && !_hasPreselectedNamedClient;
     final namedClients = _namedClients;
-    final isMobile = MediaQuery.of(context).size.width < 600;
 
-    return Dialog(
-      insetPadding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 24, vertical: 16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        width: isMobile ? double.infinity : 530,
-        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.92),
-        padding: EdgeInsets.all(isMobile ? 16 : 24),
-        child: SingleChildScrollView(
-          child: Column(
+    if (needsDebtorForm && !_wasNeedsDebtorForm) {
+      _wasNeedsDebtorForm = true;
+      _scrollToDebtorSection();
+    } else if (!needsDebtorForm) {
+      _wasNeedsDebtorForm = false;
+    }
+
+    return KeyboardSafeDialog(
+      desktopWidth: 530,
+      scrollController: _scrollCtrl,
+      child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -280,21 +302,24 @@ class _EncaissementDialogState extends State<EncaissementDialog> {
                 Row(
                   children: [
                     Expanded(
-                      child: TextField(
-                        controller: _montantRecuCtrl,
-                        keyboardType: TextInputType.number,
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                        decoration: InputDecoration(
-                          labelText: 'Montant Donné par le Client',
-                          suffixText: monnaie,
-                          prefixIcon: const Icon(Icons.attach_money),
+                      child: EnsureVisibleWhenFocused(
+                        child: TextField(
+                          controller: _montantRecuCtrl,
+                          keyboardType: TextInputType.number,
+                          scrollPadding: const EdgeInsets.only(top: 24, bottom: 160),
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          decoration: InputDecoration(
+                            labelText: 'Montant Donné par le Client',
+                            suffixText: monnaie,
+                            prefixIcon: const Icon(Icons.attach_money),
+                          ),
+                          onChanged: (val) {
+                            setState(() {
+                              _montantRecu = double.tryParse(val.replaceAll(' ', '').replaceAll(',', '.')) ?? 0;
+                              _validationError = null;
+                            });
+                          },
                         ),
-                        onChanged: (val) {
-                          setState(() {
-                            _montantRecu = double.tryParse(val) ?? 0;
-                            _validationError = null;
-                          });
-                        },
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -395,6 +420,7 @@ class _EncaissementDialogState extends State<EncaissementDialog> {
                   )
                 else
                   Container(
+                    key: _debtorSectionKey,
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
                       color: Colors.orange.shade50,
@@ -470,43 +496,52 @@ class _EncaissementDialogState extends State<EncaissementDialog> {
                         const SizedBox(height: 12),
 
                         if (_useNewClient) ...[
-                          TextField(
-                            controller: _newClientNomCtrl,
-                            textCapitalization: TextCapitalization.words,
-                            decoration: const InputDecoration(
-                              labelText: 'Nom complet du client *',
-                              hintText: 'Ex: Moussa Ouédraogo',
-                              prefixIcon: Icon(Icons.person_outline),
-                              filled: true,
-                              fillColor: Colors.white,
-                              isDense: true,
+                          EnsureVisibleWhenFocused(
+                            child: TextField(
+                              controller: _newClientNomCtrl,
+                              textCapitalization: TextCapitalization.words,
+                              scrollPadding: const EdgeInsets.only(top: 24, bottom: 160),
+                              decoration: const InputDecoration(
+                                labelText: 'Nom complet du client *',
+                                hintText: 'Ex: Moussa Ouédraogo',
+                                prefixIcon: Icon(Icons.person_outline),
+                                filled: true,
+                                fillColor: Colors.white,
+                                isDense: true,
+                              ),
+                              onChanged: (_) => setState(() => _validationError = null),
                             ),
-                            onChanged: (_) => setState(() => _validationError = null),
                           ),
                           const SizedBox(height: 10),
-                          TextField(
-                            controller: _newClientTelCtrl,
-                            keyboardType: TextInputType.phone,
-                            decoration: const InputDecoration(
-                              labelText: 'Téléphone *',
-                              hintText: 'Ex: 70 12 34 56',
-                              prefixIcon: Icon(Icons.phone_outlined),
-                              filled: true,
-                              fillColor: Colors.white,
-                              isDense: true,
+                          EnsureVisibleWhenFocused(
+                            child: TextField(
+                              controller: _newClientTelCtrl,
+                              keyboardType: TextInputType.phone,
+                              scrollPadding: const EdgeInsets.only(top: 24, bottom: 160),
+                              decoration: const InputDecoration(
+                                labelText: 'Téléphone / Contact *',
+                                hintText: 'Ex: 70 12 34 56',
+                                prefixIcon: Icon(Icons.phone_outlined),
+                                filled: true,
+                                fillColor: Colors.white,
+                                isDense: true,
+                              ),
+                              onChanged: (_) => setState(() => _validationError = null),
                             ),
-                            onChanged: (_) => setState(() => _validationError = null),
                           ),
                           const SizedBox(height: 10),
-                          TextField(
-                            controller: _newClientAdresseCtrl,
-                            decoration: const InputDecoration(
-                              labelText: 'Quartier / Adresse (optionnel)',
-                              hintText: 'Ex: Gounghin, Ouaga',
-                              prefixIcon: Icon(Icons.location_on_outlined),
-                              filled: true,
-                              fillColor: Colors.white,
-                              isDense: true,
+                          EnsureVisibleWhenFocused(
+                            child: TextField(
+                              controller: _newClientAdresseCtrl,
+                              scrollPadding: const EdgeInsets.only(top: 24, bottom: 160),
+                              decoration: const InputDecoration(
+                                labelText: 'Quartier / Adresse (optionnel)',
+                                hintText: 'Ex: Gounghin, Ouaga',
+                                prefixIcon: Icon(Icons.location_on_outlined),
+                                filled: true,
+                                fillColor: Colors.white,
+                                isDense: true,
+                              ),
                             ),
                           ),
                         ] else ...[
@@ -568,11 +603,14 @@ class _EncaissementDialogState extends State<EncaissementDialog> {
               const SizedBox(height: 14),
 
               // Notes
-              TextField(
-                controller: _notesCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Notes ou Référence transaction (optionnel)',
-                  prefixIcon: Icon(Icons.note_alt_outlined),
+              EnsureVisibleWhenFocused(
+                child: TextField(
+                  controller: _notesCtrl,
+                  scrollPadding: const EdgeInsets.only(top: 24, bottom: 160),
+                  decoration: const InputDecoration(
+                    labelText: 'Notes ou Référence transaction (optionnel)',
+                    prefixIcon: Icon(Icons.note_alt_outlined),
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
@@ -605,8 +643,6 @@ class _EncaissementDialogState extends State<EncaissementDialog> {
               ),
             ],
           ),
-        ),
-      ),
     );
   }
 }

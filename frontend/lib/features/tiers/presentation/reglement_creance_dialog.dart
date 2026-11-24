@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/quantis_theme.dart';
+import '../../../core/widgets/keyboard_safe_dialog.dart';
 import '../../documents/data/document_models.dart';
 import '../data/tiers_models.dart';
 
@@ -162,18 +163,11 @@ class _ReglementCreanceDialogState extends State<ReglementCreanceDialog> {
   @override
   Widget build(BuildContext context) {
     final monnaie = ApiClient.entrepriseMonnaie;
-    final isMobile = MediaQuery.of(context).size.width < 600;
     final resteApres = (widget.client.soldeCredit - _montantSaisi).clamp(0.0, double.infinity);
 
-    return Dialog(
-      insetPadding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 32, vertical: 16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        width: isMobile ? double.infinity : 520,
-        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.9),
-        padding: EdgeInsets.all(isMobile ? 16 : 24),
-        child: SingleChildScrollView(
-          child: Column(
+    return KeyboardSafeDialog(
+      desktopWidth: 520,
+      child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -285,18 +279,21 @@ class _ReglementCreanceDialogState extends State<ReglementCreanceDialog> {
               ],
 
               // Montant encaissé + raccourcis
-              TextField(
-                controller: _montantCtrl,
-                keyboardType: TextInputType.number,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                decoration: InputDecoration(
-                  labelText: 'Montant reçu ($monnaie) *',
-                  prefixIcon: const Icon(Icons.money),
-                  suffixText: monnaie,
+              EnsureVisibleWhenFocused(
+                child: TextField(
+                  controller: _montantCtrl,
+                  keyboardType: TextInputType.number,
+                  scrollPadding: const EdgeInsets.only(top: 24, bottom: 160),
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  decoration: InputDecoration(
+                    labelText: 'Montant reçu ($monnaie) *',
+                    prefixIcon: const Icon(Icons.money),
+                    suffixText: monnaie,
+                  ),
+                  onChanged: (v) => setState(() {
+                    _montantSaisi = double.tryParse(v.replaceAll(' ', '').replaceAll(',', '.')) ?? 0;
+                  }),
                 ),
-                onChanged: (v) => setState(() {
-                  _montantSaisi = double.tryParse(v.replaceAll(' ', '').replaceAll(',', '.')) ?? 0;
-                }),
               ),
               const SizedBox(height: 8),
               Wrap(
@@ -355,11 +352,14 @@ class _ReglementCreanceDialogState extends State<ReglementCreanceDialog> {
               const SizedBox(height: 14),
 
               // Référence
-              TextField(
-                controller: _refCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Référence reçu / Mobile Money (optionnel)',
-                  prefixIcon: Icon(Icons.receipt_outlined),
+              EnsureVisibleWhenFocused(
+                child: TextField(
+                  controller: _refCtrl,
+                  scrollPadding: const EdgeInsets.only(top: 24, bottom: 160),
+                  decoration: const InputDecoration(
+                    labelText: 'Référence reçu / Mobile Money (optionnel)',
+                    prefixIcon: Icon(Icons.receipt_outlined),
+                  ),
                 ),
               ),
               const SizedBox(height: 14),
@@ -430,8 +430,6 @@ class _ReglementCreanceDialogState extends State<ReglementCreanceDialog> {
               ),
             ],
           ),
-        ),
-      ),
     );
   }
 }
