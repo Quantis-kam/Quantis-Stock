@@ -582,7 +582,7 @@ class _LicenceRenewalDialogState extends State<_LicenceRenewalDialog> {
                       style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFB45309)),
                     ),
                     const TextSpan(
-                      text: '(ou formule annuelle 120 000 FCFA / an — 100 000 FCFA la 1re année) pour réactiver vos services de gestion.',
+                      text: '(ou formule annuelle à 120 000 FCFA / an) pour réactiver vos services de gestion.',
                     ),
                   ],
                 ),

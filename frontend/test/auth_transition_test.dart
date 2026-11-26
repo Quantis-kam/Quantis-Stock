@@ -264,6 +264,7 @@ void main() {
     expect(find.text('100 000'), findsOneWidget);
     expect(find.text('Abonnement Mensuel'), findsOneWidget);
     expect(find.text('10 100'), findsOneWidget);
+    expect(find.textContaining('ne s\'applique pas à la formule mensuelle'), findsOneWidget);
     expect(find.text('Envoyer via WhatsApp'), findsOneWidget);
     expect(find.text('Envoyer par Email'), findsOneWidget);
     expect(find.text('contact@quantisbf.com'), findsOneWidget);

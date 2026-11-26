@@ -45,9 +45,9 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
   final _messageCtrl = TextEditingController();
 
   static const String _formuleAnnuelle =
-      'Annuelle — 100 000 FCFA (1re année, puis 120 000 FCFA/an)';
+      'Annuelle — 100 000 FCFA (1re année, -20 000 F offerts, puis 120 000 FCFA/an)';
   static const String _formuleMensuelle =
-      'Mensuelle — 10 100 FCFA / mois (sans engagement)';
+      'Mensuelle — 10 100 FCFA / mois (sans la remise de -20 000 F)';
   static const List<String> _formules = [
     _formuleAnnuelle,
     _formuleMensuelle,
@@ -1274,7 +1274,7 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
                   border: Border.all(color: QuantisColors.luxuryGold.withValues(alpha: 0.35)),
                 ),
                 child: Text(
-                  'Cadeau de bienvenue : 100 000 FCFA pour votre 1re année de collaboration (soit ~8 333 FCFA/mois), puis 120 000 FCFA/an dès la 2e année.',
+                  'Réduction de -20 000 FCFA réservée exclusivement au paiement annuel de la 1re année (soit ~8 333 FCFA/mois), puis 120 000 FCFA/an dès la 2e année.',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.92),
                     fontSize: 12.2,
@@ -1283,7 +1283,7 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              buildPlanBullet('Économie immédiate de 20 000 FCFA la 1re année', dark: true),
+              buildPlanBullet('Seule formule offrant les -20 000 FCFA de bienvenue', dark: true),
               buildPlanBullet('12 mois d\'accès complet sans coupure mensuelle', dark: true),
               buildPlanBullet('Toutes les fonctionnalités + support prioritaire', dark: true),
             ],
@@ -1399,23 +1399,57 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(11),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
+                  color: const Color(0xFFFFFBEB),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  border: Border.all(color: const Color(0xFFFDE68A)),
                 ),
-                child: const Text(
-                  'Réabonnement direct par Orange Money • Sans engagement. Vous pouvez basculer en annuel à tout moment.',
-                  style: TextStyle(
-                    color: QuantisColors.textSecondary,
-                    fontSize: 12.2,
-                    height: 1.4,
-                  ),
+                child: const Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.info_outline_rounded, size: 16, color: Color(0xFFB45309)),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Note : la réduction de -20 000 FCFA ne s\'applique pas à la formule mensuelle (soit 121 200 FCFA sur 12 mois). Réabonnement par Orange Money • Sans engagement.',
+                        style: TextStyle(
+                          color: Color(0xFF92400E),
+                          fontSize: 12.2,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 16),
               buildPlanBullet('Aucun gros versement initial requis', dark: false),
               buildPlanBullet('100% des fonctionnalités incluses dès le 1er jour', dark: false),
               buildPlanBullet('Paiement simple et rapide par Orange Money', dark: false),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.remove_circle_outline_rounded,
+                      color: Colors.amber.shade800,
+                      size: 17,
+                    ),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Ne bénéficie pas de la remise de -20 000 FCFA (réservée à l\'annuel)',
+                        style: TextStyle(
+                          color: QuantisColors.textSecondary,
+                          fontSize: 12.8,
+                          fontWeight: FontWeight.w600,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 18),
