@@ -149,7 +149,7 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => _CreateEntrepriseDialog(onSuccess: _loadData),
+      builder: (ctx) => CreateEntrepriseDialog(onSuccess: _loadData),
     );
   }
 
@@ -1479,16 +1479,24 @@ class _SuperAdminScreenState extends State<SuperAdminScreen> {
   }
 }
 
-/// Dialogue de création d'une nouvelle entreprise SaaS
-class _CreateEntrepriseDialog extends StatefulWidget {
+/// Dialogue de création d'une nouvelle entreprise SaaS (avec pré-remplissage optionnel depuis une demande d'inscription).
+class CreateEntrepriseDialog extends StatefulWidget {
   final VoidCallback onSuccess;
-  const _CreateEntrepriseDialog({required this.onSuccess});
+  final void Function(int? entrepriseId)? onCreated;
+  final Map<String, dynamic>? initialLead;
+
+  const CreateEntrepriseDialog({
+    super.key,
+    required this.onSuccess,
+    this.onCreated,
+    this.initialLead,
+  });
 
   @override
-  State<_CreateEntrepriseDialog> createState() => _CreateEntrepriseDialogState();
+  State<CreateEntrepriseDialog> createState() => _CreateEntrepriseDialogState();
 }
 
-class _CreateEntrepriseDialogState extends State<_CreateEntrepriseDialog> {
+class _CreateEntrepriseDialogState extends State<CreateEntrepriseDialog> {
   final _formKey = GlobalKey<FormState>();
   bool _isSaving = false;
   String? _error;
@@ -1507,6 +1515,30 @@ class _CreateEntrepriseDialogState extends State<_CreateEntrepriseDialog> {
   final _adminPrenomController = TextEditingController();
   final _adminEmailController = TextEditingController();
   final _adminMotDePasseController = TextEditingController(text: 'Admin@2026');
+
+  @override
+  void initState() {
+    super.initState();
+    final lead = widget.initialLead;
+    if (lead != null) {
+      _nomController.text = (lead['nomEntreprise'] ?? '').toString();
+      _telephoneController.text = (lead['telephone'] ?? '').toString();
+      _emailController.text = (lead['email'] ?? '').toString();
+      _adresseController.text = (lead['ville'] ?? '').toString();
+      _adminEmailController.text = (lead['email'] ?? '').toString();
+      final fullName = (lead['nomResponsable'] ?? '').toString().trim();
+      if (fullName.isNotEmpty) {
+        final parts = fullName.split(RegExp(r'\s+'));
+        if (parts.length == 1) {
+          _adminNomController.text = parts.first;
+          _adminPrenomController.text = parts.first;
+        } else {
+          _adminPrenomController.text = parts.first;
+          _adminNomController.text = parts.sublist(1).join(' ');
+        }
+      }
+    }
+  }
 
   // Abonnement (décompte auto dès aujourd'hui +1 mois, personnalisable)
   DateTime? _customExpirationDate;
@@ -1573,7 +1605,10 @@ class _CreateEntrepriseDialogState extends State<_CreateEntrepriseDialog> {
           'dateExpirationLicence': _isoDate(_customExpirationDate!),
       };
 
-      await ApiClient.instance.post('/platform/entreprises', data: payload);
+      final res = await ApiClient.instance.post('/platform/entreprises', data: payload);
+      final int? createdId = (res.data is Map && res.data['data'] is Map)
+          ? (res.data['data']['id'] as num?)?.toInt()
+          : null;
 
       if (mounted) {
         Navigator.pop(context);
@@ -1583,6 +1618,7 @@ class _CreateEntrepriseDialogState extends State<_CreateEntrepriseDialog> {
             backgroundColor: Colors.green,
           ),
         );
+        widget.onCreated?.call(createdId);
         widget.onSuccess();
       }
     } catch (e) {

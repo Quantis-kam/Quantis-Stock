@@ -8,11 +8,13 @@ import '../../../core/network/api_client.dart';
 import '../../../core/sync/sync_manager.dart';
 import '../../../core/theme/quantis_theme.dart';
 import '../../../core/widgets/pwa_install_button.dart';
+import '../../landing/presentation/landing_page_screen.dart';
 
 /// Écran de connexion — Phase 2 Flutter (Auth JWT).
 class LoginScreen extends StatefulWidget {
   final VoidCallback? onLoginSuccess;
-  const LoginScreen({super.key, this.onLoginSuccess});
+  final VoidCallback? onOpenLanding;
+  const LoginScreen({super.key, this.onLoginSuccess, this.onOpenLanding});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -354,6 +356,54 @@ class _LoginScreenState extends State<LoginScreen> {
                           ? const SizedBox(width: 20, height: 20,
                               child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                           : const Text('Se connecter'),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // Lien vers la page d'accueil vitrine & demande de création d'entreprise
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: QuantisColors.royalBlue.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: QuantisColors.royalBlue.withValues(alpha: 0.16)),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          'Pas encore d\'espace entreprise ?',
+                          style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                        ),
+                        const SizedBox(height: 4),
+                        TextButton.icon(
+                          onPressed: () {
+                            if (widget.onOpenLanding != null) {
+                              widget.onOpenLanding!();
+                            } else {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => LandingPageScreen(
+                                    canPopToLogin: true,
+                                    onGoToLogin: () => Navigator.of(context).pop(),
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.storefront_rounded, size: 17),
+                          label: Text(
+                            widget.onOpenLanding != null
+                                ? 'Découvrir Quantis-Stock & créer mon entreprise'
+                                : 'Découvrir Quantis-Stock / Demander un compte',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                          ),
+                          style: TextButton.styleFrom(
+                            foregroundColor: QuantisColors.royalBlue,
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const PwaInstallCard(),

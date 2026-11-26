@@ -3,6 +3,7 @@ package com.quantis.stock.controller;
 import com.quantis.stock.dto.ApiResponse;
 import com.quantis.stock.dto.EntrepriseRequest;
 import com.quantis.stock.dto.PlatformAdminDto.*;
+import com.quantis.stock.model.DemandeEntreprise;
 import com.quantis.stock.model.Utilisateur;
 import com.quantis.stock.service.PlatformAdminService;
 import jakarta.validation.Valid;
@@ -94,5 +95,18 @@ public class PlatformAdminController {
             @PathVariable Long id) {
         EntrepriseListItemDto dto = platformAdminService.expireLicence(id);
         return ResponseEntity.ok(ApiResponse.success("Licence marquée expirée", dto));
+    }
+
+    @GetMapping("/demandes")
+    public ResponseEntity<ApiResponse<List<DemandeEntreprise>>> getAllDemandes() {
+        return ResponseEntity.ok(ApiResponse.success(platformAdminService.getAllDemandesEntreprises()));
+    }
+
+    @PatchMapping("/demandes/{id}/status")
+    public ResponseEntity<ApiResponse<DemandeEntreprise>> updateDemandeStatus(
+            @PathVariable Long id,
+            @RequestBody DemandeStatusUpdateRequest request) {
+        DemandeEntreprise updated = platformAdminService.updateDemandeStatus(id, request);
+        return ResponseEntity.ok(ApiResponse.success("Statut de la demande mis à jour", updated));
     }
 }

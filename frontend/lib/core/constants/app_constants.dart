@@ -144,9 +144,10 @@ class AppConstants {
   /// et aucune écoute micro / reconnaissance vocale n'est initialisée.
   static const bool isQuantisAiPremiumEnabled = false;
 
-  /// Contact commercial Quantis pour les passages en offre Premium.
+  /// Contact commercial Quantis pour les créations d'entreprises & support.
   static const String supportWhatsAppPhone = '22665189261';
   static const String supportPhoneDisplay = '+226 65 18 92 61';
+  static const String supportEmail = 'contact@quantisbf.com';
 
   /// Expiration automatique de session après inactivité (app ouverte, en arrière-plan ou fermée).
   static const Duration sessionInactivityTimeout = Duration(minutes: 30);

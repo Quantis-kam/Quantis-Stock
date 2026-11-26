@@ -4,6 +4,7 @@ import '../../../core/network/api_client.dart';
 import '../../auth/presentation/audit_logs_screen.dart';
 import '../../auth/presentation/change_password_dialog.dart';
 import '../../auth/presentation/pin_lock_screen.dart';
+import 'demandes_entreprises_screen.dart';
 import 'super_admin_screen.dart';
 
 /// Portail exclusif et autonome du Super-Administrateur Plateforme Quantis SaaS.
@@ -25,6 +26,12 @@ class _PlatformAdminPortalState extends State<PlatformAdminPortal> {
       title: 'Gestion des Entreprises',
       subtitle: 'Parc multi-tenants, licences & souscriptions',
       body: SuperAdminScreen(),
+    ),
+    const _AdminSection(
+      icon: Icons.mark_email_unread_rounded,
+      title: 'Demandes d\'inscription',
+      subtitle: 'Prospects reçus depuis la page d\'accueil',
+      body: DemandesEntreprisesScreen(),
     ),
     const _AdminSection(
       icon: Icons.history_edu_rounded,
@@ -312,6 +319,11 @@ class _PlatformAdminPortalState extends State<PlatformAdminPortal> {
               icon: Icon(Icons.domain_outlined),
               selectedIcon: Icon(Icons.domain_rounded, color: QuantisColors.royalBlue),
               label: 'Entreprises',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.mark_email_unread_outlined),
+              selectedIcon: Icon(Icons.mark_email_unread_rounded, color: QuantisColors.royalBlue),
+              label: 'Demandes',
             ),
             NavigationDestination(
               icon: Icon(Icons.history_edu_outlined),

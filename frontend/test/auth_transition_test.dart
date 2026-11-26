@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +7,7 @@ import 'package:quantis_stock/core/network/api_client.dart';
 import 'package:quantis_stock/features/admin/presentation/platform_admin_portal.dart';
 import 'package:quantis_stock/features/auth/presentation/login_screen.dart';
 import 'package:quantis_stock/features/auth/presentation/pin_lock_screen.dart';
+import 'package:quantis_stock/features/landing/presentation/landing_page_screen.dart';
 import 'package:quantis_stock/main.dart';
 
 void main() {
@@ -236,5 +238,35 @@ void main() {
 
     ApiClient.clearToken();
     await tester.pump();
+  });
+
+  testWidgets('LandingPageScreen affiche la vitrine, le tarif 10 100 FCFA, WhatsApp/Email et bascule vers Login', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    bool wentToLogin = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LandingPageScreen(
+          onGoToLogin: () => wentToLogin = true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('QUANTIS-STOCK'), findsWidgets);
+    expect(find.text('10 100'), findsOneWidget);
+    expect(find.text('Envoyer via WhatsApp'), findsOneWidget);
+    expect(find.text('Envoyer par Email'), findsOneWidget);
+    expect(find.text('contact@quantisbf.com'), findsOneWidget);
+    expect(find.text('+226 65 18 92 61'), findsOneWidget);
+
+    await tester.tap(find.text('Se connecter').first);
+    await tester.pump();
+    expect(wentToLogin, isTrue);
   });
 }

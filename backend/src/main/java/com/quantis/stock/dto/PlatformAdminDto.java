@@ -30,6 +30,7 @@ public class PlatformAdminDto {
         private BigDecimal margeGlobale;
         private long totalVentesCount;
         private long totalAchatsCount;
+        private long demandesEnAttente;
     }
 
     @Data
@@ -180,5 +181,14 @@ public class PlatformAdminDto {
         private Double montantAbonnement; // optionnel : personnalise le tarif mensuel
         private String referencePaiement; // ex: Orange Money ID
         private String notes;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class DemandeStatusUpdateRequest {
+        private String statut; // EN_ATTENTE, TRAITEE, REJETEE
+        private Long entrepriseCreeeId;
+        private String noteAdmin;
     }
 }

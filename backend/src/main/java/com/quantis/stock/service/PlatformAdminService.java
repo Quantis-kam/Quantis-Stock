@@ -1,9 +1,11 @@
 package com.quantis.stock.service;
 
+import com.quantis.stock.dto.DemandeEntrepriseRequest;
 import com.quantis.stock.dto.EntrepriseRequest;
 import com.quantis.stock.dto.PlatformAdminDto.*;
 import com.quantis.stock.exception.BusinessException;
 import com.quantis.stock.exception.ResourceNotFoundException;
+import com.quantis.stock.model.DemandeEntreprise;
 import com.quantis.stock.model.Depot;
 import com.quantis.stock.model.Entreprise;
 import com.quantis.stock.model.Utilisateur;
@@ -32,6 +34,7 @@ public class PlatformAdminService {
     private final MouvementCaisseRepository mouvementCaisseRepository;
     private final ClientRepository clientRepository;
     private final FournisseurRepository fournisseurRepository;
+    private final DemandeEntrepriseRepository demandeEntrepriseRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuditService auditService;
 
@@ -68,6 +71,7 @@ public class PlatformAdminService {
                 .margeGlobale(globalMarge)
                 .totalVentesCount(globalVentes)
                 .totalAchatsCount(globalAchatsCount)
+                .demandesEnAttente(demandeEntrepriseRepository.countByStatut("EN_ATTENTE"))
                 .build();
     }
 
@@ -345,6 +349,68 @@ public class PlatformAdminService {
                 "Marquage manuel licence expirée pour " + entreprise.getNom());
 
         return toListItemDto(entreprise);
+    }
+
+    // =================== DEMANDES PUBLIQUES D'OUVERTURE D'ENTREPRISE ===================
+
+    @Transactional
+    public DemandeEntreprise submitDemandeEntreprise(DemandeEntrepriseRequest request) {
+        String canal = (request.getCanalContact() != null && !request.getCanalContact().isBlank())
+                ? request.getCanalContact().trim().toUpperCase()
+                : "WHATSAPP";
+        if (!canal.equals("WHATSAPP") && !canal.equals("EMAIL") && !canal.equals("FORMULAIRE")) {
+            canal = "FORMULAIRE";
+        }
+
+        DemandeEntreprise demande = DemandeEntreprise.builder()
+                .nomEntreprise(request.getNomEntreprise().trim())
+                .secteurActivite(request.getSecteurActivite() != null ? request.getSecteurActivite().trim() : null)
+                .ville(request.getVille() != null ? request.getVille().trim() : null)
+                .nomResponsable(request.getNomResponsable().trim())
+                .telephone(request.getTelephone().trim())
+                .email(request.getEmail().trim().toLowerCase())
+                .message(request.getMessage() != null ? request.getMessage().trim() : null)
+                .canalContact(canal)
+                .statut("EN_ATTENTE")
+                .build();
+        demande = demandeEntrepriseRepository.save(demande);
+
+        log.info("Nouvelle demande d'ouverture d'entreprise reçue: {} (Responsable: {}, Tél: {}, Canal: {})",
+                demande.getNomEntreprise(), demande.getNomResponsable(), demande.getTelephone(), canal);
+        return demande;
+    }
+
+    @Transactional(readOnly = true)
+    public List<DemandeEntreprise> getAllDemandesEntreprises() {
+        return demandeEntrepriseRepository.findAllByOrderByCreatedAtDesc();
+    }
+
+    @Transactional
+    public DemandeEntreprise updateDemandeStatus(Long id, DemandeStatusUpdateRequest request) {
+        DemandeEntreprise demande = demandeEntrepriseRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("DemandeEntreprise", "id", id));
+
+        if (request != null && request.getStatut() != null && !request.getStatut().isBlank()) {
+            String statut = request.getStatut().trim().toUpperCase();
+            if (!statut.equals("EN_ATTENTE") && !statut.equals("TRAITEE") && !statut.equals("REJETEE")) {
+                throw new BusinessException("Statut de demande invalide : " + statut);
+            }
+            demande.setStatut(statut);
+        }
+        if (request != null && request.getEntrepriseCreeeId() != null) {
+            demande.setEntrepriseCreeeId(request.getEntrepriseCreeeId());
+            if ("EN_ATTENTE".equals(demande.getStatut())) {
+                demande.setStatut("TRAITEE");
+            }
+        }
+        if (request != null && request.getNoteAdmin() != null) {
+            demande.setNoteAdmin(request.getNoteAdmin().trim());
+        }
+
+        demande = demandeEntrepriseRepository.save(demande);
+        auditService.logAction("LEAD_STATUS", "DemandeEntreprise", demande.getId(),
+                "Demande " + demande.getNomEntreprise() + " marquée " + demande.getStatut());
+        return demande;
     }
 
     private EntrepriseListItemDto toListItemDto(Entreprise e) {

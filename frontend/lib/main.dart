@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,6 +12,7 @@ import 'core/utils/permission_helper.dart';
 import 'core/widgets/sync_indicator.dart';
 import 'core/widgets/command_palette_dialog.dart';
 import 'features/auth/presentation/login_screen.dart';
+import 'features/landing/presentation/landing_page_screen.dart';
 import 'features/dashboard/presentation/action_dashboard_screen.dart';
 import 'features/tiers/presentation/debiteurs_screen.dart';
 import 'features/stock/presentation/arret_stock_screen.dart';
@@ -205,6 +207,7 @@ class _AuthGate extends StatefulWidget {
 
 class _AuthGateState extends State<_AuthGate> {
   bool _hasMountedShell = false;
+  bool _showLandingOnWeb = kIsWeb;
 
   @override
   Widget build(BuildContext context) {
@@ -217,9 +220,23 @@ class _AuthGateState extends State<_AuthGate> {
             final authenticated = isAuth && ApiClient.isAuthenticated;
             if (!authenticated) {
               _hasMountedShell = false;
-              return const KeyedSubtree(
-                key: ValueKey('login'),
-                child: LoginScreen(),
+              if (kIsWeb &&
+                  _showLandingOnWeb &&
+                  ApiClient.sessionExpiredMessage == null) {
+                return KeyedSubtree(
+                  key: const ValueKey('landing'),
+                  child: LandingPageScreen(
+                    onGoToLogin: () => setState(() => _showLandingOnWeb = false),
+                  ),
+                );
+              }
+              return KeyedSubtree(
+                key: const ValueKey('login'),
+                child: LoginScreen(
+                  onOpenLanding: kIsWeb
+                      ? () => setState(() => _showLandingOnWeb = true)
+                      : null,
+                ),
               );
             }
             if (!isLocked) {
