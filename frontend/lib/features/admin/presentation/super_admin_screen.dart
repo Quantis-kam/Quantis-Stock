@@ -1992,7 +1992,7 @@ class _CreateEntrepriseDialogState extends State<CreateEntrepriseDialog> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Tarif standard : 10 100 FCFA / mois (*144*2*1*65189261*10100#)',
+                              'Annuel : 100 000 FCFA (1re année) puis 120 000 FCFA/an • Mensuel : 10 100 FCFA/mois (*144*2*1*65189261*10100#)',
                               style: TextStyle(fontSize: 11, color: Colors.blue.shade800),
                             ),
                             const SizedBox(height: 8),
@@ -2000,6 +2000,21 @@ class _CreateEntrepriseDialogState extends State<CreateEntrepriseDialog> {
                               spacing: 8,
                               runSpacing: 6,
                               children: [
+                                OutlinedButton.icon(
+                                  onPressed: () {
+                                    final now = DateTime.now();
+                                    setState(() {
+                                      _customExpirationDate = DateTime(now.year + 1, now.month, now.day);
+                                    });
+                                  },
+                                  icon: const Icon(Icons.workspace_premium_rounded, size: 15),
+                                  label: const Text('+1 an (Annuel)', style: TextStyle(fontSize: 12)),
+                                  style: OutlinedButton.styleFrom(
+                                    backgroundColor: Colors.white,
+                                    foregroundColor: QuantisColors.royalBlue,
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  ),
+                                ),
                                 OutlinedButton.icon(
                                   onPressed: _pickCustomExpiration,
                                   icon: const Icon(Icons.edit_calendar_rounded, size: 15),
@@ -3161,7 +3176,8 @@ class _RenewLicenceDialogState extends State<_RenewLicenceDialog> {
                 Expanded(
                   child: Text(
                     'Échéance actuelle : $currentExp${joursRestants != null ? (joursRestants >= 0 ? " ($joursRestants jour${joursRestants > 1 ? 's' : ''} restant${joursRestants > 1 ? 's' : ''})" : " (expirée depuis ${joursRestants.abs()} j)") : ""}\n'
-                    'Tarif mensuel : ${_formatFcfa(_tarifMensuel)} FCFA / mois ($_ussdCode)',
+                    'Annuel : 100 000 FCFA (1re an.) puis 120 000 FCFA/an\n'
+                    'Mensuel : ${_formatFcfa(_tarifMensuel)} FCFA / mois ($_ussdCode)',
                     style: TextStyle(fontSize: 12, color: Colors.blue.shade900),
                   ),
                 ),
@@ -3229,15 +3245,15 @@ class _RenewLicenceDialogState extends State<_RenewLicenceDialog> {
               ),
               items: [1, 2, 3, 6, 12].map((m) {
                 final labelMois = switch (m) {
-                  1 => '1 Mois',
-                  3 => '1 Trimestre (3 Mois)',
-                  6 => 'Semestre (6 Mois)',
-                  12 => 'Année complète (12 Mois)',
-                  _ => '$m Mois',
+                  1 => '1 Mois (${_formatFcfa(_tarifMensuel)} FCFA)',
+                  3 => '1 Trimestre — 3 Mois (${_formatFcfa(3 * _tarifMensuel)} FCFA)',
+                  6 => 'Semestre — 6 Mois (${_formatFcfa(6 * _tarifMensuel)} FCFA)',
+                  12 => 'Année complète — 12 Mois (100 000 F 1re an. / 120 000 F)',
+                  _ => '$m Mois (${_formatFcfa(m * _tarifMensuel)} FCFA)',
                 };
                 return DropdownMenuItem(
                   value: m,
-                  child: Text('$labelMois (${_formatFcfa(m * _tarifMensuel)} FCFA)'),
+                  child: Text(labelMois, overflow: TextOverflow.ellipsis),
                 );
               }).toList(),
               onChanged: (v) => setState(() => _nbMois = v ?? 1),
@@ -3328,6 +3344,10 @@ class _RenewLicenceDialogState extends State<_RenewLicenceDialog> {
                 ActionChip(
                   label: const Text('+1 mois', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
                   onPressed: () => setState(() => _customDate = DateTime(today.year, today.month + 1, today.day)),
+                ),
+                ActionChip(
+                  label: const Text('+1 an', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
+                  onPressed: () => setState(() => _customDate = DateTime(today.year + 1, today.month, today.day)),
                 ),
                 ActionChip(
                   avatar: const Icon(Icons.block, size: 14, color: Colors.red),

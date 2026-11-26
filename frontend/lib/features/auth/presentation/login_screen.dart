@@ -575,13 +575,15 @@ class _LicenceRenewalDialogState extends State<_LicenceRenewalDialog> {
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     const TextSpan(
-                      text: 'est temporairement suspendu pour cause d\'expiration de l\'abonnement mensuel. Veuillez effectuer le réabonnement de ',
+                      text: 'est temporairement suspendu pour cause d\'expiration de votre abonnement. Veuillez effectuer le réabonnement mensuel de ',
                     ),
                     TextSpan(
                       text: '$montant ',
                       style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFB45309)),
                     ),
-                    const TextSpan(text: 'pour réactiver vos services de gestion.'),
+                    const TextSpan(
+                      text: '(ou formule annuelle 120 000 FCFA / an — 100 000 FCFA la 1re année) pour réactiver vos services de gestion.',
+                    ),
                   ],
                 ),
               ),

@@ -240,7 +240,7 @@ void main() {
     await tester.pump();
   });
 
-  testWidgets('LandingPageScreen affiche la vitrine, le tarif 10 100 FCFA, WhatsApp/Email et bascule vers Login', (tester) async {
+  testWidgets('LandingPageScreen affiche les formules Annuelle (100 000 / 120 000 F) et Mensuelle (10 100 F), WhatsApp/Email et bascule vers Login', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(() {
@@ -259,6 +259,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('QUANTIS-STOCK'), findsWidgets);
+    expect(find.text('Abonnement Annuel'), findsOneWidget);
+    expect(find.text('120 000 FCFA / an'), findsOneWidget);
+    expect(find.text('100 000'), findsOneWidget);
+    expect(find.text('Abonnement Mensuel'), findsOneWidget);
     expect(find.text('10 100'), findsOneWidget);
     expect(find.text('Envoyer via WhatsApp'), findsOneWidget);
     expect(find.text('Envoyer par Email'), findsOneWidget);
@@ -268,5 +272,28 @@ void main() {
     await tester.tap(find.text('Se connecter').first);
     await tester.pump();
     expect(wentToLogin, isTrue);
+  });
+
+  testWidgets('LandingPageScreen rend les deux cartes tarifaires côte à côte sur desktop sans overflow', (tester) async {
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LandingPageScreen(
+          onGoToLogin: () {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Abonnement Annuel'), findsOneWidget);
+    expect(find.text('Abonnement Mensuel'), findsOneWidget);
+    expect(find.text('100 000'), findsOneWidget);
+    expect(find.text('10 100'), findsOneWidget);
   });
 }

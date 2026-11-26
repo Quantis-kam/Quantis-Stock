@@ -44,7 +44,17 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
   final _villeCtrl = TextEditingController();
   final _messageCtrl = TextEditingController();
 
+  static const String _formuleAnnuelle =
+      'Annuelle — 100 000 FCFA (1re année, puis 120 000 FCFA/an)';
+  static const String _formuleMensuelle =
+      'Mensuelle — 10 100 FCFA / mois (sans engagement)';
+  static const List<String> _formules = [
+    _formuleAnnuelle,
+    _formuleMensuelle,
+  ];
+
   String _secteur = 'Boutique / Commerce général';
+  String _formule = _formuleAnnuelle;
   bool _submitting = false;
   bool _submittedOk = false;
   String? _lastSentSummary;
@@ -93,6 +103,14 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
     }
   }
 
+  void _selectPlanAndScroll(String formule) {
+    setState(() {
+      _formule = formule;
+      _submittedOk = false;
+    });
+    _scrollTo(_contactKey);
+  }
+
   String _buildLeadMessage() {
     final buf = StringBuffer();
     buf.writeln('Bonjour l\'équipe Quantis-Stock,');
@@ -100,6 +118,7 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
     buf.writeln('');
     buf.writeln('• Entreprise : ${_entrepriseCtrl.text.trim()}');
     buf.writeln('• Secteur : $_secteur');
+    buf.writeln('• Formule souhaitée : $_formule');
     if (_villeCtrl.text.trim().isNotEmpty) {
       buf.writeln('• Ville / Quartier : ${_villeCtrl.text.trim()}');
     }
@@ -126,6 +145,10 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
           'Accept': 'application/json',
         },
       ));
+      final rawMsg = _messageCtrl.text.trim();
+      final fullMessage = rawMsg.isEmpty
+          ? '[Formule : $_formule]'
+          : '[Formule : $_formule]\n$rawMsg';
       final res = await dio.post('/public/demandes-entreprise', data: {
         'nomEntreprise': _entrepriseCtrl.text.trim(),
         'secteurActivite': _secteur,
@@ -133,7 +156,7 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
         'nomResponsable': _responsableCtrl.text.trim(),
         'telephone': _telephoneCtrl.text.trim(),
         'email': _emailCtrl.text.trim(),
-        'message': _messageCtrl.text.trim(),
+        'message': fullMessage,
         'canalContact': canal,
       });
       return res.statusCode == 200 || res.statusCode == 201;
@@ -260,7 +283,7 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
                   _buildHeroSection(isDesktop: isDesktop, isMobile: isMobile),
                   _buildWhyQuantisSection(isDesktop: isDesktop, isTablet: isTablet, isMobile: isMobile),
                   _buildFeaturesSection(isDesktop: isDesktop, isTablet: isTablet, isMobile: isMobile),
-                  _buildPricingSection(isMobile: isMobile),
+                  _buildPricingSection(isDesktop: isDesktop, isTablet: isTablet, isMobile: isMobile),
                   _buildContactLeadSection(isDesktop: isDesktop, isMobile: isMobile),
                   _buildPwaBannerSection(isMobile: isMobile),
                   _buildFooter(isMobile: isMobile),
@@ -341,8 +364,9 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  Expanded(
+                  Flexible(
                     flex: isDesktop ? 0 : 1,
+                    fit: isDesktop ? FlexFit.loose : FlexFit.tight,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
@@ -362,17 +386,31 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
                           const Text(
                             'Gestion de Stock, POS & Facturation',
                             style: TextStyle(fontSize: 10.5, color: QuantisColors.textSecondary),
+                            overflow: TextOverflow.ellipsis,
                           ),
                       ],
                     ),
                   ),
                   if (isDesktop) ...[
-                    const Spacer(),
-                    _navLink('Pourquoi nous ?', () => _scrollTo(_whyKey)),
-                    _navLink('Fonctionnalités', () => _scrollTo(_featuresKey)),
-                    _navLink('Tarif', () => _scrollTo(_pricingKey)),
-                    _navLink('Contact', () => _scrollTo(_contactKey)),
-                    const SizedBox(width: 14),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _navLink('Pourquoi nous ?', () => _scrollTo(_whyKey)),
+                              _navLink('Fonctionnalités', () => _scrollTo(_featuresKey)),
+                              _navLink('Tarifs', () => _scrollTo(_pricingKey)),
+                              _navLink('Contact', () => _scrollTo(_contactKey)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
                   ],
                   OutlinedButton(
                     onPressed: _goToLogin,
@@ -545,7 +583,7 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
             _heroTrustChip(Icons.bolt_rounded, 'Mise en place en 5 min'),
             _heroTrustChip(Icons.devices_rounded, 'Web, Android & PC'),
             _heroTrustChip(Icons.pin_outlined, 'Accès rapide Code PIN'),
-            _heroTrustChip(Icons.payments_outlined, '10 100 FCFA / mois'),
+            _heroTrustChip(Icons.payments_outlined, '100 000 F / 1re an. ou 10 100 F / mois'),
           ],
         ),
       ],
@@ -598,12 +636,14 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
       children: [
         Icon(icon, size: 16, color: QuantisColors.luxuryGold),
         const SizedBox(width: 6),
-        Text(
-          label,
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.9),
-            fontSize: 12.5,
-            fontWeight: FontWeight.w500,
+        Flexible(
+          child: Text(
+            label,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.9),
+              fontSize: 12.5,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ),
       ],
@@ -1067,9 +1107,13 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
   }
 
   // ===========================================================================
-  // 5. TARIFICATION CLAIRE (10 100 FCFA / MOIS)
+  // 5. TARIFICATION CLAIRE (ANNUEL 120 000 F / 100 000 F 1RE ANNÉE + MENSUEL 10 100 F)
   // ===========================================================================
-  Widget _buildPricingSection({required bool isMobile}) {
+  Widget _buildPricingSection({
+    required bool isDesktop,
+    required bool isTablet,
+    required bool isMobile,
+  }) {
     final included = [
       'Caisse POS tactile & Tickets 80mm',
       'Produits, clients & factures illimités',
@@ -1081,12 +1125,327 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
       'Support WhatsApp dédié (+226 65 18 92 61)',
     ];
 
+    Widget buildPlanBullet(String text, {required bool dark}) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              Icons.check_circle_rounded,
+              color: dark ? QuantisColors.luxuryGold : QuantisColors.success,
+              size: 17,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                text,
+                style: TextStyle(
+                  color: dark ? Colors.white.withValues(alpha: 0.94) : QuantisColors.textPrimary,
+                  fontSize: 13,
+                  height: 1.35,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final annualCard = Container(
+      padding: EdgeInsets.all(isMobile ? 20 : 28),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0A1A5E), Color(0xFF1E2F97)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: QuantisColors.luxuryGold, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: QuantisColors.royalBlue.withValues(alpha: 0.26),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: QuantisColors.luxuryGold,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Text(
+                      'OFFRE NOUVEAU CLIENT • -20 000 F',
+                      style: TextStyle(
+                        color: Color(0xFF0A1A5E),
+                        fontWeight: FontWeight.w800,
+                        fontSize: 10.5,
+                        letterSpacing: 0.6,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'Abonnement Annuel',
+                style: TextStyle(
+                  fontFamily: 'SpaceGrotesk',
+                  fontSize: 21,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  Text(
+                    'Tarif de base :',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.72),
+                      fontSize: 12.5,
+                    ),
+                  ),
+                  Text(
+                    '120 000 FCFA / an',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.78),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      decoration: TextDecoration.lineThrough,
+                      decorationColor: QuantisColors.luxuryGold,
+                      decorationThickness: 2,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Wrap(
+                crossAxisAlignment: WrapCrossAlignment.end,
+                children: [
+                  Text(
+                    '100 000',
+                    style: TextStyle(
+                      fontFamily: 'SpaceGrotesk',
+                      fontSize: isMobile ? 38 : 44,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                      height: 1,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 5),
+                    child: Text(
+                      'FCFA / 1re année',
+                      style: TextStyle(
+                        color: QuantisColors.goldLight,
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(11),
+                decoration: BoxDecoration(
+                  color: QuantisColors.luxuryGold.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: QuantisColors.luxuryGold.withValues(alpha: 0.35)),
+                ),
+                child: Text(
+                  'Cadeau de bienvenue : 100 000 FCFA pour votre 1re année de collaboration (soit ~8 333 FCFA/mois), puis 120 000 FCFA/an dès la 2e année.',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.92),
+                    fontSize: 12.2,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              buildPlanBullet('Économie immédiate de 20 000 FCFA la 1re année', dark: true),
+              buildPlanBullet('12 mois d\'accès complet sans coupure mensuelle', dark: true),
+              buildPlanBullet('Toutes les fonctionnalités + support prioritaire', dark: true),
+            ],
+          ),
+          const SizedBox(height: 18),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () => _selectPlanAndScroll(_formuleAnnuelle),
+              icon: const Icon(Icons.workspace_premium_rounded, size: 19),
+              label: const Text(
+                'Choisir l\'offre Annuelle',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: QuantisColors.luxuryGold,
+                foregroundColor: const Color(0xFF0A1A5E),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    final monthlyCard = Container(
+      padding: EdgeInsets.all(isMobile ? 20 : 28),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: QuantisColors.royalBlue.withValues(alpha: 0.25), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+                decoration: BoxDecoration(
+                  color: QuantisColors.royalBlue.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text(
+                  'FLEXIBLE • PAIEMENT AU MOIS',
+                  style: TextStyle(
+                    color: QuantisColors.royalBlue,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 10.5,
+                    letterSpacing: 0.6,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'Abonnement Mensuel',
+                style: TextStyle(
+                  fontFamily: 'SpaceGrotesk',
+                  fontSize: 21,
+                  fontWeight: FontWeight.w800,
+                  color: QuantisColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Payer 100 000 FCFA d\'un coup vous semble élevé ? Passez à la formule mensuelle en toute souplesse.',
+                style: TextStyle(
+                  color: QuantisColors.textSecondary,
+                  fontSize: 12.8,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                crossAxisAlignment: WrapCrossAlignment.end,
+                children: [
+                  Text(
+                    '10 100',
+                    style: TextStyle(
+                      fontFamily: 'SpaceGrotesk',
+                      fontSize: isMobile ? 38 : 44,
+                      fontWeight: FontWeight.w900,
+                      color: QuantisColors.royalBlue,
+                      height: 1,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 5),
+                    child: Text(
+                      'FCFA / mois',
+                      style: TextStyle(
+                        color: QuantisColors.textSecondary,
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(11),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: const Text(
+                  'Réabonnement direct par Orange Money • Sans engagement. Vous pouvez basculer en annuel à tout moment.',
+                  style: TextStyle(
+                    color: QuantisColors.textSecondary,
+                    fontSize: 12.2,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              buildPlanBullet('Aucun gros versement initial requis', dark: false),
+              buildPlanBullet('100% des fonctionnalités incluses dès le 1er jour', dark: false),
+              buildPlanBullet('Paiement simple et rapide par Orange Money', dark: false),
+            ],
+          ),
+          const SizedBox(height: 18),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () => _selectPlanAndScroll(_formuleMensuelle),
+              icon: const Icon(Icons.calendar_month_rounded, size: 19),
+              label: const Text(
+                'Choisir l\'offre Mensuelle',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: QuantisColors.royalBlue,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
     return Container(
       key: _pricingKey,
       color: Colors.white,
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 900),
+          constraints: const BoxConstraints(maxWidth: 1080),
           child: Padding(
             padding: EdgeInsets.symmetric(
               horizontal: isMobile ? 16 : 28,
@@ -1095,85 +1454,63 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
             child: Column(
               children: [
                 _sectionHeader(
-                  eyebrow: 'TARIF SIMPLE & TRANSPARENT',
-                  title: 'Un seul abonnement, toutes les fonctionnalités incluses',
-                  subtitle: 'Aucune surprise, aucun frais caché. Renouvellement simple via Orange Money.',
+                  eyebrow: 'TARIFS SIMPLES & TRANSPARENTS',
+                  title: 'Choisissez la formule adaptée à votre rythme',
+                  subtitle:
+                      'Abonnement annuel de base à 120 000 FCFA/an — offert à 100 000 FCFA la 1re année pour nos nouveaux clients, ou formule mensuelle flexible à 10 100 FCFA/mois.',
                   isMobile: isMobile,
                 ),
-                const SizedBox(height: 28),
-                Container(
-                  width: double.infinity,
-                  padding: EdgeInsets.all(isMobile ? 22 : 34),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF0A1A5E), Color(0xFF1E2F97)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
+                const SizedBox(height: 30),
+                if (isDesktop || isTablet)
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(child: annualCard),
+                        const SizedBox(width: 22),
+                        Expanded(child: monthlyCard),
+                      ],
                     ),
-                    borderRadius: BorderRadius.circular(22),
-                    border: Border.all(color: QuantisColors.luxuryGold, width: 1.8),
-                    boxShadow: [
-                      BoxShadow(
-                        color: QuantisColors.royalBlue.withValues(alpha: 0.25),
-                        blurRadius: 24,
-                        offset: const Offset(0, 10),
-                      ),
+                  )
+                else
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      annualCard,
+                      const SizedBox(height: 18),
+                      monthlyCard,
                     ],
                   ),
+                const SizedBox(height: 22),
+                Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.all(isMobile ? 18 : 24),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: QuantisColors.luxuryGold,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Text(
-                          'PACK ENTREPRISE COMPLET',
-                          style: TextStyle(
-                            color: Color(0xFF0A1A5E),
-                            fontWeight: FontWeight.w800,
-                            fontSize: 11,
-                            letterSpacing: 0.8,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Wrap(
-                        crossAxisAlignment: WrapCrossAlignment.end,
-                        alignment: WrapAlignment.center,
+                      const Row(
                         children: [
-                          Text(
-                            '10 100',
-                            style: TextStyle(
-                              fontFamily: 'SpaceGrotesk',
-                              fontSize: isMobile ? 40 : 50,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.white,
-                              height: 1,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          const Padding(
-                            padding: EdgeInsets.only(bottom: 6),
+                          Icon(Icons.verified_rounded, color: QuantisColors.royalBlue, size: 20),
+                          SizedBox(width: 8),
+                          Expanded(
                             child: Text(
-                              'FCFA / mois',
+                              'Inclus dans les deux formules — Zéro frais caché',
                               style: TextStyle(
-                                color: QuantisColors.goldLight,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
+                                fontFamily: 'SpaceGrotesk',
+                                fontWeight: FontWeight.w800,
+                                fontSize: 15,
+                                color: QuantisColors.textPrimary,
                               ),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Réabonnement direct par Orange Money • Sans engagement',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12.5),
-                      ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 14),
                       LayoutBuilder(
                         builder: (context, constraints) {
                           final twoCols = constraints.maxWidth >= 560;
@@ -1187,12 +1524,12 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Icon(Icons.check_circle_rounded, color: QuantisColors.luxuryGold, size: 18),
+                                    const Icon(Icons.check_circle_rounded, color: QuantisColors.royalBlue, size: 18),
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
                                         text,
-                                        style: const TextStyle(color: Colors.white, fontSize: 13.5),
+                                        style: const TextStyle(color: QuantisColors.textPrimary, fontSize: 13.5),
                                       ),
                                     ),
                                   ],
@@ -1201,21 +1538,6 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
                             }).toList(),
                           );
                         },
-                      ),
-                      const SizedBox(height: 26),
-                      ElevatedButton.icon(
-                        onPressed: () => _scrollTo(_contactKey),
-                        icon: const Icon(Icons.add_business_rounded, size: 20),
-                        label: const Text(
-                          'Demander la création de mon entreprise',
-                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: QuantisColors.luxuryGold,
-                          foregroundColor: const Color(0xFF0A1A5E),
-                          padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
                       ),
                     ],
                   ),
@@ -1365,6 +1687,22 @@ class _LandingPageScreenState extends State<LandingPageScreen> {
                         .toList(),
                     onChanged: (v) {
                       if (v != null) setState(() => _secteur = v);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+
+                  DropdownButtonFormField<String>(
+                    value: _formule,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Formule d\'abonnement souhaitée',
+                      prefixIcon: Icon(Icons.workspace_premium_outlined),
+                    ),
+                    items: _formules
+                        .map((f) => DropdownMenuItem(value: f, child: Text(f, overflow: TextOverflow.ellipsis)))
+                        .toList(),
+                    onChanged: (v) {
+                      if (v != null) setState(() => _formule = v);
                     },
                   ),
                   const SizedBox(height: 12),
