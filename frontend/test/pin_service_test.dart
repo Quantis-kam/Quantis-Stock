@@ -30,6 +30,11 @@ void main() {
     // Le code PIN en clair ne doit jamais apparaître dans le stockage
     expect(store.data.values.any((v) => v.contains('2468')), isFalse);
 
+    expect(await pinService.matchesPin('moussa@boutique.bf', '2468'), isTrue);
+    expect(await pinService.matchesPin('moussa@boutique.bf', '0000'), isFalse);
+    // matchesPin en lecture seule ne doit pas consommer de tentative
+    expect(await pinService.getRemainingAttempts('moussa@boutique.bf'), 5);
+
     final ok = await pinService.verifyPin('moussa@boutique.bf', '2468');
     expect(ok.isValid, isTrue);
     expect(ok.isLockedOut, isFalse);

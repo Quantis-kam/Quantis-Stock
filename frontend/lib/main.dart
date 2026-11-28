@@ -110,6 +110,9 @@ class _QuantisStockAppState extends State<QuantisStockApp>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && ApiClient.isAuthenticated) {
+      unawaited(ApiClient.warmUpInBackground());
+    }
     if (!ApiClient.isAuthenticated || ApiClient.isSessionLocked) return;
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive ||
@@ -659,7 +662,7 @@ class _MainShellState extends State<MainShell> {
           const SizedBox(height: 20),
           Center(
             child: Text(
-              'Quantis Stock • Version 1.2.0',
+              'Quantis Stock • Version 1.4.3',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,

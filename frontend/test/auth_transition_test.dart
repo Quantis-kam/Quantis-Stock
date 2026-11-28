@@ -297,4 +297,51 @@ void main() {
     expect(find.text('100 000'), findsOneWidget);
     expect(find.text('10 100'), findsOneWidget);
   });
+
+  testWidgets('Déverrouillage PIN local est instantané même si accountHasPin=true (sans blocage réseau)', (tester) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    const validJwt =
+        'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJwaW5mYXN0QHF1YW50aXNiZi5jb20iLCJleHAiOjQ3MDAwMDAwMDB9.sig';
+
+    ApiClient.clearToken();
+    await ApiClient.saveTokens(validJwt, validJwt);
+    await ApiClient.setUserInfo(
+      'ADMIN',
+      'Kader Sawadogo',
+      'pinfast@quantisbf.com',
+      [],
+      isSuperAdmin: false,
+      hasPin: true,
+      notifyAuth: false,
+    );
+    await PinService.instance.setPin('pinfast@quantisbf.com', '5678');
+
+    await ApiClient.initialize();
+    await tester.pumpWidget(const ProviderScope(child: QuantisStockApp()));
+    await tester.pump();
+
+    expect(find.byType(PinLockScreen), findsOneWidget);
+
+    final sw = Stopwatch()..start();
+    for (final digit in ['5', '6', '7', '8']) {
+      await tester.tap(find.text(digit).last);
+      await tester.pump();
+    }
+    await tester.pumpAndSettle();
+    sw.stop();
+
+    expect(find.byType(PinLockScreen), findsNothing);
+    expect(find.byType(MainShell), findsOneWidget);
+    // Déverrouillage quasi-instantané (bien en dessous de 2 secondes)
+    expect(sw.elapsedMilliseconds, lessThan(2000));
+
+    ApiClient.clearToken();
+    await tester.pump();
+  });
 }

@@ -146,6 +146,16 @@ class PinService {
     await _store.delete(_attemptsKey(email));
   }
 
+  /// Vérifie en lecture seule si [pin] correspond au condensat local sans toucher au compteur d'échecs.
+  Future<bool> matchesPin(String email, String pin) async {
+    if (!isValidPinFormat(pin)) return false;
+    final expectedHash = await _store.read(_hashKey(email));
+    final salt = await _store.read(_saltKey(email));
+    if (expectedHash == null || salt == null) return false;
+    final candidate = _deriveDigest(email, pin, salt);
+    return _constantTimeEquals(candidate, expectedHash);
+  }
+
   /// Vérifie un code PIN saisi et gère le compteur de tentatives (max 5).
   Future<PinVerifyResult> verifyPin(String email, String pin) async {
     final expectedHash = await _store.read(_hashKey(email));

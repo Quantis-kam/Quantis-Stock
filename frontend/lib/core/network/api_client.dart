@@ -107,12 +107,14 @@ class ApiClient {
     if (!isAuthenticated || !PinService.isValidPinFormat(pin)) return false;
     try {
       await refreshSessionIfNeeded();
+      if (!isAuthenticated || JwtTokenUtils.isExpired(_accessToken)) return false;
       final res = await instance.post(
         '/auth/pin',
         data: {'pin': pin},
         options: Options(
           sendTimeout: const Duration(seconds: 10),
           receiveTimeout: const Duration(seconds: 10),
+          extra: const {'_skipAuthRetry': true},
         ),
       );
       if (res.statusCode == 200 && res.data is Map && (res.data as Map)['success'] == true) {
@@ -127,20 +129,48 @@ class ApiClient {
     return false;
   }
 
+  /// Réveille silencieusement le serveur et rafraîchit le JWT expiré en arrière-plan
+  /// (pendant que l'utilisateur saisit son code PIN ou revient sur l'application).
+  static Future<void> warmUpInBackground() async {
+    if (!isAuthenticated || _refreshToken == null) return;
+    if (JwtTokenUtils.isExpired(
+      _accessToken,
+      skew: AppConstants.proactiveRefreshThreshold,
+    )) {
+      await refreshSessionIfNeeded();
+    }
+  }
+
   /// Vérifie le code PIN côté serveur (source de vérité multi-appareils).
-  /// Retourne `true` (valide), `false` (incorrect), ou `null` si serveur hors-ligne
-  /// ou compte pas encore migré (dans ce cas le client retombe sur le cache local).
-  static Future<bool?> verifyAccountPin(String pin) async {
+  /// Retourne `true` (valide), `false` (incorrect), ou `null` si serveur hors-ligne /
+  /// en réveil ou compte pas encore migré (dans ce cas le client retombe sur le cache local).
+  static Future<bool?> verifyAccountPin(
+    String pin, {
+    Duration maxWait = const Duration(seconds: 20),
+  }) async {
     if (!isAuthenticated || !PinService.isValidPinFormat(pin)) return null;
     try {
-      await refreshSessionIfNeeded();
+      if (JwtTokenUtils.isExpired(
+        _accessToken,
+        skew: AppConstants.proactiveRefreshThreshold,
+      )) {
+        final refreshed = await _performRefresh().timeout(
+          maxWait,
+          onTimeout: () => false,
+        );
+        // Ne jamais lancer /auth/pin/verify avec un JWT encore expiré (évite un 2e cycle de timeout)
+        if (!refreshed || !isAuthenticated || JwtTokenUtils.isExpired(_accessToken)) {
+          return null;
+        }
+      }
       if (!isAuthenticated) return null;
       final res = await instance.post(
         '/auth/pin/verify',
         data: {'pin': pin},
         options: Options(
-          sendTimeout: const Duration(seconds: 8),
-          receiveTimeout: const Duration(seconds: 8),
+          sendTimeout: maxWait,
+          receiveTimeout: maxWait,
+          extra: const {'_skipAuthRetry': true},
         ),
       );
       if (res.statusCode == 200 && res.data is Map) {
@@ -175,7 +205,9 @@ class ApiClient {
     sessionLockedNotifier.value = true;
   }
 
-  /// Déverrouille la session après validation du code PIN 4 chiffres.
+  /// Déverrouille instantanément la session après validation du code PIN 4 chiffres.
+  /// Le rafraîchissement du JWT s'effectue silencieusement en arrière-plan pour ne jamais
+  /// bloquer l'écran PIN lors d'un réveil serveur Cloud (Render).
   static Future<bool> unlockSessionWithPin() async {
     if (!isAuthenticated) return false;
 
@@ -188,13 +220,11 @@ class ApiClient {
       return false;
     }
 
-    // Rafraîchir le JWT silencieusement si l'access token a expiré pendant la veille
-    await refreshSessionIfNeeded();
-    if (!isAuthenticated) return false;
-
     lockReasonMessage = null;
     sessionLockedNotifier.value = false;
     SessionManager.instance.startSession();
+    // Rafraîchir le JWT silencieusement en arrière-plan sans bloquer l'entrée dans l'app
+    unawaited(refreshSessionIfNeeded());
     return true;
   }
 
@@ -585,9 +615,23 @@ class ApiClient {
     ));
 
     dio.interceptors.add(InterceptorsWrapper(
-      onRequest: (options, handler) {
+      onRequest: (options, handler) async {
         // Toujours synchroniser l'URL courante (même pour les services ayant mis en cache ApiClient.instance)
         options.baseUrl = ApiConstants.baseUrl;
+        final path = options.path;
+        final skipAuthRetry = options.extra['_skipAuthRetry'] == true;
+        final isPublicOrAuth = path.contains('/auth/login') ||
+            path.contains('/auth/refresh') ||
+            path.contains('/public/') ||
+            path.contains('/health');
+        if (!isPublicOrAuth && !skipAuthRetry && _refreshToken != null) {
+          if (_activeRefreshFuture != null) {
+            // Partager le rafraîchissement déjà en cours pour éviter une salve de 401 inutiles
+            await _activeRefreshFuture;
+          } else if (JwtTokenUtils.isExpired(_accessToken)) {
+            await _performRefresh();
+          }
+        }
         if (_accessToken != null) {
           options.headers['Authorization'] = 'Bearer $_accessToken';
         }
@@ -627,11 +671,13 @@ class ApiClient {
         final statusCode = error.response?.statusCode;
         final path = error.requestOptions.path;
         final alreadyRetried = error.requestOptions.extra['_authRetried'] == true;
+        final skipAuthRetry = error.requestOptions.extra['_skipAuthRetry'] == true;
         final accessLooksExpired = JwtTokenUtils.isExpired(_accessToken);
         final isAuthFailure = statusCode == 401 || (statusCode == 403 && accessLooksExpired);
 
         if (isAuthFailure &&
             !alreadyRetried &&
+            !skipAuthRetry &&
             _refreshToken != null &&
             !path.contains('/auth/login') &&
             !path.contains('/auth/refresh')) {

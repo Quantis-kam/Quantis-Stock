@@ -21,7 +21,9 @@ class _PinLockScreenState extends State<PinLockScreen>
     with SingleTickerProviderStateMixin {
   String _enteredPin = '';
   String? _errorText;
+  String? _verifyingStatus;
   bool _verifying = false;
+  Timer? _slowServerTimer;
 
   late final AnimationController _shakeController;
   late final Animation<double> _shakeOffset;
@@ -42,10 +44,13 @@ class _PinLockScreenState extends State<PinLockScreen>
     ]).animate(CurvedAnimation(parent: _shakeController, curve: Curves.easeInOut));
 
     HardwareKeyboard.instance.addHandler(_onKeyEvent);
+    // Pré-chauffer silencieusement le serveur + JWT pendant que l'utilisateur tape ses 4 chiffres
+    unawaited(ApiClient.warmUpInBackground());
   }
 
   @override
   void dispose() {
+    _slowServerTimer?.cancel();
     HardwareKeyboard.instance.removeHandler(_onKeyEvent);
     _shakeController.dispose();
     super.dispose();
@@ -102,20 +107,91 @@ class _PinLockScreenState extends State<PinLockScreen>
       return;
     }
 
-    setState(() => _verifying = true);
+    final pinAttempt = _enteredPin;
+    setState(() {
+      _verifying = true;
+      _verifyingStatus = 'Vérification...';
+    });
 
-    // 1. Vérification prioritaire contre le compte serveur (source de vérité multi-appareils)
-    final serverValid = await ApiClient.verifyAccountPin(_enteredPin);
+    // 1. Voie ultra-rapide (locale d'abord, < 50 ms) : si le PIN est en cache sécurisé sur cet appareil
+    // et correspond, on déverrouille INSTANTANÉMENT sans attendre un réveil serveur (Render).
+    final hasLocalPin = await PinService.instance.hasPin(email);
+    if (!mounted) return;
+
+    if (hasLocalPin) {
+      final localMatch = await PinService.instance.matchesPin(email, pinAttempt);
+      if (!mounted) return;
+
+      if (localMatch) {
+        await PinService.instance.resetFailedAttempts(email);
+        final unlocked = await ApiClient.unlockSessionWithPin();
+        if (unlocked) {
+          // Synchroniser en arrière-plan si le compte serveur n'a pas encore le PIN
+          unawaited(ApiClient.syncLocalPinToAccountIfNeeded(pinAttempt));
+        } else if (mounted) {
+          setState(() {
+            _verifying = false;
+            _verifyingStatus = null;
+            _enteredPin = '';
+          });
+        }
+        return;
+      }
+
+      // Si le PIN saisi diffère du cache local, vérifier rapidement sur le serveur (4 s max)
+      // uniquement au cas où l'utilisateur aurait modifié son PIN depuis un autre appareil.
+      if (ApiClient.accountHasPin) {
+        final serverValid = await ApiClient.verifyAccountPin(
+          pinAttempt,
+          maxWait: const Duration(seconds: 4),
+        );
+        if (!mounted) return;
+        if (serverValid == true) {
+          await PinService.instance.setPin(email, pinAttempt);
+          await ApiClient.refreshQuickPinStatus();
+          final unlocked = await ApiClient.unlockSessionWithPin();
+          if (!unlocked && mounted) {
+            setState(() {
+              _verifying = false;
+              _verifyingStatus = null;
+              _enteredPin = '';
+            });
+          }
+          return;
+        }
+      }
+
+      await _handleInvalidPin(email);
+      return;
+    }
+
+    // 2. Premier déverrouillage sur un nouvel appareil (aucun cache local encore) :
+    // vérification auprès du compte serveur avec feedback clair si le serveur Cloud se réveille.
+    _slowServerTimer?.cancel();
+    _slowServerTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted && _verifying) {
+        setState(() {
+          _verifyingStatus = 'Réveil du serveur Cloud en cours...';
+        });
+      }
+    });
+
+    final serverValid = await ApiClient.verifyAccountPin(
+      pinAttempt,
+      maxWait: const Duration(seconds: 25),
+    );
+    _slowServerTimer?.cancel();
     if (!mounted) return;
 
     if (serverValid == true) {
-      // Mettre à jour le cache local pour que le déverrouillage hors-ligne fonctionne aussi
-      await PinService.instance.setPin(email, _enteredPin);
+      // Mémoriser localement pour que tous les prochains déverrouillages soient instantanés (< 0.1 s)
+      await PinService.instance.setPin(email, pinAttempt);
       await ApiClient.refreshQuickPinStatus();
       final unlocked = await ApiClient.unlockSessionWithPin();
       if (!unlocked && mounted) {
         setState(() {
           _verifying = false;
+          _verifyingStatus = null;
           _enteredPin = '';
         });
       }
@@ -123,71 +199,36 @@ class _PinLockScreenState extends State<PinLockScreen>
     }
 
     if (serverValid == false) {
-      final fail = await PinService.instance.recordFailedAttempt(email);
-      if (!mounted) return;
-      if (fail.isLockedOut) {
-        ApiClient.clearToken(
-          expiredMessage:
-              'Trop de tentatives de code PIN. Veuillez vous reconnecter avec votre mot de passe.',
-        );
-        return;
-      }
-      _shakeController.forward(from: 0);
-      setState(() {
-        _verifying = false;
-        _enteredPin = '';
-        _errorText =
-            'Code PIN incorrect (${fail.remainingAttempts} essai${fail.remainingAttempts > 1 ? 's' : ''} restant${fail.remainingAttempts > 1 ? 's' : ''})';
-      });
-      return;
-    }
-
-    // 2. Fallback local (mode hors-ligne ou ancien compte pas encore migré côté serveur)
-    final hasLocalPin = await PinService.instance.hasPin(email);
-    if (!mounted) return;
-
-    if (!hasLocalPin) {
-      _shakeController.forward(from: 0);
-      setState(() {
-        _verifying = false;
-        _enteredPin = '';
-        _errorText = 'Connexion Internet requise pour vérifier votre code PIN sur cet appareil.';
-      });
-      return;
-    }
-
-    final result = await PinService.instance.verifyPin(email, _enteredPin);
-    if (!mounted) return;
-
-    if (result.isValid) {
-      final validPin = _enteredPin;
-      final unlocked = await ApiClient.unlockSessionWithPin();
-      if (unlocked) {
-        // Migrer silencieusement l'ancien PIN local vers le compte serveur
-        unawaited(ApiClient.syncLocalPinToAccountIfNeeded(validPin));
-      } else if (mounted) {
-        setState(() {
-          _verifying = false;
-          _enteredPin = '';
-        });
-      }
-      return;
-    }
-
-    if (result.isLockedOut) {
-      ApiClient.clearToken(
-        expiredMessage:
-            'Trop de tentatives de code PIN. Veuillez vous reconnecter avec votre mot de passe.',
-      );
+      await _handleInvalidPin(email);
       return;
     }
 
     _shakeController.forward(from: 0);
     setState(() {
       _verifying = false;
+      _verifyingStatus = null;
+      _enteredPin = '';
+      _errorText = 'Serveur momentanément lent ou hors-ligne. Réessayez ou utilisez votre mot de passe.';
+    });
+  }
+
+  Future<void> _handleInvalidPin(String email) async {
+    final fail = await PinService.instance.recordFailedAttempt(email);
+    if (!mounted) return;
+    if (fail.isLockedOut) {
+      ApiClient.clearToken(
+        expiredMessage:
+            'Trop de tentatives de code PIN. Veuillez vous reconnecter avec votre mot de passe.',
+      );
+      return;
+    }
+    _shakeController.forward(from: 0);
+    setState(() {
+      _verifying = false;
+      _verifyingStatus = null;
       _enteredPin = '';
       _errorText =
-          'Code PIN incorrect (${result.remainingAttempts} essai${result.remainingAttempts > 1 ? 's' : ''} restant${result.remainingAttempts > 1 ? 's' : ''})';
+          'Code PIN incorrect (${fail.remainingAttempts} essai${fail.remainingAttempts > 1 ? 's' : ''} restant${fail.remainingAttempts > 1 ? 's' : ''})';
     });
   }
 
@@ -363,22 +404,39 @@ class _PinLockScreenState extends State<PinLockScreen>
                     ),
                     const SizedBox(height: 16),
                     SizedBox(
-                      height: 24,
+                      height: 36,
                       child: _verifying
-                          ? const Center(
-                              child: SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: QuantisColors.luxuryGold,
+                          ? Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: QuantisColors.luxuryGold,
+                                  ),
                                 ),
-                              ),
+                                const SizedBox(width: 10),
+                                Flexible(
+                                  child: Text(
+                                    _verifyingStatus ?? 'Vérification...',
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: QuantisColors.goldLight,
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             )
                           : _errorText != null
                               ? Text(
                                   _errorText!,
                                   textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
                                     color: Color(0xFFFCA5A5),
                                     fontSize: 12.5,
